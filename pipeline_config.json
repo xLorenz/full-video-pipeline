@@ -1,12 +1,12 @@
 {
   "video": {
     "fps": 30,
-    "width": 1280,
-    "height": 720,
+    "width": 1920,
+    "height": 1080,
     "target_scene_duration_seconds": 10
   },
   "voiceover": {
-    "voice": "en-US-GuyNeural",
+    "voice": "en-GB-RyanNeural",
     "rate": "+0%",
     "volume": "+0%",
     "pitch": "+0Hz"

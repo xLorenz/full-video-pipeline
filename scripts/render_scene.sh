@@ -137,6 +137,7 @@ npx remotion render "src/Root.tsx" "$SCENE_COMPONENT" "$OUTPUT_FILE" \
     --disallow-parallel-encoding \
     --timeout "$TIMEOUT_MS" \
     --overwrite \
+    --bundle-cache \
     --log=warn
 
 RENDER_EXIT=$?

@@ -1,0 +1,8 @@
+{
+  "name": "full-video-pipeline",
+  "private": true,
+  "workspaces": [
+    "remotion-foundation",
+    "videos/*/remotion"
+  ]
+}
