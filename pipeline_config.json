@@ -1,0 +1,38 @@
+{
+  "video": {
+    "fps": 30,
+    "width": 1280,
+    "height": 720,
+    "target_scene_duration_seconds": 10
+  },
+  "voiceover": {
+    "voice": "en-US-GuyNeural",
+    "rate": "+0%",
+    "volume": "+0%",
+    "pitch": "+0Hz"
+  },
+  "render": {
+    "concurrency": 1,
+    "gl_backend": "swangle",
+    "image_format": "jpeg",
+    "jpeg_quality": 80,
+    "codec": "h264",
+    "x264_preset": "ultrafast",
+    "crf": 28,
+    "disallow_parallel_encoding": true,
+    "timeout_ms": 60000,
+    "node_max_old_space_size_mb": 384
+  },
+  "stitching": {
+    "final_codec": "libx264",
+    "final_audio_codec": "aac",
+    "final_crf": 23
+  },
+  "system": {
+    "min_available_ram_mb": 200,
+    "min_available_disk_mb": 500,
+    "swap_target_mb": 2048,
+    "chrome_kill_between_renders": true,
+    "post_render_settle_seconds": 5
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+videos/*/remotion/node_modules/
+videos/*/remotion/out/
+videos/*/remotion/.cache/
+videos/*/scenes/*.mp4
+videos/*/voiceover/*.mp3
+videos/*/versions/*.mp4

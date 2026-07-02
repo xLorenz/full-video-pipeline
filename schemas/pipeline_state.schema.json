@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline State",
+  "description": "Tracks progress through the 10-step video pipeline",
+  "type": "object",
+  "required": ["video_title", "current_step", "steps"],
+  "properties": {
+    "video_title": {
+      "type": "string",
+      "description": "Title of the video being produced"
+    },
+    "current_step": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Currently active pipeline step (1-10)"
+    },
+    "steps": {
+      "type": "object",
+      "required": [
+        "1_topic_selection",
+        "2_research",
+        "3_script_writing",
+        "4_voiceover_writing",
+        "5_voiceover_generation",
+        "6_duration_measurement",
+        "7_style_definition",
+        "8_remotion_coding",
+        "9_scene_rendering",
+        "10_stitching"
+      ],
+      "properties": {
+        "1_topic_selection": { "$ref": "#/definitions/stepStatus" },
+        "2_research": { "$ref": "#/definitions/stepStatus" },
+        "3_script_writing": { "$ref": "#/definitions/stepStatus" },
+        "4_voiceover_writing": { "$ref": "#/definitions/stepStatus" },
+        "5_voiceover_generation": { "$ref": "#/definitions/stepStatus" },
+        "6_duration_measurement": { "$ref": "#/definitions/stepStatus" },
+        "7_style_definition": { "$ref": "#/definitions/stepStatus" },
+        "8_remotion_coding": { "$ref": "#/definitions/stepStatus" },
+        "9_scene_rendering": { "$ref": "#/definitions/stepStatus" },
+        "10_stitching": { "$ref": "#/definitions/stepStatus" }
+      }
+    }
+  },
+  "definitions": {
+    "stepStatus": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "complete", "failed"],
+          "default": "pending"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of completion"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error message if step failed"
+        }
+      }
+    }
+  }
+}

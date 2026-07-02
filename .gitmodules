@@ -1,0 +1,6 @@
+[submodule "skills/claude-youtube"]
+	path = skills/claude-youtube
+	url = https://github.com/AgriciDaniel/claude-youtube.git
+[submodule "skills/remotion-best-practices"]
+	path = skills/remotion-best-practices
+	url = https://github.com/remotion-dev/skills.git

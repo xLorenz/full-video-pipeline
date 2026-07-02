@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scenes Definition",
+  "description": "Defines the structure for scenes.json in each video project",
+  "type": "object",
+  "required": ["video_title", "fps", "width", "height", "scenes"],
+  "properties": {
+    "video_title": {
+      "type": "string",
+      "description": "Title of the video, used for file naming"
+    },
+    "fps": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 1,
+      "maximum": 120,
+      "description": "Frames per second for the video"
+    },
+    "width": {
+      "type": "integer",
+      "default": 1280,
+      "description": "Video width in pixels"
+    },
+    "height": {
+      "type": "integer",
+      "default": 720,
+      "description": "Video height in pixels"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this file was created"
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "script_text", "voiceover_text"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Scene number, 1-indexed"
+          },
+          "title": {
+            "type": "string",
+            "description": "Short descriptive title for the scene"
+          },
+          "script_text": {
+            "type": "string",
+            "description": "Full script text for context (narration + visual description)"
+          },
+          "voiceover_text": {
+            "type": "string",
+            "description": "Exact words to be spoken by the TTS voice"
+          },
+          "voiceover_file": {
+            "type": ["string", "null"],
+            "description": "Path to generated audio file, relative to video root"
+          },
+          "target_duration_seconds": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Estimated duration in seconds before audio generation"
+          },
+          "actual_duration_seconds": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Real duration measured from generated audio file"
+          },
+          "actual_duration_frames": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Real duration in frames (actual_duration_seconds * fps)"
+          },
+          "render_status": {
+            "type": "string",
+            "enum": ["pending", "rendered", "stitched"],
+            "default": "pending",
+            "description": "Current render progress for this scene"
+          },
+          "scene_file": {
+            "type": ["string", "null"],
+            "description": "Path to rendered scene video, relative to video root"
+          },
+          "stitched_file": {
+            "type": ["string", "null"],
+            "description": "Path to stitched scene (video+audio), relative to video root"
+          },
+          "visual_notes": {
+            "type": "string",
+            "description": "Description of what should appear on screen"
+          },
+          "transition_in": {
+            "type": "string",
+            "enum": ["cut", "fade", "wipe", "slide"],
+            "default": "cut",
+            "description": "Transition style entering this scene"
+          },
+          "transition_out": {
+            "type": "string",
+            "enum": ["cut", "fade", "wipe", "slide"],
+            "default": "cut",
+            "description": "Transition style exiting this scene"
+          }
+        }
+      },
+      "description": "Array of scene objects"
+    },
+    "total_estimated_seconds": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Sum of all target durations"
+    },
+    "total_actual_seconds": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Sum of all actual durations (null until measured)"
+    }
+  }
+}
