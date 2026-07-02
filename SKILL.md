@@ -326,11 +326,14 @@ python3 scripts/measure_durations.py videos/{video-title}/
 #### 8a. Scaffold the project
 
 ```bash
-cd videos/{video-title}/remotion
-npx create-video@latest --yes --blank --no-tailwind .
+powershell scripts/new-video.ps1 -Title "{video-title}"
 ```
 
-If the directory already has files, skip scaffolding.
+This copies the foundation config from `remotion-foundation/`, creates the directory
+structure, generates starter files (Root.tsx, config.ts, styles.ts), and installs
+npm dependencies.
+
+If the `videos/{video-title}/remotion/` directory already has files, skip scaffolding.
 
 #### 8b. Load the Remotion best practices skill
 
@@ -341,7 +344,8 @@ rule files. Key rules to load:
 - `rules/calculate-metadata.md` — dynamic duration
 - `rules/transitions.md` — scene transitions
 - `rules/sequencing.md` — timing with `<Sequence>`
-- `rules/audio.md` — audio rendering
+- `rules/compositions.md` — composition structure
+- `rules/effects.md` — visual effects patterns
 
 #### 8c. Write PLAN.md
 

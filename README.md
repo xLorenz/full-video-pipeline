@@ -46,6 +46,7 @@ bash scripts/check_system.sh
 full-video-pipeline/
 ├── SKILL.md                  # Master orchestrator (agent follows this)
 ├── pipeline_config.json      # Default settings (voice, render, system limits)
+├── package.json              # npm workspace config
 ├── schemas/
 │   ├── scenes.schema.json    # JSON Schema for scenes.json
 │   └── pipeline_state.schema.json
@@ -53,9 +54,11 @@ full-video-pipeline/
 │   ├── check_system.sh       # Pre-flight resource check
 │   ├── generate_voiceover.py # edge-tts audio generation
 │   ├── measure_durations.py  # ffprobe duration measurement
+│   ├── new-video.ps1         # Scaffold a new video project
 │   ├── render_scene.sh       # Remotion renderer with guardrails
 │   ├── stitch_scene.sh       # Per-scene video+audio merge
 │   └── stitch_final.sh       # Final scene concatenation
+├── remotion-foundation/      # Template for new Remotion projects
 ├── skills/
 │   ├── claude-youtube/       # Script writing reference (submodule)
 │   └── remotion-best-practices/ # Remotion coding rules (submodule)
@@ -82,17 +85,39 @@ Edit `pipeline_config.json` to change defaults:
 {
   "video": {
     "fps": 30,
-    "width": 1280,
-    "height": 720
+    "width": 1920,
+    "height": 1080,
+    "target_scene_duration_seconds": 10
   },
   "voiceover": {
-    "voice": "en-US-GuyNeural"
+    "voice": "en-GB-RyanNeural",
+    "rate": "+0%",
+    "volume": "+0%",
+    "pitch": "+0Hz"
   },
   "render": {
     "concurrency": 1,
     "gl_backend": "swangle",
+    "image_format": "jpeg",
+    "jpeg_quality": 80,
+    "codec": "h264",
+    "x264_preset": "ultrafast",
     "crf": 28,
-    "x264_preset": "ultrafast"
+    "disallow_parallel_encoding": true,
+    "timeout_ms": 60000,
+    "node_max_old_space_size_mb": 384
+  },
+  "stitching": {
+    "final_codec": "libx264",
+    "final_audio_codec": "aac",
+    "final_crf": 23
+  },
+  "system": {
+    "min_available_ram_mb": 200,
+    "min_available_disk_mb": 500,
+    "swap_target_mb": 2048,
+    "chrome_kill_between_renders": true,
+    "post_render_settle_seconds": 5
   }
 }
 ```
@@ -140,6 +165,9 @@ The agent uses its existing tools (read, write, bash, web search) — no special
 All scripts accept a video directory as the first argument:
 
 ```bash
+# Scaffold a new video project
+powershell scripts/new-video.ps1 -Title "my-video"
+
 # Generate voiceover
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-US-GuyNeural
 
