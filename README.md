@@ -159,11 +159,6 @@ bash scripts/stitch_final.sh videos/my-video/ v1
 bash scripts/check_system.sh
 ```
 
-## Test Video
-
-The `videos/test-pipeline-demo/` directory contains a complete working example
-("Why the Sky is Blue", 3 scenes, ~38 seconds) that demonstrates the full pipeline output.
-
 ## License
 
 MIT
