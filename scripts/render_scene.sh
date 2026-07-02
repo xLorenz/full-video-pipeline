@@ -93,10 +93,25 @@ fi
 # Ensure output directory exists
 mkdir -p "$VIDEO_DIR/scenes"
 
-# Kill any lingering Chrome/Chromium processes (cleanup from previous renders)
+# Kill only orphaned Remotion headless processes (cleanup from crashed/completed renders)
+# Skips Chrome processes whose parent node/remotion is still alive
 echo ""
-echo "--- Cleaning up old Chrome processes ---"
-pkill -f "chromium|chrome" 2>/dev/null || true
+echo "--- Cleaning up orphaned Chrome processes ---"
+ORPHAN_KILLED=0
+for PID in $(pgrep -f "chrome-headless-shell" 2>/dev/null); do
+    PPID_OF_CHROME=$(ps -o ppid= -p "$PID" 2>/dev/null | tr -d ' ')
+    if [ -n "$PPID_OF_CHROME" ]; then
+        PARENT_COMM=$(ps -o comm= -p "$PPID_OF_CHROME" 2>/dev/null || true)
+        if ! echo "$PARENT_COMM" | grep -q "node"; then
+            kill "$PID" 2>/dev/null && echo "  Killed orphaned chrome-headless-shell (PID $PID, parent=$PPID_OF_CHROME '$PARENT_COMM')" && ORPHAN_KILLED=$((ORPHAN_KILLED + 1))
+        fi
+    else
+        kill "$PID" 2>/dev/null && echo "  Killed orphaned chrome-headless-shell (PID $PID, no parent)" && ORPHAN_KILLED=$((ORPHAN_KILLED + 1))
+    fi
+done
+if [ "$ORPHAN_KILLED" -eq 0 ]; then
+    echo "  No orphaned processes found."
+fi
 sleep 2
 
 # Set Node.js memory limit
@@ -163,10 +178,17 @@ with open(scenes_path, 'w') as f:
     json.dump(data, f, indent=2)
 " 2>/dev/null || true
 
-# Post-render: Kill Chrome and settle
+# Post-render: kill any leftover Remotion Chrome (render is done, so safe to kill all)
 echo ""
 echo "--- Post-render cleanup ---"
-pkill -f "chromium|chrome" 2>/dev/null || true
+pkill -f "chrome-headless-shell" 2>/dev/null || true
+sleep 1
+ORPHANED=$(pgrep -c -f "chrome-headless-shell" 2>/dev/null || echo "0")
+if [ "$ORPHANED" -gt 0 ]; then
+    echo "WARNING: $ORPHANED orphaned chrome-headless-shell process(es) still running."
+else
+    echo "Chrome cleanup verified — no orphaned processes."
+fi
 echo "Waiting ${POST_SETTLE_SECONDS}s for system to settle..."
 sleep "$POST_SETTLE_SECONDS"
 
