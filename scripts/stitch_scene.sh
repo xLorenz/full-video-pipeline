@@ -43,8 +43,7 @@ ffmpeg -y \
     -i "$SCENE_VIDEO" \
     -i "$VOICEOVER_AUDIO" \
     -c:v copy \
-    -c:a aac \
-    -b:a 128k \
+    -c:a copy \
     -shortest \
     "$OUTPUT_FILE" 2>/dev/null
 

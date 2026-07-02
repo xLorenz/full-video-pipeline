@@ -106,6 +106,7 @@ ffmpeg -y \
     -crf "$FINAL_CRF" \
     -preset medium \
     -c:a "$FINAL_AUDIO" \
+    -strict -2 \
     -b:a 192k \
     -movflags +faststart \
     "$OUTPUT_FILE" 2>/dev/null
