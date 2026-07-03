@@ -10,7 +10,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 4. **Voiceover Writing** — Parseable voiceover text per scene
 5. **TTS Generation** — Audio files via edge-tts (free, no API key needed)
 6. **Duration Measurement** — Real timing from generated audio
-7. **Style Definition** — Consistent visual theme across all scenes
+7. **Style Definition** — Visual style guide (colors, fonts, animations) — single source of visual decisions
 8. **Remotion Coding** — React-based video compositions per scene
 9. **Scene Rendering** — One scene at a time with hardware guardrails
 10. **Stitching** — Combine scenes + audio into final MP4
@@ -147,7 +147,8 @@ Each video tracks progress in `pipeline_state.json`. If the pipeline stops:
 2. Resume from the next incomplete step
 3. Steps 1-4 are fast to re-do if corrupted
 4. Steps 5-6: verify files exist before skipping
-5. Steps 9-10: re-do from where `render_status != "stitched"`
+5. Steps 7-8: verify project builds before skipping
+6. Steps 9-10: re-do from where `render_status != "stitched"`
 
 ## How the Agent Uses It
 

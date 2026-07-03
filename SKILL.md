@@ -212,7 +212,7 @@ with `actual_duration_seconds: null` and `render_status: "pending"`.
 python3 scripts/generate_voiceover.py videos/{video-title}/ --voice {voice_name}
 ```
 
-The voice name comes from `pipeline_config.json` (default: `en-US-GuyNeural`).
+The voice name comes from `pipeline_config.json` (default: `en-GB-RyanNeural`).
 User can override with `--voice en-GB-SoniaNeural` or similar.
 
 2. The script will:
