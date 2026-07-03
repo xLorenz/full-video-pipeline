@@ -36,8 +36,14 @@ cd full-video-pipeline
 # Check system readiness
 bash scripts/check_system.sh
 
-# The pipeline is driven by SKILL.md — load it into your AI agent
-# and follow the 10 steps
+# Scaffold a new video project
+python3 pipeline.py new "my-video-topic"
+
+# Check pipeline status
+python3 pipeline.py status
+
+# Continue to next step
+python3 pipeline.py continue "my-video-topic"
 ```
 
 ## Project Structure
@@ -45,6 +51,7 @@ bash scripts/check_system.sh
 ```
 full-video-pipeline/
 ├── SKILL.md                  # Master orchestrator (agent follows this)
+├── pipeline.py               # CLI: new, continue, status
 ├── pipeline_config.json      # Default settings (voice, render, system limits)
 ├── package.json              # npm workspace config
 ├── schemas/
@@ -54,10 +61,10 @@ full-video-pipeline/
 │   ├── check_system.sh       # Pre-flight resource check
 │   ├── generate_voiceover.py # edge-tts audio generation
 │   ├── measure_durations.py  # ffprobe duration measurement
-│   ├── new-video.ps1         # Scaffold a new video project
 │   ├── render_scene.sh       # Remotion renderer with guardrails
-│   ├── stitch_scene.sh       # Per-scene video+audio merge
-│   └── stitch_final.sh       # Final scene concatenation
+│   ├── assemble.py           # Efficient single-pass stitching
+│   ├── stitch_scene.sh       # Legacy: per-scene video+audio merge
+│   └── stitch_final.sh       # Legacy: final scene concatenation
 ├── remotion-foundation/      # Template for new Remotion projects
 ├── skills/
 │   ├── claude-youtube/       # Script writing reference (submodule)
@@ -69,8 +76,17 @@ full-video-pipeline/
         ├── STYLES.md         # Visual style guide
         ├── scenes.json       # Scene data (durations, status, files)
         ├── pipeline_state.json
+        ├── voiceover_aligned.mp3  # Concatenated voiceover
         ├── remotion/         # Remotion project (scaffolded per video)
-        │   ├── src/scenes/
+        │   ├── src/
+        │   │   ├── Root.tsx  # Single <Composition id="MainVideo">
+        │   │   ├── components/
+        │   │   │   └── MainVideo.tsx
+        │   │   ├── lib/
+        │   │   │   ├── types.ts
+        │   │   │   ├── config.ts
+        │   │   │   └── styles.ts
+        │   │   └── scenes/
         │   └── public/
         ├── voiceover/        # Generated .mp3 files
         ├── scenes/           # Rendered .mp4 scene files
@@ -117,7 +133,8 @@ Edit `pipeline_config.json` to change defaults:
     "min_available_disk_mb": 500,
     "swap_target_mb": 2048,
     "chrome_kill_between_renders": true,
-    "post_render_settle_seconds": 5
+    "post_render_settle_seconds": 5,
+    "temp_dir": "/home/ubuntu/tmp/remotion"
   }
 }
 ```
@@ -141,14 +158,15 @@ Designed for t3.micro (1GB RAM, 500MB available):
 
 ## Resuming Interrupted Runs
 
-Each video tracks progress in `pipeline_state.json`. If the pipeline stops:
+Use `python3 pipeline.py continue <title>` to resume. The pipeline reads
+`pipeline_state.json` and either runs the next automated step (5, 6, 9, 10)
+or prints instructions for creative steps (1-4, 7, 8).
 
-1. Read `pipeline_state.json` to find the last completed step
-2. Resume from the next incomplete step
-3. Steps 1-4 are fast to re-do if corrupted
-4. Steps 5-6: verify files exist before skipping
-5. Steps 7-8: verify project builds before skipping
-6. Steps 9-10: re-do from where `render_status != "stitched"`
+Each video tracks progress in `pipeline_state.json`:
+- Steps 1-4: creative input required (topic, research, script, voiceover text)
+- Steps 5-6: automated (TTS generation, duration measurement)
+- Steps 7-8: creative input required (style definition, Remotion coding)
+- Steps 9-10: automated (scene rendering, final assembly)
 
 ## How the Agent Uses It
 
@@ -163,28 +181,18 @@ The agent uses its existing tools (read, write, bash, web search) — no special
 
 ## Helper Scripts
 
-All scripts accept a video directory as the first argument:
-
 ```bash
-# Scaffold a new video project
-powershell scripts/new-video.ps1 -Title "my-video"
+# Pipeline CLI
+python3 pipeline.py new "my-video"           # Scaffold project
+python3 pipeline.py status                    # Show all projects
+python3 pipeline.py status my-video           # Show specific project
+python3 pipeline.py continue my-video         # Run next step
 
-# Generate voiceover
+# Individual scripts
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-US-GuyNeural
-
-# Measure durations
 python3 scripts/measure_durations.py videos/my-video/
-
-# Render a scene
 bash scripts/render_scene.sh videos/my-video/ 1
-
-# Stitch scene with audio
-bash scripts/stitch_scene.sh videos/my-video/ 1
-
-# Final concatenation
-bash scripts/stitch_final.sh videos/my-video/ v1
-
-# System check
+python3 scripts/assemble.py videos/my-video/
 bash scripts/check_system.sh
 ```
 

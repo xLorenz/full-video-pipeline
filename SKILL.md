@@ -60,12 +60,18 @@ videos/{video-title}/
 ├── STYLES.md            # Visual style guide for Remotion
 ├── scenes.json          # Structured scene data (durations, status, files)
 ├── pipeline_state.json  # Pipeline progress tracker
+├── voiceover_aligned.mp3  # Concatenated voiceover (created by assemble.py)
 ├── remotion/            # Remotion project (scaffolded per video)
 │   ├── PLAN.md          # Implementation plan before coding
 │   ├── src/
-│   │   ├── Root.tsx
-│   │   ├── scenes/
-│   │   └── components/
+│   │   ├── Root.tsx     # Single <Composition id="MainVideo">
+│   │   ├── components/
+│   │   │   └── MainVideo.tsx  # Sequence-based scene loader
+│   │   ├── lib/
+│   │   │   ├── types.ts   # SceneTiming, VideoProps
+│   │   │   ├── config.ts
+│   │   │   └── styles.ts
+│   │   └── scenes/
 │   └── public/
 ├── voiceover/           # Generated .mp3 files
 ├── scenes/              # Rendered .mp4 scene files
@@ -332,11 +338,11 @@ python3 scripts/measure_durations.py videos/{video-title}/
 #### 8a. Scaffold the project
 
 ```bash
-powershell scripts/new-video.ps1 -Title "{video-title}"
+python3 pipeline.py new "{video-title}"
 ```
 
-This copies the foundation config from `remotion-foundation/`, creates the directory
-structure, generates starter files (Root.tsx, config.ts, styles.ts), and installs
+This creates the directory structure, copies foundation config, generates starter
+files (Root.tsx with single composition, config.ts, styles.ts), and installs
 npm dependencies.
 
 If the `videos/{video-title}/remotion/` directory already has files, skip scaffolding.
@@ -391,8 +397,9 @@ Before writing any code, create `remotion/PLAN.md`:
    cp -r ../voiceover/ public/voiceover/
    ```
 
-2. Write `src/Root.tsx` — define one Composition per scene, each with exact
-   `durationInFrames` from `scenes.json`.
+2. Write `src/Root.tsx` — define a single `<Composition id="MainVideo">` with
+   `calculateMetadata` that reads scene durations from `props`. Use `--props`
+   JSON at render time to pass scene data, not hard-coded config.
 
 3. Write `src/lib/config.ts` — export scene data (durations, paths, fps).
 
@@ -419,7 +426,8 @@ Before writing any code, create `remotion/PLAN.md`:
 **Output**: Complete Remotion project in `remotion/` + `PLAN.md`.
 
 **Validation**:
-- `src/Root.tsx` exists and exports `RemotionRoot`.
+- `src/Root.tsx` exists and exports `RemotionRoot` with single `<Composition id="MainVideo">`.
+- `src/components/MainVideo.tsx` exists with Sequence-based scene loading.
 - Each scene has a corresponding `SceneXX.tsx` file.
 - Scene count matches `scenes.json` scene count.
 - Frame durations match `actual_duration_frames` from `scenes.json`.
@@ -443,16 +451,11 @@ For each scene (1 through N), sequentially:
 bash scripts/render_scene.sh videos/{video-title}/ {scene_id}
 ```
 
-Example for scene 3:
-```bash
-bash scripts/render_scene.sh videos/my-cool-video/ 3
-```
-
-The script handles:
-- Pre-flight RAM/disk check (aborts if insufficient)
-- Chrome process cleanup between renders
-- All rendering flags for low-memory operation
-- Post-render cleanup and settling time
+The script:
+- Builds a props JSON from scenes.json with all scene durations
+- Calculates the frame range for the specific scene (`--frames`)
+- Renders only that scene's portion of the single `MainVideo` composition
+- Handles all guardrails (RAM/disk/Chrome cleanup, TMPDIR configuration)
 
 **Between scenes**: Wait for the script to complete before starting the next.
 Monitor output for errors.
@@ -460,7 +463,7 @@ Monitor output for errors.
 **Output**: `scenes/scene-XX.mp4` files.
 
 **Validation** (after ALL scenes are rendered):
-- All MP3 files exist in `scenes/` directory.
+- All MP4 files exist in `scenes/` directory.
 - File sizes are non-zero.
 - `scenes.json` has `render_status: "rendered"` for every scene.
 - Total disk usage is within system limits.
@@ -477,36 +480,29 @@ Monitor output for errors.
 
 ### STEP 10: Stitching
 
-**Goal**: Combine scene videos with voiceover audio, then concatenate into final output.
+**Goal**: Combine all scene videos with voiceover audio into the final output.
 
 **Action**:
 
-#### 10a. Stitch each scene with its audio
-
-For each scene sequentially:
-
 ```bash
-bash scripts/stitch_scene.sh videos/{video-title}/ {scene_id}
+python3 scripts/assemble.py videos/{video-title}/
 ```
 
-This merges the rendered video with its voiceover audio using `ffmpeg -c:v copy`
-(no video re-encoding, fast and memory-efficient).
+The script:
+1. Concatenates all voiceover MP3 files in scene order -> `voiceover_aligned.mp3`
+2. Concatenates all scene MP4 video streams (copy, no re-encode)
+3. Overlays audio on video with `-c:v copy -c:a aac` (no video re-encode)
+4. Auto-increments version number: `versions/{title}-v1.mp4`, `v2`, etc.
+5. Cleans up intermediate files
 
-#### 10b. Concatenate all stitched scenes into final video
-
-```bash
-bash scripts/stitch_final.sh videos/{video-title}/ v1
-```
-
-This produces the final video at `versions/{title}-v1.mp4`.
-
-**Output**: `versions/{video-title}-v1.mp4` — the final deliverable.
+**Output**: `versions/{video-title}-v{N}.mp4` — the final deliverable.
 
 **Validation**:
 - Final MP4 exists and is playable.
 - Duration matches expected total (within 1 second).
 - Audio is present and synced.
 - File size is reasonable for the duration.
+- `voiceover_aligned.mp3` exists with correct total duration.
 
 ---
 
@@ -517,7 +513,7 @@ This produces the final video at `versions/{title}-v1.mp4`.
 | `edge-tts` network failure | Retry the generation script. It processes scenes sequentially, so only failed scenes need retry. |
 | Remotion render OOM | Kill Chrome (`pkill -f chrome`), wait 60s, retry. If persistent, reduce `node_max_old_space_size_mb` or video resolution. |
 | Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
-| ffmpeg stitch failure | Ensure both input files exist. Check codec compatibility. Try with `-c:v libx264` instead of `copy`. |
+| ffmpeg stitch failure | Ensure all scene videos exist. Check codec consistency. Try `assemble.py` again — it validates inputs first. |
 | Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or clean up previous video projects. |
 
 ## Progress Tracking
@@ -540,11 +536,10 @@ Update the file after each step completes:
 
 ## Resuming Interrupted Pipelines
 
-If the pipeline was interrupted:
-1. Read `pipeline_state.json` to find the last completed step.
-2. Read `scenes.json` to check data integrity.
-3. Resume from the next incomplete step.
-4. Steps 1-4 are pure text generation and can be re-done quickly if corrupted.
-5. Steps 5-6 involve file generation — verify files exist before skipping.
-6. Steps 7-8 involve code — verify project builds before skipping.
-7. Steps 9-10 involve rendering — always re-do from where render_status != "stitched".
+Use `python3 pipeline.py continue {title}` to resume. The pipeline:
+1. Reads `pipeline_state.json` to find the last completed step.
+2. Runs the next automated step (5, 6, 9, or 10), or
+3. Prints instructions for creative steps (1-4, 7, 8).
+4. Steps 5-6 involve file generation — verify files exist before skipping.
+5. Steps 7-8 involve code — verify project builds before skipping.
+6. Steps 9-10 involve rendering — always re-do from where render_status != "rendered".

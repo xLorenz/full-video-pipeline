@@ -33,6 +33,7 @@
     "min_available_disk_mb": 500,
     "swap_target_mb": 2048,
     "chrome_kill_between_renders": true,
-    "post_render_settle_seconds": 5
+    "post_render_settle_seconds": 5,
+    "temp_dir": "/home/ubuntu/tmp/remotion"
   }
 }

@@ -54,14 +54,19 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 REMOTION_DIR="$VIDEO_DIR/remotion"
-SCENE_COMPONENT="Scene${SCENE_ID_PADDED}"
 OUTPUT_FILE="$VIDEO_DIR/scenes/scene-${SCENE_ID_PADDED}.mp4"
 SCENES_JSON="$VIDEO_DIR/scenes.json"
 
+# Configure temp directory for Remotion frame cache
+REMOTION_TMPDIR=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('system',{}).get('temp_dir','/home/ubuntu/tmp/remotion'))" 2>/dev/null || echo "/home/ubuntu/tmp/remotion")
+mkdir -p "$REMOTION_TMPDIR"
+export TMPDIR="$REMOTION_TMPDIR"
+export REMOTION_TMPDIR="$REMOTION_TMPDIR"
+
 echo "=== Rendering Scene $SCENE_ID ==="
 echo "Video dir: $VIDEO_DIR"
-echo "Component: $SCENE_COMPONENT"
 echo "Output: $OUTPUT_FILE"
+echo "Temp dir: $REMOTION_TMPDIR"
 
 # Pre-flight: Check system resources
 echo ""
@@ -117,16 +122,62 @@ sleep 2
 # Set Node.js memory limit
 export NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE}"
 
+# Build props JSON for single-composition rendering
+PROPS_FILE=$(mktemp /tmp/remotion-props-XXXXXX.json)
+python3 -c "
+import json, sys
+scenes_path = '$SCENES_JSON'
+output = '$PROPS_FILE'
+with open(scenes_path, 'r') as f:
+    data = json.load(f)
+scenes = data.get('scenes', [])
+props = {
+    'scenes': [{
+        'id': s['id'],
+        'title': s.get('title', ''),
+        'durationInFrames': s['actual_duration_frames'],
+        'audioFile': s.get('voiceover_file', '')
+    } for s in scenes],
+    'fps': data.get('fps', 30),
+    'width': data.get('width', 1920),
+    'height': data.get('height', 1080),
+}
+with open(output, 'w') as f:
+    json.dump(props, f)
+"
+
+# Calculate frame range for this scene
+FRAME_START=$(python3 -c "
+import json
+with open('$SCENES_JSON', 'r') as f:
+    data = json.load(f)
+scenes = data.get('scenes', [])
+offset = sum(s['actual_duration_frames'] for s in scenes if s['id'] < $SCENE_ID)
+print(offset)
+")
+FRAME_END=$(python3 -c "
+import json
+with open('$SCENES_JSON', 'r') as f:
+    data = json.load(f)
+scenes = data.get('scenes', [])
+scene = [s for s in scenes if s['id'] == $SCENE_ID][0]
+offset = sum(s['actual_duration_frames'] for s in scenes if s['id'] < $SCENE_ID)
+print(offset + scene['actual_duration_frames'] - 1)
+")
+
 # Render the scene
 echo ""
 echo "--- Starting Remotion render ---"
 echo "Flags: concurrency=$CONCURRENCY gl=$GL_BACKEND codec=$CODEC crf=$CRF preset=$X264_PRESET"
+echo "Frames: $FRAME_START-$FRAME_END"
 
 cd "$REMOTION_DIR"
 
 START_TIME=$(date +%s)
 
-npx remotion render "src/Root.tsx" "$SCENE_COMPONENT" "$OUTPUT_FILE" \
+npx remotion render "src/Root.tsx" "MainVideo" "$OUTPUT_FILE" \
+    --props="$PROPS_FILE" \
+    --frames="$FRAME_START-$FRAME_END" \
     --concurrency "$CONCURRENCY" \
     --gl="$GL_BACKEND" \
     --image-format "$IMAGE_FORMAT" \
@@ -141,6 +192,9 @@ npx remotion render "src/Root.tsx" "$SCENE_COMPONENT" "$OUTPUT_FILE" \
     --log=warn
 
 RENDER_EXIT=$?
+
+# Cleanup props file
+rm -f "$PROPS_FILE"
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

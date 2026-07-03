@@ -2,18 +2,19 @@
 # stitch_final.sh
 #
 # Concatenates all stitched scene files into the final video output.
+# Auto-increments version number unless explicit version_label is provided.
 #
 # Usage:
 #     ./stitch_final.sh <video_dir> [version_label]
 #
 # Arguments:
 #     video_dir       Path to the video project directory
-#     version_label   Optional version label (default: v1)
+#     version_label   Optional version label (default: auto-increment)
 
 set -euo pipefail
 
 VIDEO_DIR="${1:?Usage: ./stitch_final.sh <video_dir> [version_label]}"
-VERSION_LABEL="${2:-v1}"
+VERSION_LABEL="${2:-}"
 
 VIDEO_DIR=$(cd "$VIDEO_DIR" && pwd)
 SCENES_JSON="$VIDEO_DIR/scenes.json"
@@ -29,6 +30,20 @@ print(data.get('video_title', 'video'))
 
 # Sanitize title for filename
 SAFE_TITLE=$(echo "$VIDEO_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+
+# Auto-increment version if not specified
+if [ -z "$VERSION_LABEL" ]; then
+    MAX_VERSION=0
+    for f in "$VERSIONS_DIR"/${SAFE_TITLE}-v*.mp4; do
+        if [ -f "$f" ]; then
+            VER=$(basename "$f" | sed "s/${SAFE_TITLE}-v\([0-9]*\)\.mp4/\1/")
+            if [ "$VER" -gt "$MAX_VERSION" ] 2>/dev/null; then
+                MAX_VERSION=$VER
+            fi
+        fi
+    done
+    VERSION_LABEL="v$((MAX_VERSION + 1))"
+fi
 
 OUTPUT_FILE="$VERSIONS_DIR/${SAFE_TITLE}-${VERSION_LABEL}.mp4"
 CONCAT_FILE="$VIDEO_DIR/.concat_list.txt"
