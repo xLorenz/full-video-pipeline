@@ -11,3 +11,16 @@ export interface VideoProps {
   width: number;
   height: number;
 }
+
+export interface TextStyle {
+  fontSize: number;
+  fontWeight: number;
+  color: string;
+  fontFamily: string;
+  lineHeight?: number;
+}
+
+export interface AnimationConfig {
+  duration?: number;
+  easing?: "ease-out" | "ease-in" | "linear";
+}
