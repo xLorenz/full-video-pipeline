@@ -88,19 +88,16 @@ async def generate_audio(text: str, output_path: str, voice: str, rate: str, vol
 
 def get_audio_duration_ffprobe(filepath: str) -> float:
     """Get duration of audio file using ffprobe."""
-    # Try system ffprobe first, then npx remotion ffprobe
-    for cmd in [
-        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", filepath],
-        ["npx", "remotion", "ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", filepath],
-    ]:
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            if result.returncode == 0 and result.stdout.strip():
-                return float(result.stdout.strip())
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-            continue
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", filepath],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip())
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        pass
 
     print(f"WARNING: Could not measure duration for {filepath}", file=sys.stderr)
     return 0.0
@@ -146,7 +143,7 @@ async def main():
     config = load_config(video_dir)
     vo_config = config.get("voiceover", {})
 
-    voice = args.voice or vo_config.get("voice", "en-US-GuyNeural")
+    voice = args.voice or vo_config.get("voice", "en-GB-RyanNeural")
     rate = args.rate or vo_config.get("rate", "+0%")
     volume = args.volume or vo_config.get("volume", "+0%")
     pitch = args.pitch or vo_config.get("pitch", "+0Hz")
@@ -163,6 +160,7 @@ async def main():
     print(f"Found {len(scenes)} scenes to generate")
     print(f"Voice: {voice}, Rate: {rate}, Volume: {volume}, Pitch: {pitch}")
 
+    failures = 0
     for scene in scenes:
         scene_id = scene["id"]
         output_file = f"scene-{scene_id:02d}.mp3"
@@ -175,10 +173,12 @@ async def main():
             await generate_audio(scene["text"], output_path, voice, rate, volume, pitch)
         except Exception as e:
             print(f"ERROR: Failed to generate audio for scene {scene_id}: {e}", file=sys.stderr)
+            failures += 1
             continue
 
         if not os.path.exists(output_path):
             print(f"ERROR: Audio file not created at {output_path}", file=sys.stderr)
+            failures += 1
             continue
 
         # Measure duration
@@ -190,6 +190,9 @@ async def main():
         update_scenes_json(video_dir, scene_id, relative_path, duration)
 
     print("\nVoiceover generation complete.")
+    if failures > 0:
+        print(f"\nERROR: {failures}/{len(scenes)} scenes failed to generate", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

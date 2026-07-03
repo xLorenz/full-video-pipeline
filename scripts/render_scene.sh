@@ -19,13 +19,13 @@ SCENE_ID_PADDED=$(printf "%02d" "$SCENE_ID")
 # Resolve to absolute path
 VIDEO_DIR=$(cd "$VIDEO_DIR" && pwd)
 
-# Load config
+# Resolve config file path
 CONFIG_FILE="$(dirname "$VIDEO_DIR")/../pipeline_config.json"
 if [ ! -f "$CONFIG_FILE" ]; then
     CONFIG_FILE="$(dirname "$(dirname "$VIDEO_DIR")")/pipeline_config.json"
 fi
 
-# Defaults (override from config if available)
+# Load config — single Python invocation to avoid spawning 10+ processes
 CONCURRENCY=1
 GL_BACKEND="swangle"
 IMAGE_FORMAT="jpeg"
@@ -37,20 +37,27 @@ TIMEOUT_MS=60000
 NODE_MAX_OLD_SPACE=384
 MIN_RAM_MB=200
 POST_SETTLE_SECONDS=5
+REMOTION_TMPDIR="/home/ubuntu/tmp/remotion"
 
-# Try to read config values
 if [ -f "$CONFIG_FILE" ]; then
-    CONCURRENCY=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('concurrency',1))" 2>/dev/null || echo "$CONCURRENCY")
-    GL_BACKEND=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('gl_backend','swangle'))" 2>/dev/null || echo "$GL_BACKEND")
-    IMAGE_FORMAT=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('image_format','jpeg'))" 2>/dev/null || echo "$IMAGE_FORMAT")
-    JPEG_QUALITY=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('jpeg_quality',80))" 2>/dev/null || echo "$JPEG_QUALITY")
-    CODEC=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('codec','h264'))" 2>/dev/null || echo "$CODEC")
-    X264_PRESET=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('x264_preset','ultrafast'))" 2>/dev/null || echo "$X264_PRESET")
-    CRF=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('crf',28))" 2>/dev/null || echo "$CRF")
-    TIMEOUT_MS=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('timeout_ms',60000))" 2>/dev/null || echo "$TIMEOUT_MS")
-    NODE_MAX_OLD_SPACE=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('render',{}).get('node_max_old_space_size_mb',384))" 2>/dev/null || echo "$NODE_MAX_OLD_SPACE")
-    MIN_RAM_MB=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('system',{}).get('min_available_ram_mb',200))" 2>/dev/null || echo "$MIN_RAM_MB")
-    POST_SETTLE_SECONDS=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('system',{}).get('post_render_settle_seconds',5))" 2>/dev/null || echo "$POST_SETTLE_SECONDS")
+    eval "$(python3 -c "
+import json
+c = json.load(open('$CONFIG_FILE'))
+r = c.get('render', {})
+s = c.get('system', {})
+print(f'CONCURRENCY={r.get(\"concurrency\", 1)}')
+print(f'GL_BACKEND={r.get(\"gl_backend\", \"swangle\")}')
+print(f'IMAGE_FORMAT={r.get(\"image_format\", \"jpeg\")}')
+print(f'JPEG_QUALITY={r.get(\"jpeg_quality\", 80)}')
+print(f'CODEC={r.get(\"codec\", \"h264\")}')
+print(f'X264_PRESET={r.get(\"x264_preset\", \"ultrafast\")}')
+print(f'CRF={r.get(\"crf\", 28)}')
+print(f'TIMEOUT_MS={r.get(\"timeout_ms\", 60000)}')
+print(f'NODE_MAX_OLD_SPACE={r.get(\"node_max_old_space_size_mb\", 384)}')
+print(f'MIN_RAM_MB={s.get(\"min_available_ram_mb\", 200)}')
+print(f'POST_SETTLE_SECONDS={s.get(\"post_render_settle_seconds\", 5)}')
+print(f'REMOTION_TMPDIR=\"{s.get(\"temp_dir\", \"/home/ubuntu/tmp/remotion\")}\"')
+" 2>/dev/null)" || true
 fi
 
 REMOTION_DIR="$VIDEO_DIR/remotion"
@@ -58,7 +65,6 @@ OUTPUT_FILE="$VIDEO_DIR/scenes/scene-${SCENE_ID_PADDED}.mp4"
 SCENES_JSON="$VIDEO_DIR/scenes.json"
 
 # Configure temp directory for Remotion frame cache
-REMOTION_TMPDIR=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('system',{}).get('temp_dir','/home/ubuntu/tmp/remotion'))" 2>/dev/null || echo "/home/ubuntu/tmp/remotion")
 mkdir -p "$REMOTION_TMPDIR"
 export TMPDIR="$REMOTION_TMPDIR"
 export REMOTION_TMPDIR="$REMOTION_TMPDIR"
@@ -122,21 +128,38 @@ sleep 2
 # Set Node.js memory limit
 export NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE}"
 
-# Build props JSON for single-composition rendering
+# Build props JSON and calculate frame range for this scene
 PROPS_FILE=$(mktemp /tmp/remotion-props-XXXXXX.json)
 python3 -c "
 import json, sys
+
 scenes_path = '$SCENES_JSON'
 output = '$PROPS_FILE'
+target_id = $SCENE_ID
+
 with open(scenes_path, 'r') as f:
     data = json.load(f)
 scenes = data.get('scenes', [])
+
+# Validate target scene exists
+matches = [s for s in scenes if s['id'] == target_id]
+if not matches:
+    print(f'ERROR: Scene {target_id} not found in scenes.json', file=sys.stderr)
+    sys.exit(1)
+
+# Validate all scenes have actual_duration_frames
+missing = [s['id'] for s in scenes if s.get('actual_duration_frames') is None]
+if missing:
+    print(f'ERROR: Scenes {missing} missing actual_duration_frames (run step 6 first)', file=sys.stderr)
+    sys.exit(1)
+
+# Build props
 props = {
     'scenes': [{
         'id': s['id'],
         'title': s.get('title', ''),
         'durationInFrames': s['actual_duration_frames'],
-        'audioFile': s.get('voiceover_file', '')
+        'audioFile': s.get('voiceover_file') or ''
     } for s in scenes],
     'fps': data.get('fps', 30),
     'width': data.get('width', 1920),
@@ -144,26 +167,17 @@ props = {
 }
 with open(output, 'w') as f:
     json.dump(props, f)
-"
 
-# Calculate frame range for this scene
-FRAME_START=$(python3 -c "
-import json
-with open('$SCENES_JSON', 'r') as f:
-    data = json.load(f)
-scenes = data.get('scenes', [])
-offset = sum(s['actual_duration_frames'] for s in scenes if s['id'] < $SCENE_ID)
-print(offset)
-")
-FRAME_END=$(python3 -c "
-import json
-with open('$SCENES_JSON', 'r') as f:
-    data = json.load(f)
-scenes = data.get('scenes', [])
-scene = [s for s in scenes if s['id'] == $SCENE_ID][0]
-offset = sum(s['actual_duration_frames'] for s in scenes if s['id'] < $SCENE_ID)
-print(offset + scene['actual_duration_frames'] - 1)
-")
+# Calculate frame range
+offset = sum(s['actual_duration_frames'] for s in scenes if s['id'] < target_id)
+scene = matches[0]
+frame_end = offset + scene['actual_duration_frames'] - 1
+print(f'{offset} {frame_end}')
+" > /tmp/remotion-frames.txt
+
+FRAME_START=$(cut -d' ' -f1 /tmp/remotion-frames.txt)
+FRAME_END=$(cut -d' ' -f2 /tmp/remotion-frames.txt)
+rm -f /tmp/remotion-frames.txt
 
 # Render the scene
 echo ""

@@ -23,6 +23,14 @@ PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "pipeline_state.schema.json"
 
+
+class CmdError(Exception):
+    """Raised when a subprocess command fails."""
+    def __init__(self, returncode, cmd):
+        self.returncode = returncode
+        self.cmd = cmd
+        super().__init__(f"Command failed (exit {returncode}): {cmd}")
+
 STEP_KEYS = [
     "1_topic_selection",
     "2_research",
@@ -149,6 +157,8 @@ def sanitize_title(title):
     safe = title.lower()
     safe = re.sub(r"[^a-z0-9]+", "-", safe)
     safe = safe.strip("-")
+    if not safe:
+        raise ValueError(f"Title '{title}' produces empty directory name after sanitization")
     return safe
 
 
@@ -164,7 +174,7 @@ def run_cmd(cmd, cwd=None, check=True):
             print(f"  | {line}")
     if check and result.returncode != 0:
         print(f"  ERROR: Command failed with exit code {result.returncode}")
-        sys.exit(result.returncode)
+        raise CmdError(result.returncode, cmd)
     return result
 
 
@@ -300,8 +310,20 @@ def cmd_new(args):
     # Create placeholder MainVideo component
     (rdir / "src" / "components" / "MainVideo.tsx").write_text(
         'import React, { useMemo } from "react";\n'
-        'import { AbsoluteFill, Sequence, Audio, staticFile } from "remotion";\n'
+        'import { AbsoluteFill, Sequence } from "remotion";\n'
         'import type { VideoProps } from "remotion-foundation";\n'
+        '\n'
+        'const SCENE_COMPONENTS: Record<number, React.LazyExoticComponent<React.FC>> = {};\n'
+        '\n'
+        'function getSceneComponent(id: number) {\n'
+        '  if (!SCENE_COMPONENTS[id]) {\n'
+        '    const padded = String(id).padStart(2, "0");\n'
+        '    SCENE_COMPONENTS[id] = React.lazy(\n'
+        '      () => import(`../scenes/Scene${padded}`)\n'
+        '    );\n'
+        '  }\n'
+        '  return SCENE_COMPONENTS[id];\n'
+        '}\n'
         '\n'
         'export const MainVideo: React.FC<VideoProps> = ({ scenes }) => {\n'
         '  const offsets = useMemo(() => {\n'
@@ -317,9 +339,7 @@ def cmd_new(args):
         '  return (\n'
         '    <AbsoluteFill>\n'
         '      {scenes.map((scene, i) => {\n'
-        '        const SceneComponent = React.lazy(\n'
-        '          () => import(`../scenes/Scene${String(scene.id).padStart(2, "0")}`)\n'
-        '        );\n'
+        '        const SceneComponent = getSceneComponent(scene.id);\n'
         '        return (\n'
         '          <Sequence\n'
         '            key={scene.id}\n'
@@ -377,13 +397,13 @@ def cmd_new(args):
 # ---------------------------------------------------------------------------
 
 def find_next_step(state):
-    """Find the first pending or failed step at or after current_step."""
+    """Find the first pending, failed, or in-progress step at or after current_step."""
     current = state.get("current_step", 1)
     for i, key in enumerate(STEP_KEYS, start=1):
         if i < current:
             continue
         step = state["steps"].get(key, {})
-        if step.get("status") in ("pending", "failed"):
+        if step.get("status") in ("pending", "failed", "in_progress"):
             return i, key
     return None, None
 
@@ -399,7 +419,7 @@ def run_step_5(title, vdir):
     # Verify output
     scenes = load_scenes(title)
     for s in scenes:
-        vf = vdir / s.get("voiceover_file", "")
+        vf = vdir / (s.get("voiceover_file") or "")
         if not vf.exists():
             print(f"  WARNING: Voiceover file missing for scene {s['id']}: {vf}")
     return True
@@ -483,19 +503,26 @@ def cmd_continue(args):
 
     # Run the step
     success = False
-    if step_key == "5_voiceover_generation":
-        success = run_step_5(title, vdir)
-    elif step_key == "6_duration_measurement":
-        success = run_step_6(title, vdir)
-    elif step_key == "9_scene_rendering":
-        success = run_step_9(title, vdir)
-    elif step_key == "10_stitching":
-        success = run_step_10(title, vdir)
+    try:
+        if step_key == "5_voiceover_generation":
+            success = run_step_5(title, vdir)
+        elif step_key == "6_duration_measurement":
+            success = run_step_6(title, vdir)
+        elif step_key == "9_scene_rendering":
+            success = run_step_9(title, vdir)
+        elif step_key == "10_stitching":
+            success = run_step_10(title, vdir)
+    except CmdError as e:
+        print(f"\n  ERROR: Command failed with exit code {e.returncode}")
+        success = False
+    except Exception as e:
+        print(f"\n  ERROR: {type(e).__name__}: {e}")
+        success = False
 
     if success:
         state["steps"][step_key]["status"] = "complete"
         state["steps"][step_key]["completed_at"] = now_iso()
-        state["current_step"] = step_num + 1
+        state["current_step"] = min(step_num + 1, 10)
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
 

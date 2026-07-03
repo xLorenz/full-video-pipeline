@@ -19,6 +19,7 @@ Output:
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -180,10 +181,10 @@ def main():
             for s in scenes:
                 padded = f"{s['id']:02d}"
                 mp3_file = voiceover_dir / f"scene-{padded}.mp3"
-                if mp3_file.exists():
-                    f.write(f"file '{mp3_file}'\n")
-                else:
-                    print(f"  WARNING: Voiceover missing for scene {s['id']}, skipping")
+                if not mp3_file.exists():
+                    print(f"  ERROR: Voiceover missing for scene {s['id']}: {mp3_file}")
+                    sys.exit(1)
+                f.write(f"file '{mp3_file}'\n")
 
         aligned_audio = video_dir / "voiceover_aligned.mp3"
         run_cmd(
@@ -226,10 +227,6 @@ def main():
         next_version = find_next_version(versions_dir, safe_title)
         output_file = versions_dir / f"{safe_title}-v{next_version}.mp4"
 
-        # Load stitch config for final encoding
-        config = load_config()
-        final_crf = config.get("stitching", {}).get("final_crf", 23)
-
         run_cmd(
             f'ffmpeg -y '
             f'-i "{temp_video}" '
@@ -263,7 +260,6 @@ def main():
 
     finally:
         # Cleanup temp directory
-        import shutil
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
 

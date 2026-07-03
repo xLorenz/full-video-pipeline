@@ -75,7 +75,7 @@
           },
           "render_status": {
             "type": "string",
-            "enum": ["pending", "rendered", "stitched"],
+            "enum": ["pending", "rendered", "stitched", "failed"],
             "default": "pending",
             "description": "Current render progress for this scene"
           },

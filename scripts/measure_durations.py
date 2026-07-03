@@ -13,6 +13,7 @@ Arguments:
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -21,18 +22,16 @@ from pathlib import Path
 
 def get_audio_duration(filepath: str) -> float:
     """Get duration of audio file in seconds using ffprobe."""
-    for cmd in [
-        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", filepath],
-        ["npx", "remotion", "ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", filepath],
-    ]:
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            if result.returncode == 0 and result.stdout.strip():
-                return float(result.stdout.strip())
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-            continue
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", filepath],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip())
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        pass
 
     return 0.0
 
@@ -71,7 +70,7 @@ def main():
             print(f"Scene {scene['id']}: Could not measure duration, skipping")
             continue
 
-        duration_frames = int(duration * fps)
+        duration_frames = math.ceil(duration * fps)
         scene["actual_duration_seconds"] = round(duration, 3)
         scene["actual_duration_frames"] = duration_frames
         updated += 1
