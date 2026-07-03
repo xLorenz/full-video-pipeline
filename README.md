@@ -18,7 +18,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 ## Requirements
 
 - Node.js 18+
-- Python 3.8+
+- Python 3.9+
 - ffmpeg / ffprobe
 - Git
 
@@ -189,7 +189,7 @@ python3 pipeline.py status my-video           # Show specific project
 python3 pipeline.py continue my-video         # Run next step
 
 # Individual scripts
-python3 scripts/generate_voiceover.py videos/my-video/ --voice en-US-GuyNeural
+python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
 python3 scripts/measure_durations.py videos/my-video/
 bash scripts/render_scene.sh videos/my-video/ 1
 python3 scripts/assemble.py videos/my-video/
