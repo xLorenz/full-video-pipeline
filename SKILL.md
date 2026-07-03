@@ -150,7 +150,6 @@ OUTRO (final 60s): 6 scenes — Hard CTA, end screen, next video tease
 ## Scene 1: [Title] (~10s)
 **Script:** [What appears on screen / narration context]
 **Voiceover:** [Exact words to be spoken]
-**Visual:** [Description of visual content]
 **Transition:** [fade/cut/wipe/slide]
 
 ## Scene 2: [Title] (~10s)
@@ -163,7 +162,7 @@ with `actual_duration_seconds: null` and `render_status: "pending"`.
 **Output**: `SCRIPT.md` and `scenes.json` in the video directory.
 
 **Validation**:
-- All scenes have: id, title, script_text, voiceover_text, visual_notes, target_duration_seconds.
+- All scenes have: id, title, script_text, voiceover_text, target_duration_seconds.
 - Total estimated duration matches target video length (within 10%).
 - Hook has all 3 elements (grab, promise, stakes).
 - Pattern interrupts appear every 3-5 scenes (every 60-90s).
@@ -273,6 +272,10 @@ python3 scripts/measure_durations.py videos/{video-title}/
    - Animation character (smooth, snappy, minimal, bold)
    - Element positioning rules
 3. Write `STYLES.md` in the video directory.
+4. Update `scenes.json` with `visual_notes` for each scene based on the style guide.
+   - Each scene gets a specific visual treatment: colors, animations, layout, elements
+   - `visual_notes` should be detailed enough for Step 8 to implement directly
+   - Reference specific colors from the palette, animation types, and element positions
 
 **STYLES.md format**:
 
@@ -312,6 +315,9 @@ python3 scripts/measure_durations.py videos/{video-title}/
 - Colors are valid hex codes.
 - Font choices are available via Google Fonts or are web-safe.
 - Style is consistent and reproducible across all scenes.
+- Every scene in `scenes.json` has non-empty `visual_notes`.
+- `visual_notes` reference specific colors from the palette defined in `STYLES.md`.
+- `visual_notes` specify animation types consistent with the style guide.
 
 ---
 
@@ -365,7 +371,7 @@ Before writing any code, create `remotion/PLAN.md`:
 ## Scenes
 ### Scene 1: {title}
 - Duration: {actual_duration_frames} frames
-- Visual: {visual_notes from scenes.json}
+- Visual: {visual_notes from scenes.json — set by Step 7}
 - Audio: voiceover/scene-01.mp3
 - Key elements: [what needs to animate]
 - Transition in: {transition_in}
@@ -406,7 +412,8 @@ Before writing any code, create `remotion/PLAN.md`:
 6. Each scene must:
    - Match its `actual_duration_frames` exactly
    - Include the voiceover audio
-   - Follow the style from STYLES.md
+   - Implement the visual treatment from `visual_notes` in `scenes.json`
+   - Follow the style system from STYLES.md
    - Have proper text sizing per video-layout.md rules
 
 **Output**: Complete Remotion project in `remotion/` + `PLAN.md`.

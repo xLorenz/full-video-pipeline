@@ -89,7 +89,7 @@
           },
           "visual_notes": {
             "type": "string",
-            "description": "Description of what should appear on screen"
+            "description": "Visual treatment for the scene, populated by Step 7 (Style Definition). Specifies colors, animations, layout, and elements based on the style guide."
           },
           "transition_in": {
             "type": "string",
