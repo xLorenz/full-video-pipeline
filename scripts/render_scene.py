@@ -19,6 +19,7 @@ Exit codes:
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -164,6 +165,16 @@ def update_scene_status(video_dir_path: Path, scene_id: int,
     pl.save_scenes_full(video_dir_path, data)
 
 
+def _reap_tmpdir(cfg, tmpdir):
+    """Remove the Remotion TMPDIR if retention config allows."""
+    ren = cfg.get("retention", {})
+    if ren.get("reap_remotion_tmpdir_after_render", True):
+        tdir = Path(tmpdir)
+        if tdir.exists():
+            shutil.rmtree(tdir, ignore_errors=True)
+            print(f"  Reaped Remotion TMPDIR: {tmpdir}")
+
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: python3 scripts/render_scene.py <video_dir> <scene_id>",
@@ -285,6 +296,7 @@ def main():
         print("\n--- Post-render cleanup (failure path) ---")
         kill_orphaned_chrome()
         time.sleep(post_settle)
+        _reap_tmpdir(cfg, tmpdir)
         sys.exit(1)
 
     update_scene_status(video_dir, scene_id, "rendered")
@@ -293,6 +305,7 @@ def main():
     print("\n--- Post-render cleanup ---")
     kill_orphaned_chrome()
     time.sleep(post_settle)
+    _reap_tmpdir(cfg, tmpdir)
 
     print(f"\n=== Scene {scene_id} rendered in {elapsed}s ===")
     print(f"Output: {output_file}")

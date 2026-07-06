@@ -68,6 +68,9 @@ python3 pipeline.py preview my-video-topic
 
 # Optional: generate captions SRT + populate scene cues (after step 6)
 python3 pipeline.py captions my-video-topic
+
+# Free disk space for a completed video (removes node_modules, old versions, TMPDIR, etc.)
+python3 pipeline.py clean my-video-topic
 ```
 
 ## Project Structure
@@ -170,9 +173,25 @@ Edit `pipeline_config.json` to change defaults:
     "chrome_kill_between_renders": true,
     "post_render_settle_seconds": 5,
     "temp_dir": "/tmp/remotion"
+  },
+  "retention": {
+    "keep_versions": 2,
+    "clean_voiceover_aligned_after_stitch": true,
+    "clean_dup_voiceover_in_public_dir": true,
+    "clean_remotion_node_modules_after_step_13": true,
+    "clean_preview_after_success": true,
+    "reap_remotion_tmpdir_after_render": true,
+    "max_log_size_mb": 0,
+    "keep_last_n_log_runs": 10,
+    "clean_scene_mp4s_after_stitch": false
   }
 }
 ```
+
+The `retention` section controls automatic disk cleanup (all optional, sensible
+defaults). Set `max_log_size_mb: 0` to disable log rotation (unlimited). Set
+`clean_scene_mp4s_after_stitch: true` to delete per-scene MP4s after a stitch
+(saves ~1 GB per video but forfeits re-stitch without re-render).
 
 List available voices: `edge-tts --list-voices`
 
@@ -234,6 +253,9 @@ python3 scripts/generate_captions.py videos/my-video/
 python3 scripts/render_thumbnail.py videos/my-video/
 python3 scripts/validate.py videos/my-video/
 bash scripts/check_system.sh
+
+# Manual cleanup
+python3 pipeline.py clean my-video-topic              # Free disk space (all safe-to-delete items)
 ```
 
 ## License

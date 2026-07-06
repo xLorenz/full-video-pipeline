@@ -561,10 +561,9 @@ Before writing any code, create `remotion/PLAN.md`:
 
 #### 8d. Write the code
 
-1. Copy/symlink voiceover files into `remotion/public/voiceover/`:
-   ```bash
-   cp -r ../voiceover/ public/voiceover/
-   ```
+1. Audio is muxed at stitch time by `scripts/assemble.py`, so scene components
+   render silent video. No voiceover copy into `public/voiceover/` is needed.
+   The scaffold no longer creates this directory.
 
 2. The scaffold already generates `src/Root.tsx` with **two** compositions
    (`MainVideo` and `Thumbnail`). Do NOT rewrite Root.tsx from scratch — keep
@@ -613,7 +612,6 @@ Before writing any code, create `remotion/PLAN.md`:
 - Frame durations match `actual_duration_frames` from `scenes.json`.
 - No CSS transitions or animations used.
 - All animations use `interpolate()` or `spring()`.
-- Voiceover files are in `public/voiceover/`.
 
 **Pre-render self-check**: Before you tell the orchestrator Step 8 is done, run
 the gate yourself to catch errors early:
@@ -849,6 +847,35 @@ The script:
 
 ---
 
+## Disk Cleanup
+
+The pipeline accumulates files across runs. Retention is controlled by the
+`retention` key in `pipeline_config.json` (all optional, sensible defaults):
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `keep_versions` | `2` | Keep only the N most recent MP4 + thumbnail PNG versions |
+| `clean_voiceover_aligned_after_stitch` | `true` | Delete `voiceover_aligned.mp3` after stitch succeeds |
+| `clean_dup_voiceover_in_public_dir` | `true` | Delete `remotion/public/voiceover/` after stitch (audio is muxed, not referenced) |
+| `clean_remotion_node_modules_after_step_13` | `true` | Delete `remotion/node_modules/` after the final step completes |
+| `clean_preview_after_success` | `true` | Delete `.preview/` after a successful smoke preview |
+| `reap_remotion_tmpdir_after_render` | `true` | Delete Remotion TMPDIR after each render (saves disk, forfeits bundle-cache speed) |
+| `clean_scene_mp4s_after_stitch` | `false` | Delete `scenes/*.mp4` after stitch — **re-stitch requires re-render** |
+| `max_log_size_mb` | `0` | Rotate logs when they exceed this size (0 = unlimited, no rotation) |
+| `keep_last_n_log_runs` | `10` | Keep at most this many rotated log archives |
+
+To force-clean a completed video (respects `keep_versions` and
+`clean_scene_mp4s_after_stitch`; clears everything else unconditionally):
+
+```bash
+python3 pipeline.py clean <title>
+```
+
+This removes: `voiceover_aligned.mp3`, `remotion/public/voiceover/`, old
+MP4/PNG versions beyond the `keep_versions` limit, `remotion/node_modules/`,
+`.preview/`, Remotion TMPDIR, and rotates logs. Scene MP4s are only removed
+if `clean_scene_mp4s_after_stitch: true` is set.
+
 ## Error Recovery
 
 | Error | Recovery |
@@ -863,6 +890,7 @@ The script:
 | Metadata step fails | `pipeline.py continue` re-runs the creative Step 11. Check `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` are all present and valid. |
 | Thumbnail composition fails lint | Fix `Thumbnail.tsx` TypeScript/lint errors. Remove any AI image references. |
 | Thumbnail still render fails | The Step 13 render uses `npx remotion still`. Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions` check. |
+| Disk space low | Run `python3 pipeline.py clean <title>` to free safe-to-delete files (node_modules, old versions, TMPDIR, duplicate voiceover). Or edit `retention` flags in `pipeline_config.json` to enable automatic cleanup. |
 
 State forensics: each step's `pipeline_state.json` entry now carries
 `attempts`, `last_error`, and `last_attempt_at`. Scene-level failures record

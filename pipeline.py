@@ -187,7 +187,6 @@ def cmd_new(args):
         rdir / "src" / "lib",
         rdir / "src" / "scenes",
         rdir / "src" / "components",
-        rdir / "public" / "voiceover",
         rdir / "public" / "thumbnails",
         vdir / "voiceover",
         vdir / "scenes",
@@ -630,6 +629,29 @@ def validate_project(title):
     return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
+def _clean_after_step_13(vdir):
+    """Remove remotion/node_modules after final step completes."""
+    cfg = load_pipeline_config()
+    ren = cfg.get("retention", {})
+    if ren.get("clean_remotion_node_modules_after_step_13", True):
+        nm_dir = vdir / "remotion" / "node_modules"
+        if nm_dir.exists():
+            shutil.rmtree(nm_dir, ignore_errors=True)
+            print(f"  Cleaned: remotion/node_modules/")
+
+
+def _clean_after_assemble(vdir):
+    """Optional: remove scene MP4s after a successful stitch."""
+    cfg = load_pipeline_config()
+    ren = cfg.get("retention", {})
+    if ren.get("clean_scene_mp4s_after_stitch", False):
+        scenes_dir = vdir / "scenes"
+        if scenes_dir.exists():
+            for f in scenes_dir.glob("*.mp4"):
+                f.unlink(missing_ok=True)
+            print(f"  Cleaned: scenes/*.mp4 (clean_scene_mp4s_after_stitch=True)")
+
+
 def cmd_continue(args):
     title = sanitize_title(args.title)
     vdir = video_dir(title)
@@ -705,6 +727,12 @@ def cmd_continue(args):
         state["current_step"] = min(step_num + 1, len(STEP_KEYS))
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
+
+        # Post-step cleanup
+        if step_key == "13_thumbnail_rendering":
+            _clean_after_step_13(vdir)
+        elif step_key == "10_stitching":
+            _clean_after_assemble(vdir)
 
         next_num, next_key = find_next_step(state)
         if next_num is None:
@@ -805,6 +833,108 @@ def cmd_validate(args):
 
 
 # ---------------------------------------------------------------------------
+# CLEAN subcommand — manual disk recovery for a single video
+# ---------------------------------------------------------------------------
+
+def cmd_clean(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    cfg = load_pipeline_config()
+    ren = cfg.get("retention", {})
+    keep_v = ren.get("keep_versions", 2)
+    safe_title = pl.sanitize_title(title)
+    freed = 0
+
+    print(f"=== Cleaning up: {title} ===")
+
+    # 1. voiceover_aligned.mp3
+    aligned = vdir / "voiceover_aligned.mp3"
+    if aligned.exists():
+        sz = aligned.stat().st_size
+        aligned.unlink(missing_ok=True)
+        freed += sz
+        print(f"  Removed: voiceover_aligned.mp3 ({sz/1024/1024:.1f} MB)")
+
+    # 2. dup remotion/public/voiceover/
+    dup_dir = vdir / "remotion" / "public" / "voiceover"
+    if dup_dir.exists():
+        sz = sum(f.stat().st_size for f in dup_dir.rglob("*") if f.is_file())
+        shutil.rmtree(dup_dir, ignore_errors=True)
+        freed += sz
+        print(f"  Removed: remotion/public/voiceover/ ({sz/1024/1024:.1f} MB)")
+
+    # 3. Prune old MP4 versions (keep last N)
+    to_prune = pl.find_versions_to_prune(
+        vdir / "versions", safe_title, r'{title}-v(\d+)\.mp4', keep_v)
+    for old in to_prune:
+        sz = old.stat().st_size
+        old.unlink(missing_ok=True)
+        freed += sz
+        print(f"  Pruned: {old.name} ({sz/1024/1024:.1f} MB)")
+
+    # 4. Prune old thumbnail PNG versions
+    to_prune = pl.find_versions_to_prune(
+        vdir / "versions", safe_title, r'{title}-thumbnail-v(\d+)\.png', keep_v)
+    for old in to_prune:
+        sz = old.stat().st_size
+        old.unlink(missing_ok=True)
+        freed += sz
+        print(f"  Pruned: {old.name} ({sz/1024/1024:.1f} MB)")
+
+    # 5. remotion/node_modules/
+    nm_dir = vdir / "remotion" / "node_modules"
+    if nm_dir.exists():
+        sz = sum(f.stat().st_size for f in nm_dir.rglob("*") if f.is_file())
+        shutil.rmtree(nm_dir, ignore_errors=True)
+        freed += sz
+        print(f"  Removed: remotion/node_modules/ ({sz/1024/1024:.1f} MB)")
+
+    # 6. .preview/
+    preview_dir = vdir / ".preview"
+    if preview_dir.exists():
+        sz = sum(f.stat().st_size for f in preview_dir.rglob("*") if f.is_file())
+        shutil.rmtree(preview_dir, ignore_errors=True)
+        freed += sz
+        print(f"  Removed: .preview/ ({sz/1024/1024:.1f} MB)")
+
+    # 7. Scene MP4s (only if configured, default off)
+    if ren.get("clean_scene_mp4s_after_stitch", False):
+        scenes_dir = vdir / "scenes"
+        if scenes_dir.exists():
+            for f in scenes_dir.glob("*.mp4"):
+                sz = f.stat().st_size
+                f.unlink(missing_ok=True)
+                freed += sz
+                print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
+
+    # 8. Reap Remotion TMPDIR
+    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion")
+    tdir = Path(tmpdir)
+    if tdir.exists():
+        sz = sum(f.stat().st_size for f in tdir.rglob("*") if f.is_file())
+        shutil.rmtree(tdir, ignore_errors=True)
+        freed += sz
+        print(f"  Reaped: Remotion TMPDIR ({sz/1024/1024:.1f} MB)")
+
+    # 9. Rotate logs
+    log_dir = vdir / "logs"
+    if log_dir.exists():
+        for lf in sorted(log_dir.glob("*.log")):
+            pl.rotate_log_if_needed(
+                lf,
+                max_size_mb=ren.get("max_log_size_mb", 0),
+                keep_last_n=ren.get("keep_last_n_log_runs", 10),
+            )
+        print(f"  Rotated logs in: {log_dir}")
+
+    print(f"\nTotal freed: {freed/1024/1024:.1f} MB")
+
+
+# ---------------------------------------------------------------------------
 # PREVIEW subcommand — quick low-res render of scene 1 as a smoke test
 # ---------------------------------------------------------------------------
 
@@ -869,6 +999,13 @@ def cmd_preview(args):
     print(f"\nPreview rendered: {out_file}")
     print("  Copy/SCP out and play locally to verify visual correctness.")
 
+    # Clean preview dir after successful render
+    cfg = load_pipeline_config()
+    ren = cfg.get("retention", {})
+    if ren.get("clean_preview_after_success", True):
+        shutil.rmtree(out_dir, ignore_errors=True)
+        print(f"  Cleaned: .preview/")
+
 
 # ---------------------------------------------------------------------------
 # CAPTIONS subcommand — generate SRT sidecar + populate scene caption cues
@@ -921,6 +1058,9 @@ def main():
     captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
     captions_p.add_argument("title", help="Video title")
 
+    clean_p = sub.add_parser("clean", help="Free disk space for a completed video")
+    clean_p.add_argument("title", help="Video title")
+
     args = parser.parse_args()
 
     if args.command == "new":
@@ -935,6 +1075,8 @@ def main():
         cmd_preview(args)
     elif args.command == "captions":
         cmd_captions(args)
+    elif args.command == "clean":
+        cmd_clean(args)
     else:
         parser.print_help()
         sys.exit(2)

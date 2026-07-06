@@ -37,5 +37,16 @@
     "chrome_kill_between_renders": true,
     "post_render_settle_seconds": 5,
     "temp_dir": "/home/ubuntu/tmp/remotion"
+  },
+  "retention": {
+    "keep_versions": 2,
+    "clean_voiceover_aligned_after_stitch": true,
+    "clean_dup_voiceover_in_public_dir": true,
+    "clean_remotion_node_modules_after_step_13": true,
+    "clean_preview_after_success": true,
+    "reap_remotion_tmpdir_after_render": true,
+    "max_log_size_mb": 0,
+    "keep_last_n_log_runs": 10,
+    "clean_scene_mp4s_after_stitch": false
   }
 }

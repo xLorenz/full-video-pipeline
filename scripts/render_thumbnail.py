@@ -15,6 +15,7 @@ Exit codes:
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -224,6 +225,25 @@ def main():
     print(f"\n=== Thumbnail rendered in {elapsed}s ===")
     print(f"Output: {output_file}")
     print(f"Size: {size:.1f} MB")
+
+    # Post-render cleanup
+    ren = cfg.get("retention", {})
+    # Prune old thumbnail versions
+    keep_v = ren.get("keep_versions", 2)
+    to_prune = pl.find_versions_to_prune(
+        versions_dir, safe_title,
+        r'{title}-thumbnail-v(\d+)\.png', keep_v)
+    for old in to_prune:
+        old.unlink(missing_ok=True)
+        print(f"  Pruned old thumbnail version: {old.name}")
+
+    # Reap TMPDIR
+    if ren.get("reap_remotion_tmpdir_after_render", True):
+        tdir = Path(tmpdir)
+        if tdir.exists():
+            shutil.rmtree(tdir, ignore_errors=True)
+            print(f"  Reaped Remotion TMPDIR: {tmpdir}")
+
     sys.exit(0)
 
 

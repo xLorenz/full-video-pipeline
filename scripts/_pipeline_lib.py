@@ -204,6 +204,47 @@ def open_log(logpath: Path):
         f.close()
 
 
+def rotate_log_if_needed(logpath: Path, max_size_mb: int = 0, keep_last_n: int = 10):
+    """Rotate a log file if it exceeds max_size_mb (no-op when max_size_mb == 0)."""
+    if max_size_mb <= 0:
+        return
+    if not logpath.exists():
+        return
+    size_mb = logpath.stat().st_size / (1024 * 1024)
+    if size_mb <= max_size_mb:
+        return
+    # Remove the oldest archive beyond keep limit
+    oldest = logpath.with_suffix(f"{logpath.suffix}.{keep_last_n}")
+    oldest.unlink(missing_ok=True)
+    # Shift archives .N -> .N+1
+    for i in range(keep_last_n - 1, 0, -1):
+        src = logpath.with_suffix(f"{logpath.suffix}.{i}")
+        if src.exists():
+            dst = logpath.with_suffix(f"{logpath.suffix}.{i + 1}")
+            src.rename(dst)
+    # Rename current to .1
+    logpath.rename(logpath.with_suffix(f"{logpath.suffix}.1"))
+    # Start fresh — open_log will re-create the file
+
+
+def find_versions_to_prune(versions_dir: Path, safe_title: str, pattern_str: str, keep: int) -> list:
+    """Return a list of versioned files that exceed the keep count (oldest first).
+    
+    pattern_str e.g. r'{title}-v(\d+)\.mp4' — must have one capture group for version number.
+    """
+    if keep < 1:
+        keep = 1
+    full_pattern = re.compile(pattern_str.replace("{title}", re.escape(safe_title)))
+    versions = []
+    if versions_dir.exists():
+        for f in versions_dir.iterdir():
+            m = full_pattern.match(f.name)
+            if m:
+                versions.append((int(m.group(1)), f))
+    versions.sort(key=lambda x: x[0], reverse=True)
+    return [f for _, f in versions[keep:]]
+
+
 def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
     """Run a shell command, stream to stdout, optionally tee to a log file."""
     print(f"  $ {cmd}")

@@ -243,6 +243,26 @@ def main():
         print(f"  Size: {final_size:.1f} MB")
         print(f"  Version: v{next_version}")
 
+        # Post-stitch cleanup (retention config)
+        ren = cfg.get("retention", {})
+        if ren.get("clean_voiceover_aligned_after_stitch", True):
+            if aligned_audio.exists():
+                aligned_audio.unlink(missing_ok=True)
+                print(f"  Cleaned: {aligned_audio.name}")
+        if ren.get("clean_dup_voiceover_in_public_dir", True):
+            dup_dir = video_dir / "remotion" / "public" / "voiceover"
+            if dup_dir.exists():
+                shutil.rmtree(dup_dir)
+                print(f"  Cleaned: remotion/public/voiceover/ (duplicate)")
+        # Prune old versions
+        keep_v = ren.get("keep_versions", 2)
+        to_prune = pl.find_versions_to_prune(
+            versions_dir, safe_title,
+            r'{title}-v(\d+)\.mp4', keep_v)
+        for old in to_prune:
+            old.unlink(missing_ok=True)
+            print(f"  Pruned old version: {old.name}")
+
     finally:
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
