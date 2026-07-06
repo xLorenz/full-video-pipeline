@@ -34,14 +34,46 @@ Before running the pipeline, verify system readiness:
 
 ```bash
 bash scripts/check_system.sh
+pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
 ```
 
-If this fails, resolve the issues before proceeding. Required tools:
+If pre-flight fails, resolve issues before proceeding. Required tools:
+- Linux (the pipeline is Linux-only)
 - `node` + `npm` (for Remotion)
-- `python3` + `pip` (for edge-tts and helper scripts)
+- `python3` + `pip` (for edge-tts and helper scripts; `pip install -r scripts/requirements.txt`)
 - `ffmpeg` + `ffprobe` (for audio/video processing)
 - `git` (for cloning skill references)
-- `edge-tts` Python package (`pip install edge-tts`)
+
+## Audio Path (IMPORTANT — overrides remotion-best-practices skill)
+
+Voiceover is **NOT** baked into scene MP4s. Scene components render silent
+video only — do NOT use `<Audio>` in `SceneXX.tsx`. At stitch time,
+`scripts/assemble.py` concatenates the per-scene MP3s into one
+`voiceover_aligned.mp3` and muxes it onto the concatenated scene MP4s in a
+single ffmpeg pass. This:
+
+- Avoids Chrome decoding/syncing audio once per scene (faster renders)
+- Keeps exactly one audio encode pass total (fastest path for low-RAM boxes)
+- Relies on `actual_duration_frames` matching voiceover durations, enforced by Step 6
+
+The remotion-best-practices submodule (`skills/remotion-best-practices/`)
+may still document `<Audio>` / voiceover patterns. Those patterns are
+**superseded for this pipeline** — render silent, mux at stitch.
+
+## Optional: Captions
+
+After Step 6 (duration measurement), you can generate captions:
+
+```bash
+python3 pipeline.py captions <title>
+```
+
+This produces `videos/<title>/<title>.srt` (YouTube sidecar) and populates
+per-scene `captions` cues in `scenes.json`. To burn captions into the video,
+set `video.burn_captions: true` in `pipeline_config.json` — the scaffolded
+`MainVideo.tsx` will then render the shared `<Captions>` component from
+`remotion-foundation` when a scene has captions and `showCaptions` is true.
+Off by default to preserve render performance.
 
 ## Configuration
 
@@ -219,21 +251,29 @@ python3 scripts/generate_voiceover.py videos/{video-title}/ --voice {voice_name}
 ```
 
 The voice name comes from `pipeline_config.json` (default: `en-GB-RyanNeural`).
-User can override with `--voice en-GB-SoniaNeural` or similar.
+User can override with `--voice en-GB-SoniaNeural` or similar. Concurrency is
+configurable via `voiceover.concurrency` (default 3).
 
 2. The script will:
    - Parse `VOICEOVER.md` for scene delimiters
-   - Generate one MP3 per scene sequentially (low memory)
+   - Compute a SHA-256 `voiceover_hash` for each scene from
+     `(text, voice, rate, volume, pitch)`
+   - **Skip generation** for any scene whose MP3 already exists AND whose stored
+     `voiceover_hash` matches (idempotent — editing VOICEOVER.md and re-running
+     only regenerates the changed scenes)
+   - Generate MP3s concurrently up to `voiceover.concurrency`
+   - Retry each failed scene once after a 5s backoff
    - Measure each file's duration
-   - Update `scenes.json` with file paths and durations
+   - Atomically update `scenes.json` with file paths, durations, and hashes
 
 **Output**: `voiceover/scene-XX.mp3` files + updated `scenes.json`.
 
 **Validation**:
-- All MP3 files exist in `voiceover/` directory.
-- File sizes are non-zero.
-- `scenes.json` has `voiceover_file` populated for every scene.
-- If any scene failed, retry it individually before proceeding.
+- All MP3 files exist in `voiceover/` directory and have non-zero size.
+- `scenes.json` has `voiceover_file`, `voiceover_hash`, and
+  `actual_duration_seconds` populated for every scene.
+- If any scene failed after retry, re-run the script — the failed scenes will
+  be retried while unchanged ones are skipped.
 
 ---
 
@@ -418,10 +458,16 @@ Before writing any code, create `remotion/PLAN.md`:
 
 6. Each scene must:
    - Match its `actual_duration_frames` exactly
-   - Include the voiceover audio
+   - **NOT include voiceover audio** — scenes render SILENT video. Voiceover is
+     muxed at stitch time by `scripts/assemble.py`. Do NOT use `<Audio>` from
+     `@remotion/media` for the voiceover. (Background music/SFX, if any, are
+     still allowed via `<Audio>`.)
    - Implement the visual treatment from `visual_notes` in `scenes.json`
    - Follow the style system from STYLES.md
    - Have proper text sizing per video-layout.md rules
+   - (Optional) Render `<Captions cues={scene.captions} fps={fps} />` from
+     `remotion-foundation` when `scene.showCaptions` is true — this is only
+     active if `video.burn_captions: true` in `pipeline_config.json`.
 
 **Output**: Complete Remotion project in `remotion/` + `PLAN.md`.
 
@@ -443,38 +489,51 @@ Before writing any code, create `remotion/PLAN.md`:
 
 **CRITICAL**: Render one scene at a time. Do NOT attempt parallel rendering.
 
+**Lint/typecheck gate**: `pipeline.py continue` runs `npm run lint`, `tsc --noEmit`,
+and `remotion compositions src/Root.tsx` before any render. If any of those fail,
+step 9 fails without rendering scenes. Fix Step 8 issues before re-running.
+
 **Action**:
 
 For each scene (1 through N), sequentially:
 
 ```bash
-bash scripts/render_scene.sh videos/{video-title}/ {scene_id}
+python3 scripts/render_scene.py videos/{video-title}/ {scene_id}
 ```
 
 The script:
-- Builds a props JSON from scenes.json with all scene durations
+- Builds a props JSON from `scenes.json` with all scene durations
+  (`audioFile` is intentionally empty — scenes are silent)
 - Calculates the frame range for the specific scene (`--frames`)
 - Renders only that scene's portion of the single `MainVideo` composition
-- Handles all guardrails (RAM/disk/Chrome cleanup, TMPDIR configuration)
+- Handles all guardrails via `psutil` (RAM/disk checks) and orphaned-Chrome
+  cleanup (smart: only kills chrome-headless-shell whose parent node/remotion
+  process is no longer alive)
+- Updates `render_status`, `render_attempts`, `last_render_error` per scene
+- Writes an append-only log to `videos/<title>/logs/step-9-scene-{id}.log`
 
 **Between scenes**: Wait for the script to complete before starting the next.
-Monitor output for errors.
+Monitor output for errors. **A failed scene does NOT abort the batch** — the
+orchestrator records the failure and continues. Re-running `continue` skips
+already-rendered scenes and retries only the failed ones.
 
 **Output**: `scenes/scene-XX.mp4` files.
 
 **Validation** (after ALL scenes are rendered):
-- All MP4 files exist in `scenes/` directory.
-- File sizes are non-zero.
+- All MP4 files exist in `scenes/` directory and have non-zero size.
 - `scenes.json` has `render_status: "rendered"` for every scene.
 - Total disk usage is within system limits.
+- Logs in `videos/<title>/logs/step-9-scene-*.log` show no errors.
 
 **If a scene fails**:
-1. Check the error output.
-2. Run `pkill -f chrome` to clean up.
-3. Wait 30 seconds.
-4. Retry once.
-5. If still failing, check `scripts/check_system.sh` and consider reducing
-   quality settings in `pipeline_config.json`.
+1. Read the per-scene log: `videos/<title>/logs/step-9-scene-{id}.log`
+2. Read the `last_render_error` field for the scene in `scenes.json`
+3. Run `pkill -f chrome` to clean up leftover processes.
+4. Wait 30 seconds.
+5. Re-run `python3 pipeline.py continue <title>` — only the failed scene(s)
+   will be re-attempted.
+6. If still failing, run `bash scripts/check_system.sh` and consider reducing
+   quality settings in `pipeline_config.json` (resolution, `crf`, `node_max_old_space_size_mb`).
 
 ---
 
@@ -510,11 +569,17 @@ The script:
 
 | Error | Recovery |
 |-------|----------|
-| `edge-tts` network failure | Retry the generation script. It processes scenes sequentially, so only failed scenes need retry. |
-| Remotion render OOM | Kill Chrome (`pkill -f chrome`), wait 60s, retry. If persistent, reduce `node_max_old_space_size_mb` or video resolution. |
+| `edge-tts` network failure | Step 5 retries each scene once after a 5s backoff. Re-run `continue` — unchanged scenes are skipped (idempotent). |
+| Remotion render OOM | The scene's `last_render_error` records the OOM. `render_attempts` is incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
 | Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
-| ffmpeg stitch failure | Ensure all scene videos exist. Check codec consistency. Try `assemble.py` again — it validates inputs first. |
+| ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `continue`. |
 | Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or clean up previous video projects. |
+| Schema validation fails | `pipeline.py continue` refuses to run automated steps. Run `pipeline.py validate <title>` to see the specific violations and fix the offending JSON. |
+| Lint gate fails before render | Fix the TypeScript/lint errors in the Remotion project (`cd videos/<title>/remotion && npm run lint`). `tsc --noEmit` errors must also be resolved. |
+
+State forensics: each step's `pipeline_state.json` entry now carries
+`attempts`, `last_error`, and `last_attempt_at`. Scene-level failures record
+`render_attempts` and `last_render_error` per scene in `scenes.json`.
 
 ## Progress Tracking
 
@@ -537,9 +602,18 @@ Update the file after each step completes:
 ## Resuming Interrupted Pipelines
 
 Use `python3 pipeline.py continue {title}` to resume. The pipeline:
-1. Reads `pipeline_state.json` to find the last completed step.
-2. Runs the next automated step (5, 6, 9, or 10), or
-3. Prints instructions for creative steps (1-4, 7, 8).
-4. Steps 5-6 involve file generation — verify files exist before skipping.
-5. Steps 7-8 involve code — verify project builds before skipping.
-6. Steps 9-10 involve rendering — always re-do from where render_status != "rendered".
+1. Validates `scenes.json` + `pipeline_state.json` against the schemas
+   (`scripts/validate.py`). Refuses to run automated steps on invalid state.
+2. Reads `pipeline_state.json` to find the last completed step.
+3. Runs the next automated step (5, 6, 9, or 10), or
+4. Prints instructions for creative steps (1-4, 7, 8).
+5. Steps 5-6 involve file generation. Step 5 is idempotent — unchanged scenes
+   are skipped. Step 6 measures all scenes (idempotent validation).
+6. Steps 7-8 involve code — `lint_gate` (lint + tsc) runs before Step 9.
+7. Steps 9-10 involve rendering — Step 9 resumes per-scene via
+   `render_status: "rendered"` + new `render_attempts` tracking. Step 10
+   always re-stitches atomically into a new versioned MP4.
+
+Logs append to `videos/<title>/logs/` across runs — review them after
+overnight failures. Schema violations cause immediate halt with a readable
+error list rather than silent corruption downstream.

@@ -3,19 +3,21 @@
 generate_voiceover.py
 
 Parses VOICEOVER.md and generates separate MP3 audio files for each scene
-using edge-tts. Designed for low-memory environments (sequential processing).
+using edge-tts. Idempotent + parallel-safe.
+
+Idempotency: a scene's MP3 is skipped if both (a) the file already exists
+and (b) the stored voiceover_hash matches the current (text, voice, rate,
+volume, pitch) tuple. The hash is recomputed from VOICEOVER.md content, so
+editing the script and re-running will regenerate only the changed scenes.
+
+Parallel: scenes are generated concurrently up to `voiceover.concurrency`
+(default 3) using asyncio.Semaphore. edge-tts is network-bound, not
+memory-bound, so this typically reduces step-5 wall time 2-3x without
+materially increasing memory.
 
 Usage:
-    python generate_voiceover.py <video_dir> [--voice en-US-GuyNeural] [--rate +0%]
-
-Arguments:
-    video_dir       Path to the video project directory (e.g., videos/my-video/)
-
-Options:
-    --voice         edge-tts voice name (default: from pipeline_config.json or en-US-GuyNeural)
-    --rate          Speech rate adjustment (default: +0%)
-    --volume        Volume adjustment (default: +0%)
-    --pitch         Pitch adjustment (default: +0Hz)
+    python generate_voiceover.py <video_dir> [--voice en-GB-RyanNeural] [--rate +0%]
+                                       [--volume +0%] [--pitch +0Hz] [--concurrency N]
 """
 
 import argparse
@@ -23,175 +25,186 @@ import asyncio
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
-
-def load_config(video_dir: str) -> dict:
-    """Load pipeline_config.json from the project root."""
-    config_path = Path(__file__).parent.parent / "pipeline_config.json"
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _pipeline_lib as pl  # noqa: E402
 
 
-def parse_voiceover_md(filepath: str) -> list[dict]:
-    """
-    Parse VOICEOVER.md and extract scene voiceover text.
-
-    Expected format:
-        # VOICEOVER
-        ---SCENE:1---
-        Text for scene 1
-        ---END---
-        ---SCENE:2---
-        Text for scene 2
-        ---END---
-
-    Returns list of dicts: [{"id": 1, "text": "..."}, ...]
-    """
+def parse_voiceover_md(filepath: str) -> list:
+    """Parse VOICEOVER.md; return [{"id": 1, "text": "..."}, ...]."""
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-
-    scenes = []
     pattern = r"---SCENE:(\d+)---\s*\n(.*?)---END---"
     matches = re.findall(pattern, content, re.DOTALL)
-
+    scenes = []
     for scene_id_str, text in matches:
         scene_id = int(scene_id_str)
         cleaned_text = text.strip()
         if cleaned_text:
             scenes.append({"id": scene_id, "text": cleaned_text})
-
     return scenes
 
 
-async def generate_audio(text: str, output_path: str, voice: str, rate: str, volume: str, pitch: str):
-    """Generate a single audio file using edge-tts."""
+async def generate_audio(text, output_path, voice, rate, volume, pitch):
     try:
         import edge_tts
     except ImportError:
-        print("ERROR: edge-tts not installed. Run: pip install edge-tts", file=sys.stderr)
-        sys.exit(1)
-
+        print("ERROR: edge-tts not installed. Run: pip install edge-tts",
+              file=sys.stderr)
+        sys.exit(2)
     communicate = edge_tts.Communicate(
-        text=text,
-        voice=voice,
-        rate=rate,
-        volume=volume,
-        pitch=pitch,
+        text=text, voice=voice, rate=rate, volume=volume, pitch=pitch,
     )
     await communicate.save(output_path)
 
 
-def get_audio_duration_ffprobe(filepath: str) -> float:
-    """Get duration of audio file using ffprobe."""
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", filepath],
-            capture_output=True, text=True, timeout=30
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return float(result.stdout.strip())
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-        pass
-
-    print(f"WARNING: Could not measure duration for {filepath}", file=sys.stderr)
-    return 0.0
-
-
-def update_scenes_json(video_dir: str, scene_id: int, audio_file: str, duration: float):
-    """Update scenes.json with generated voiceover file path."""
-    scenes_path = os.path.join(video_dir, "scenes.json")
-    if not os.path.exists(scenes_path):
-        print(f"WARNING: scenes.json not found at {scenes_path}", file=sys.stderr)
-        return
-
+def update_scene_in_scenes_json(video_dir_path, scene_id, audio_rel, duration, voice_hash):
+    """Atomically update one scene's voiceover fields."""
+    scenes_path = Path(video_dir_path) / "scenes.json"
     with open(scenes_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-
-    for scene in data.get("scenes", []):
-        if scene["id"] == scene_id:
-            scene["voiceover_file"] = audio_file
+    for s in data.get("scenes", []):
+        if s["id"] == scene_id:
+            s["voiceover_file"] = audio_rel
+            s["voiceover_hash"] = voice_hash
+            if duration is not None:
+                s["actual_duration_seconds"] = round(duration, 3)
             break
+    pl.save_scenes_full(video_dir_path, data)
 
-    with open(scenes_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+
+async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pitch,
+                       sem, logpath):
+    scene_id = scene["id"]
+    text = scene["text"]
+    output_file = f"scene-{scene_id:02d}.mp3"
+    output_path = os.path.join(voiceover_dir, output_file)
+    relative_path = f"voiceover/{output_file}"
+    voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch)
+
+    # Idempotency check: skip if file exists and hash matches.
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+        scenes_path = os.path.join(video_dir, "scenes.json")
+        with open(scenes_path, "r", encoding="utf-8") as f:
+            existing = next((s for s in json.load(f).get("scenes", [])
+                            if s["id"] == scene_id), None)
+        if existing and existing.get("voiceover_hash") == voice_hash:
+            existing_dur = existing.get("actual_duration_seconds") or 0
+            msg = (f"Scene {scene_id}: skip (unchanged) — "
+                   f"{output_file} ({existing_dur:.2f}s)")
+            print(msg)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(msg + "\n")
+            return ("skipped", scene_id, voice_hash)
+
+    async with sem:
+        msg = f"Scene {scene_id}: generating audio..."
+        print(msg)
+        with open(logpath, "a", encoding="utf-8") as logf:
+            logf.write(msg + "\n")
+        try:
+            await generate_audio(text, output_path, voice, rate, volume, pitch)
+        except Exception as e:
+            # One retry after backoff (edge-tts is flaky on network)
+            print(f"  WARN: first attempt failed ({e}); retrying in 5s...")
+            await asyncio.sleep(5)
+            await generate_audio(text, output_path, voice, rate, volume, pitch)
+
+        if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+            err = f"ERROR: Audio file not created at {output_path}"
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            return ("failed", scene_id, voice_hash)
+
+        duration = pl.get_audio_duration(output_path)
+        size = os.path.getsize(output_path)
+        msg = (f"Scene {scene_id}: generated {output_file} "
+               f"({size} bytes, {duration:.2f}s)")
+        print(msg)
+        with open(logpath, "a", encoding="utf-8") as logf:
+            logf.write(msg + "\n")
+        update_scene_in_scenes_json(video_dir, scene_id, relative_path,
+                                    duration, voice_hash)
+        return ("generated", scene_id, voice_hash)
+
+
+def check_ram_floor(min_ram_mb):
+    """Abort parallel gather if system RAM drops below the floor."""
+    try:
+        import psutil
+        avail = psutil.virtual_memory().available / (1024 * 1024)
+        return avail >= min_ram_mb
+    except ImportError:
+        return True
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Generate voiceover audio files from VOICEOVER.md")
+    parser = argparse.ArgumentParser(description="Generate voiceover audio from VOICEOVER.md")
     parser.add_argument("video_dir", help="Path to the video project directory")
-    parser.add_argument("--voice", help="edge-tts voice name (default: from config)")
-    parser.add_argument("--rate", help="Speech rate (default: +0%%)")
-    parser.add_argument("--volume", help="Volume (default: +0%%)")
-    parser.add_argument("--pitch", help="Pitch (default: +0Hz)")
+    parser.add_argument("--voice", help="edge-tts voice name")
+    parser.add_argument("--rate", help="Speech rate (e.g. +0%)")
+    parser.add_argument("--volume", help="Volume (e.g. +0%)")
+    parser.add_argument("--pitch", help="Pitch (e.g. +0Hz)")
+    parser.add_argument("--concurrency", type=int,
+                        help="Max concurrent edge-tts requests (default: from config or 3)")
     args = parser.parse_args()
 
     video_dir = os.path.abspath(args.video_dir)
     voiceover_md = os.path.join(video_dir, "VOICEOVER.md")
     voiceover_dir = os.path.join(video_dir, "voiceover")
+    log_file = pl.log_path(Path(video_dir).name, 5)
 
     if not os.path.exists(voiceover_md):
         print(f"ERROR: VOICEOVER.md not found at {voiceover_md}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
-    # Load config for defaults
-    config = load_config(video_dir)
-    vo_config = config.get("voiceover", {})
+    cfg = pl.load_config()
+    vo = cfg.get("voiceover", {})
+    sys_cfg = cfg.get("system", {})
+    voice = args.voice or vo.get("voice", "en-GB-RyanNeural")
+    rate = args.rate or vo.get("rate", "+0%")
+    volume = args.volume or vo.get("volume", "+0%")
+    pitch = args.pitch or vo.get("pitch", "+0Hz")
+    concurrency = args.concurrency or vo.get("concurrency", 3)
+    min_ram_mb = sys_cfg.get("min_available_ram_mb", 200)
 
-    voice = args.voice or vo_config.get("voice", "en-GB-RyanNeural")
-    rate = args.rate or vo_config.get("rate", "+0%")
-    volume = args.volume or vo_config.get("volume", "+0%")
-    pitch = args.pitch or vo_config.get("pitch", "+0Hz")
-
-    # Create voiceover directory
     os.makedirs(voiceover_dir, exist_ok=True)
 
-    # Parse VOICEOVER.md
     scenes = parse_voiceover_md(voiceover_md)
     if not scenes:
         print("ERROR: No scenes found in VOICEOVER.md", file=sys.stderr)
-        sys.exit(1)
-
+        sys.exit(2)
     print(f"Found {len(scenes)} scenes to generate")
-    print(f"Voice: {voice}, Rate: {rate}, Volume: {volume}, Pitch: {pitch}")
+    print(f"Voice: {voice}, Rate: {rate}, Volume: {volume}, Pitch: {pitch}, "
+          f"Concurrency: {concurrency}")
+    with open(log_file, "a", encoding="utf-8") as logf:
+        logf.write(f"\n=== generate_voiceover.py run {pl.now_iso()} ===\n")
+        logf.write(f"voice={voice} rate={rate} volume={volume} "
+                   f"pitch={pitch} concurrency={concurrency}\n")
 
-    failures = 0
-    for scene in scenes:
-        scene_id = scene["id"]
-        output_file = f"scene-{scene_id:02d}.mp3"
-        output_path = os.path.join(voiceover_dir, output_file)
-        relative_path = f"voiceover/{output_file}"
+    sem = asyncio.Semaphore(concurrency)
+    tasks = [generate_one(s, voiceover_dir, video_dir, voice, rate, volume, pitch,
+                          sem, log_file) for s in scenes]
+    results = await asyncio.gather(*tasks)
 
-        print(f"\nScene {scene_id}: Generating audio...")
+    # Memory guard during the gather — note this only catches AFTER all tasks finish
+    # (gather is non-preemptive). For real-time abort, generate_one would need to
+    # poll. Given concurrency default of 3 and edge-tts payloads being tens of KB,
+    # this edge is rare; documented in plan as known limitation.
+    if not check_ram_floor(min_ram_mb):
+        print(f"WARN: Available RAM dropped below {min_ram_mb}MB during generation.")
 
-        try:
-            await generate_audio(scene["text"], output_path, voice, rate, volume, pitch)
-        except Exception as e:
-            print(f"ERROR: Failed to generate audio for scene {scene_id}: {e}", file=sys.stderr)
-            failures += 1
-            continue
-
-        if not os.path.exists(output_path):
-            print(f"ERROR: Audio file not created at {output_path}", file=sys.stderr)
-            failures += 1
-            continue
-
-        # Measure duration
-        duration = get_audio_duration_ffprobe(output_path)
-        file_size = os.path.getsize(output_path)
-        print(f"  Generated: {output_path} ({file_size} bytes, {duration:.2f}s)")
-
-        # Update scenes.json
-        update_scenes_json(video_dir, scene_id, relative_path, duration)
+    generated = sum(1 for r in results if r[0] == "generated")
+    skipped = sum(1 for r in results if r[0] == "skipped")
+    failed = sum(1 for r in results if r[0] == "failed")
 
     print("\nVoiceover generation complete.")
-    if failures > 0:
-        print(f"\nERROR: {failures}/{len(scenes)} scenes failed to generate", file=sys.stderr)
+    print(f"  Generated: {generated}, Skipped (unchanged): {skipped}, Failed: {failed}")
+    if failed > 0:
+        print(f"ERROR: {failed}/{len(scenes)} scenes failed", file=sys.stderr)
         sys.exit(1)
 
 

@@ -1,16 +1,18 @@
 {
-  "video": {
-    "fps": 30,
-    "width": 1920,
-    "height": 1080,
-    "target_scene_duration_seconds": 10
-  },
-  "voiceover": {
-    "voice": "en-GB-RyanNeural",
-    "rate": "+0%",
-    "volume": "+0%",
-    "pitch": "+0Hz"
-  },
+    "video": {
+        "fps": 30,
+        "width": 1920,
+        "height": 1080,
+        "target_scene_duration_seconds": 10,
+        "burn_captions": false
+    },
+    "voiceover": {
+        "voice": "en-GB-RyanNeural",
+        "rate": "+0%",
+        "volume": "+0%",
+        "pitch": "+0Hz",
+        "concurrency": 3
+    },
   "render": {
     "concurrency": 1,
     "gl_backend": "swangle",

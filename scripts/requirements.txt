@@ -1,0 +1,3 @@
+edge-tts>=6.1.0
+jsonschema>=4.0.0
+psutil>=5.9.0

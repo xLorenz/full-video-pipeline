@@ -18,18 +18,30 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Make scripts/ importable so we can use the shared lib + validate.py
+sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+import _pipeline_lib as pl  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "pipeline_state.schema.json"
 
+# Re-export commonly used helpers from the shared lib so existing code reads cleanly
+video_dir = pl.video_dir
+state_path = pl.state_path
+scenes_json_path = pl.scenes_json_path
+load_state = pl.load_state
+save_state = pl.save_state
+load_scenes = pl.load_scenes
+load_pipeline_config = pl.load_config
+now_iso = pl.now_iso
+sanitize_title = pl.sanitize_title
+CmdError = pl.CmdError
 
-class CmdError(Exception):
-    """Raised when a subprocess command fails."""
-    def __init__(self, returncode, cmd):
-        self.returncode = returncode
-        self.cmd = cmd
-        super().__init__(f"Command failed (exit {returncode}): {cmd}")
+
+def run_cmd(cmd, cwd=None, check=True, logpath=None):
+    return pl.run_cmd(cmd, cwd=cwd, check=check, logpath=logpath)
 
 STEP_KEYS = [
     "1_topic_selection",
@@ -100,83 +112,19 @@ SKIP_INSTRUCTIONS = {
         "Implement the Remotion project code.\n"
         "  1. Load skills/remotion-best-practices skill references.\n"
         "  2. Write remotion/PLAN.md with implementation plan.\n"
-        "  3. Copy voiceover files to remotion/public/voiceover/.\n"
+        "  3. Copy voiceover files to remotion/public/voiceover/ (reference only).\n"
         "  4. Write src/Root.tsx with single <Composition id=\"MainVideo\">.\n"
         "  5. Write src/lib/config.ts, src/lib/styles.ts.\n"
         "  6. Write shared components in src/components/.\n"
         "  7. Write each scene component in src/scenes/SceneXX.tsx.\n"
-        "  8. Verify: cd remotion && npm run lint\n"
+        "  IMPORTANT: scenes render SILENT video. Do NOT use <Audio> —\n"
+        "  voiceover is muxed at stitch time by scripts/assemble.py.\n"
+        "  Optional burned-in captions: render <Captions> from scene.captions\n"
+        "  when scene.showCaptions is true (set per-video via video.burn_captions).\n"
+        "  8. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
 }
-
-
-def load_pipeline_config():
-    """Load global pipeline configuration."""
-    if not PIPELINE_CONFIG.exists():
-        print(f"WARNING: pipeline_config.json not found at {PIPELINE_CONFIG}")
-        return {}
-    with open(PIPELINE_CONFIG, "r") as f:
-        return json.load(f)
-
-
-def video_dir(title):
-    return REPO_ROOT / "videos" / title
-
-
-def state_path(title):
-    return video_dir(title) / "pipeline_state.json"
-
-
-def scenes_json_path(title):
-    return video_dir(title) / "scenes.json"
-
-
-def load_state(title):
-    p = state_path(title)
-    if not p.exists():
-        print(f"ERROR: No pipeline_state.json found for '{title}'")
-        print(f"  Expected at: {p}")
-        sys.exit(1)
-    with open(p, "r") as f:
-        return json.load(f)
-
-
-def save_state(title, state):
-    p = state_path(title)
-    with open(p, "w") as f:
-        json.dump(state, f, indent=2)
-
-
-def now_iso():
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def sanitize_title(title):
-    """Convert title to safe directory name."""
-    safe = title.lower()
-    safe = re.sub(r"[^a-z0-9]+", "-", safe)
-    safe = safe.strip("-")
-    if not safe:
-        raise ValueError(f"Title '{title}' produces empty directory name after sanitization")
-    return safe
-
-
-def run_cmd(cmd, cwd=None, check=True):
-    """Run a shell command and stream output."""
-    print(f"  $ {cmd}")
-    result = subprocess.run(
-        cmd, shell=True, cwd=cwd,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-    )
-    if result.stdout:
-        for line in result.stdout.rstrip().split("\n"):
-            print(f"  | {line}")
-    if check and result.returncode != 0:
-        print(f"  ERROR: Command failed with exit code {result.returncode}")
-        raise CmdError(result.returncode, cmd)
-    return result
-
 
 # ---------------------------------------------------------------------------
 # NEW subcommand
@@ -301,19 +249,24 @@ def cmd_new(args):
         '        fps: FPS,\n'
         '        width: WIDTH,\n'
         '        height: HEIGHT,\n'
+        '        burnCaptions: false,\n'
         '      } as VideoProps}\n'
         '    />\n'
         '  );\n'
         '};\n'
     )
 
-    # Create placeholder MainVideo component
+    # Create MainVideo component.
+    # NOTE: scenes render SILENT video. Voiceover is muxed at stitch time
+    # by scripts/assemble.py. The Captions layer is rendered only when
+    # burnCaptions=true (set via props from pipeline_config.json).
     (rdir / "src" / "components" / "MainVideo.tsx").write_text(
         'import React, { useMemo } from "react";\n'
         'import { AbsoluteFill, Sequence } from "remotion";\n'
-        'import type { VideoProps } from "remotion-foundation";\n'
+        'import { Captions } from "remotion-foundation";\n'
+        'import type { SceneTiming, VideoProps } from "remotion-foundation";\n'
         '\n'
-        'const SCENE_COMPONENTS: Record<number, React.LazyExoticComponent<React.FC>> = {};\n'
+        'const SCENE_COMPONENTS: Record<number, React.LazyExoticComponent<React.FC<{ scene: SceneTiming }>>> = {};\n'
         '\n'
         'function getSceneComponent(id: number) {\n'
         '  if (!SCENE_COMPONENTS[id]) {\n'
@@ -325,7 +278,7 @@ def cmd_new(args):
         '  return SCENE_COMPONENTS[id];\n'
         '}\n'
         '\n'
-        'export const MainVideo: React.FC<VideoProps> = ({ scenes }) => {\n'
+        'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
         '  const offsets = useMemo(() => {\n'
         '    const result: number[] = [];\n'
         '    let offset = 0;\n'
@@ -340,6 +293,7 @@ def cmd_new(args):
         '    <AbsoluteFill>\n'
         '      {scenes.map((scene, i) => {\n'
         '        const SceneComponent = getSceneComponent(scene.id);\n'
+        '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
         '        return (\n'
         '          <Sequence\n'
         '            key={scene.id}\n'
@@ -347,8 +301,11 @@ def cmd_new(args):
         '            durationInFrames={scene.durationInFrames}\n'
         '          >\n'
         '            <React.Suspense fallback={null}>\n'
-        '              <SceneComponent />\n'
+        '              <SceneComponent scene={scene} />\n'
         '            </React.Suspense>\n'
+        '            {showCaptions && (\n'
+        '              <Captions cues={scene.captions!} fps={fps} />\n'
+        '            )}\n'
         '          </Sequence>\n'
         '        );\n'
         '      })}\n'
@@ -409,29 +366,34 @@ def find_next_step(state):
 
 
 def run_step_5(title, vdir):
-    """Voiceover generation."""
+    """Voiceover generation. Idempotent — unchanged scenes are skipped."""
     print("--- Running Step 5: Voiceover Generation ---")
-    config = load_pipeline_config()
-    voice = config.get("voiceover", {}).get("voice", "en-GB-RyanNeural")
+    cfg = load_pipeline_config()
+    voice = cfg.get("voiceover", {}).get("voice", "en-GB-RyanNeural")
+    log_file = pl.log_path(title, 5)
     run_cmd(f"python3 scripts/generate_voiceover.py videos/{title}/ --voice {voice}",
-            cwd=REPO_ROOT)
+            cwd=REPO_ROOT, logpath=log_file)
 
     # Verify output
     scenes = load_scenes(title)
+    missing = []
     for s in scenes:
         vf = vdir / (s.get("voiceover_file") or "")
         if not vf.exists():
-            print(f"  WARNING: Voiceover file missing for scene {s['id']}: {vf}")
+            missing.append(s["id"])
+    if missing:
+        print(f"  WARNING: Voiceover file missing for scenes: {missing}")
+        return False
     return True
 
 
 def run_step_6(title, vdir):
     """Duration measurement."""
     print("--- Running Step 6: Duration Measurement ---")
+    log_file = pl.log_path(title, 6)
     run_cmd(f"python3 scripts/measure_durations.py videos/{title}/",
-            cwd=REPO_ROOT)
+            cwd=REPO_ROOT, logpath=log_file)
 
-    # Verify all durations are populated
     scenes = load_scenes(title)
     for s in scenes:
         if s.get("actual_duration_frames") is None:
@@ -440,37 +402,104 @@ def run_step_6(title, vdir):
     return True
 
 
+def lint_gate(title, vdir):
+    """Run Remotion lint + typecheck before rendering. Returns (ok, error)."""
+    rdir = vdir / "remotion"
+    if not (rdir / "package.json").exists():
+        return False, "remotion/package.json not found"
+    print("--- Pre-render lint/typecheck gate ---")
+    r1 = run_cmd("npm run lint", cwd=rdir, check=False,
+                 logpath=pl.log_path(title, 9, scene_id=0))
+    if r1.returncode != 0:
+        return False, "npm run lint failed"
+    r2 = run_cmd("npx tsc --noEmit", cwd=rdir, check=False,
+                 logpath=pl.log_path(title, 9, scene_id=0))
+    if r2.returncode != 0:
+        return False, "tsc --noEmit failed"
+    # Confirm MainVideo composition is registered
+    r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
+                 logpath=pl.log_path(title, 9, scene_id=0))
+    if r3.returncode != 0 or "MainVideo" not in (r3.stdout or ""):
+        return False, "MainVideo composition not found via `remotion compositions`"
+    return True, "lint/typecheck/compositions OK"
+
+
 def run_step_9(title, vdir):
-    """Scene rendering — one scene at a time."""
+    """Scene rendering — one scene at a time. Resumable, non-fatal per-scene.
+
+    Lint/typecheck gate runs once before the loop. If a scene render fails,
+    record render_attempts += 1 and last_render_error, then CONTINUE to the
+    next scene. Returns True only if every scene's render_status == "rendered"
+    by the end of the loop.
+    """
     print("--- Running Step 9: Scene Rendering ---")
+
+    # Lint gate (fail fast before any render work)
+    ok, msg = lint_gate(title, vdir)
+    if not ok:
+        print(f"  LINT GATE FAILED: {msg}")
+        return False
+    print(f"  Lint gate: {msg}")
+
     scenes = load_scenes(title)
+    failed_scenes = []
     for s in scenes:
         sid = s["id"]
-        status = s.get("render_status", "pending")
-        if status == "rendered":
+        if s.get("render_status") == "rendered":
             print(f"  Scene {sid}: already rendered, skipping")
             continue
         print(f"\n  Rendering scene {sid}/{len(scenes)}: {s.get('title', '')}")
-        run_cmd(f"bash scripts/render_scene.sh videos/{title}/ {sid}",
-                cwd=REPO_ROOT)
+        # render_scene.py never raises for render failures; it returns exit 1.
+        # Wrap anyway in case of unexpected exception.
+        try:
+            r = run_cmd(f"python3 scripts/render_scene.py videos/{title}/ {sid}",
+                        cwd=REPO_ROOT, check=False,
+                        logpath=pl.log_path(title, 9, scene_id=sid))
+            if r.returncode != 0:
+                failed_scenes.append(sid)
+        except Exception as e:
+            print(f"  ERROR rendering scene {sid}: {type(e).__name__}: {e}")
+            failed_scenes.append(sid)
+
+    # Re-load to inspect statuses
+    scenes = load_scenes(title)
+    still_failed = [s["id"] for s in scenes if s.get("render_status") != "rendered"]
+    if still_failed:
+        print(f"\n  Scenes not rendered: {still_failed}")
+        print(f"  Re-run `./pipeline.py continue {title}` to retry failed scenes.")
+        return False
     return True
 
 
 def run_step_10(title, vdir):
-    """Stitching — new efficient path via assemble.py."""
+    """Stitching — single ffmpeg pass via assemble.py."""
     print("--- Running Step 10: Stitching (assemble.py) ---")
     run_cmd(f"python3 scripts/assemble.py videos/{title}/",
-            cwd=REPO_ROOT)
+            cwd=REPO_ROOT, logpath=pl.log_path(title, 10))
+
+    final_dir = vdir / "versions"
+    if not final_dir.exists() or not list(final_dir.glob("*.mp4")):
+        print("  ERROR: No final MP4 in versions/")
+        return False
     return True
 
 
 def load_scenes(title):
-    p = scenes_json_path(title)
-    if not p.exists():
-        return []
-    with open(p, "r") as f:
-        data = json.load(f)
-    return data.get("scenes", [])
+    return pl.load_scenes(title)
+
+
+# ---------------------------------------------------------------------------
+# Validation helper
+# ---------------------------------------------------------------------------
+
+def validate_project(title):
+    """Run scripts/validate.py on this video's scenes/state. Returns (ok, errors)."""
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
+         str(video_dir(title))],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
 def cmd_continue(args):
@@ -479,13 +508,22 @@ def cmd_continue(args):
 
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
-        sys.exit(1)
+        sys.exit(2)
 
     state = load_state(title)
-    step_num, step_key = find_next_step(state)
 
+    # Schema validation gate: refuse to run automated steps on invalid state.
+    ok, errs = validate_project(title)
+    if not ok:
+        print("VALIDATION FAILED — refusing to continue:")
+        print(errs)
+        sys.exit(1)
+    print("Validation OK.")
+
+    step_num, step_key = find_next_step(state)
     if step_num is None:
         print(f"All steps complete for '{title}'!")
+        # Still validate post-completion so a hand-edit is caught.
         return
 
     step_name = STEP_NAMES.get(step_key, step_key)
@@ -497,12 +535,16 @@ def cmd_continue(args):
         print(SKIP_INSTRUCTIONS[step_key])
         return
 
-    # Mark step as in-progress
-    state["steps"][step_key]["status"] = "in_progress"
+    # Record attempt BEFORE the run
+    step_state = state["steps"][step_key]
+    step_state["status"] = "in_progress"
+    step_state["attempts"] = (step_state.get("attempts", 0) or 0) + 1
+    step_state["last_attempt_at"] = now_iso()
     save_state(title, state)
 
     # Run the step
     success = False
+    error_msg = None
     try:
         if step_key == "5_voiceover_generation":
             success = run_step_5(title, vdir)
@@ -513,20 +555,27 @@ def cmd_continue(args):
         elif step_key == "10_stitching":
             success = run_step_10(title, vdir)
     except CmdError as e:
+        error_msg = f"CmdError: {e}"
         print(f"\n  ERROR: Command failed with exit code {e.returncode}")
-        success = False
     except Exception as e:
-        print(f"\n  ERROR: {type(e).__name__}: {e}")
+        error_msg = f"{type(e).__name__}: {e}"
+        print(f"\n  ERROR: {error_msg}")
+
+    # Re-validate after write (catches malformed writes immediately)
+    post_ok, post_errs = validate_project(title)
+    if success and not post_ok:
         success = False
+        error_msg = f"post-step validation failed: {post_errs}"
+        print(f"\n  ERROR: {error_msg}")
 
     if success:
         state["steps"][step_key]["status"] = "complete"
         state["steps"][step_key]["completed_at"] = now_iso()
+        state["steps"][step_key]["last_error"] = None
         state["current_step"] = min(step_num + 1, 10)
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
-        # Check if there's a next step
         next_num, next_key = find_next_step(state)
         if next_num is None:
             print("\nAll steps complete! Final video is in versions/.")
@@ -538,9 +587,13 @@ def cmd_continue(args):
             print(f"Run: ./pipeline.py continue {title}")
     else:
         state["steps"][step_key]["status"] = "failed"
-        state["steps"][step_key]["error"] = "Step failed, check output above"
+        state["steps"][step_key]["last_error"] = (error_msg or "Step failed, see logs")
+        # Keep legacy `error` field in sync for older readers
+        state["steps"][step_key]["error"] = state["steps"][step_key]["last_error"]
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) FAILED ===")
+        print(f"  Last error: {state['steps'][step_key]['last_error']}")
+        print(f"  Logs in: videos/{title}/logs/")
         sys.exit(1)
 
 
@@ -560,20 +613,21 @@ def show_status_for_title(title):
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
-        sys.exit(1)
+        sys.exit(2)
 
     state = load_state(title)
     print(f"=== Pipeline Status: {title} ===")
     print(f"  Current step: {state.get('current_step', '?')}")
     print()
-    print(f"  {'Step':<5} {'Name':<28} {'Status':<12} {'Completed'}")
-    print(f"  {'-----':<5} {'----------------------------':<28} {'------------':<12} {'--------------------':<20}")
+    print(f"  {'Step':<5} {'Name':<28} {'Status':<12} {'Attempts':<10} {'Completed/LastErr'}")
+    print(f"  {'-----':<5} {'----------------------------':<28} {'------------':<12} {'----------':<10} {'--------------------'}")
     for i, key in enumerate(STEP_KEYS, start=1):
         step = state["steps"].get(key, {})
         status = step.get("status", "pending")
-        completed = step.get("completed_at", "")
+        attempts = step.get("attempts", 0)
+        col = step.get("completed_at") or (step.get("last_error") or "")[:50]
         icon = {"complete": "[OK]", "in_progress": "[>>]", "failed": "[!!]", "pending": "[--]"}.get(status, "[??]")
-        print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status:<10} {completed}")
+        print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status:<10} {attempts:<10} {col}")
 
 
 def show_all_statuses():
@@ -587,7 +641,7 @@ def show_all_statuses():
         if d.is_dir():
             sp = d / "pipeline_state.json"
             if sp.exists():
-                with open(sp, "r") as f:
+                with open(sp, "r", encoding="utf-8") as f:
                     state = json.load(f)
                 step = state.get("current_step", "?")
                 entries.append((d.name, step))
@@ -601,6 +655,110 @@ def show_all_statuses():
     print(f"  {'-'*50} {'-'*5}")
     for name, step in entries:
         print(f"  {name:<50} {step}")
+
+
+# ---------------------------------------------------------------------------
+# VALIDATE subcommand
+# ---------------------------------------------------------------------------
+
+def cmd_validate(args):
+    title = sanitize_title(args.title)
+    if not video_dir(title).exists():
+        print(f"ERROR: Video directory not found: {video_dir(title)}")
+        sys.exit(2)
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
+         str(video_dir(title))],
+        cwd=REPO_ROOT,
+    )
+    sys.exit(p.returncode)
+
+
+# ---------------------------------------------------------------------------
+# PREVIEW subcommand — quick low-res render of scene 1 as a smoke test
+# ---------------------------------------------------------------------------
+
+def cmd_preview(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    rdir = vdir / "remotion"
+    if not (rdir / "package.json").exists():
+        print(f"ERROR: {rdir}/package.json not found (run step 8 first)")
+        sys.exit(2)
+
+    # Lint gate before previewing
+    ok, msg = lint_gate(title, vdir)
+    if not ok:
+        print(f"LINT GATE FAILED: {msg}")
+        sys.exit(1)
+
+    cfg = load_pipeline_config()
+    r = cfg.get("render", {})
+    node_max_old = r.get("node_max_old_space_size_mb", 384)
+    gl_backend = r.get("gl_backend", "swangle")
+    timeout_ms = r.get("timeout_ms", 60000)
+
+    import os as _os
+    _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
+
+    out_dir = vdir / ".preview"
+    out_dir.mkdir(exist_ok=True)
+    out_file = out_dir / "preview-scene-01.mp4"
+
+    # Render only the first 20 frames (≤ ~0.7s) at low quality as a smoke render.
+    scenes = load_scenes(title)
+    if not scenes:
+        print("ERROR: no scenes in scenes.json")
+        sys.exit(2)
+    first = scenes[0]
+    if not first.get("actual_duration_frames"):
+        print("ERROR: scene 1 missing actual_duration_frames (run step 6 first)")
+        sys.exit(2)
+    frame_end = min(20, first["actual_duration_frames"])
+
+    print(f"Previewing scene 1, frames 0-{frame_end} -> {out_file}")
+    cmd = (
+        f"npx remotion render src/Root.tsx MainVideo \"{out_file}\" "
+        f"--frames=0-{frame_end} "
+        f"--concurrency 1 "
+        f"--gl={gl_backend} "
+        f"--image-format jpeg --jpeg-quality 60 "
+        f"--codec h264 --x264-preset ultrafast --crf 35 "
+        f"--disallow-parallel-encoding "
+        f"--timeout {timeout_ms} "
+        f"--overwrite --log=warn"
+    )
+    r1 = run_cmd(cmd, cwd=rdir, check=False,
+                 logpath=pl.log_path(title, 9, scene_id="preview"))
+    if r1.returncode != 0 or not out_file.exists():
+        print("PREVIEW FAILED")
+        sys.exit(1)
+    print(f"\nPreview rendered: {out_file}")
+    print("  Copy/SCP out and play locally to verify visual correctness.")
+
+
+# ---------------------------------------------------------------------------
+# CAPTIONS subcommand — generate SRT sidecar + populate scene caption cues
+# ---------------------------------------------------------------------------
+
+def cmd_captions(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    if not (vdir / "scenes.json").exists():
+        print(f"ERROR: scenes.json not found at {vdir / 'scenes.json'}")
+        sys.exit(2)
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate_captions.py"),
+         str(vdir)],
+        cwd=REPO_ROOT,
+    )
+    sys.exit(p.returncode)
 
 
 # ---------------------------------------------------------------------------
@@ -624,6 +782,15 @@ def main():
     status_p = sub.add_parser("status", help="Show pipeline state")
     status_p.add_argument("title", nargs="?", help="Video title (omit to show all)")
 
+    validate_p = sub.add_parser("validate", help="Validate scenes.json + pipeline_state.json against schemas")
+    validate_p.add_argument("title", help="Video title")
+
+    preview_p = sub.add_parser("preview", help="Quick low-res smoke render of scene 1")
+    preview_p.add_argument("title", help="Video title")
+
+    captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
+    captions_p.add_argument("title", help="Video title")
+
     args = parser.parse_args()
 
     if args.command == "new":
@@ -632,9 +799,15 @@ def main():
         cmd_continue(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "validate":
+        cmd_validate(args)
+    elif args.command == "preview":
+        cmd_preview(args)
+    elif args.command == "captions":
+        cmd_captions(args)
     else:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
