@@ -5,3 +5,7 @@ dist/
 .DS_Store
 Thumbs.db
 videos/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

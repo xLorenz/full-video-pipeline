@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Pipeline State",
-  "description": "Tracks progress through the 10-step video pipeline",
+  "description": "Tracks progress through the 13-step video pipeline (10 original + 11 metadata + 12 thumbnail + 13 thumbnail-render)",
   "type": "object",
   "required": ["video_title", "current_step", "steps"],
   "properties": {
@@ -12,8 +12,8 @@
     "current_step": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 10,
-      "description": "Currently active pipeline step (1-10)"
+      "maximum": 13,
+      "description": "Currently active pipeline step (1-13)"
     },
     "steps": {
       "type": "object",
@@ -27,7 +27,10 @@
         "7_style_definition",
         "8_remotion_coding",
         "9_scene_rendering",
-        "10_stitching"
+        "10_stitching",
+        "11_metadata_generation",
+        "12_thumbnail_generation",
+        "13_thumbnail_rendering"
       ],
       "properties": {
         "1_topic_selection": { "$ref": "#/definitions/stepStatus" },
@@ -39,7 +42,10 @@
         "7_style_definition": { "$ref": "#/definitions/stepStatus" },
         "8_remotion_coding": { "$ref": "#/definitions/stepStatus" },
         "9_scene_rendering": { "$ref": "#/definitions/stepStatus" },
-        "10_stitching": { "$ref": "#/definitions/stepStatus" }
+        "10_stitching": { "$ref": "#/definitions/stepStatus" },
+        "11_metadata_generation": { "$ref": "#/definitions/stepStatus" },
+        "12_thumbnail_generation": { "$ref": "#/definitions/stepStatus" },
+        "13_thumbnail_rendering": { "$ref": "#/definitions/stepStatus" }
       }
     }
   },

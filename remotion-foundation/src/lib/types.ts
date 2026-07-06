@@ -42,3 +42,17 @@ export interface AnimationConfig {
   duration?: number;
   easing?: "ease-out" | "ease-in" | "linear";
 }
+
+export interface PaletteColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  text: string;
+}
+
+export interface ThumbnailProps {
+  title: string;
+  subtitle: string;
+  palette: PaletteColors;
+}

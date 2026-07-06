@@ -116,7 +116,13 @@ def load_state(title):
     if not p.exists():
         return None
     with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)
+        state = json.load(f)
+    # Backfill missing step keys for schema compatibility
+    if "steps" in state:
+        for key in STEP_KEYS:
+            if key not in state["steps"]:
+                state["steps"][key] = {"status": "pending"}
+    return state
 
 
 def save_state(title, state):
@@ -239,9 +245,11 @@ STEP_KEYS = [
     "4_voiceover_writing", "5_voiceover_generation",
     "6_duration_measurement", "7_style_definition",
     "8_remotion_coding", "9_scene_rendering", "10_stitching",
+    "11_metadata_generation", "12_thumbnail_generation",
+    "13_thumbnail_rendering",
 ]
 
 AUTOMATED_STEPS = {
     "5_voiceover_generation", "6_duration_measurement",
-    "9_scene_rendering", "10_stitching",
+    "9_scene_rendering", "10_stitching", "13_thumbnail_rendering",
 }

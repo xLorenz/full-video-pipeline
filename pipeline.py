@@ -54,6 +54,9 @@ STEP_KEYS = [
     "8_remotion_coding",
     "9_scene_rendering",
     "10_stitching",
+    "11_metadata_generation",
+    "12_thumbnail_generation",
+    "13_thumbnail_rendering",
 ]
 
 STEP_NAMES = {
@@ -67,10 +70,14 @@ STEP_NAMES = {
     "8_remotion_coding": "Remotion Code Writing",
     "9_scene_rendering": "Scene Rendering",
     "10_stitching": "Stitching",
+    "11_metadata_generation": "Metadata Generation",
+    "12_thumbnail_generation": "Thumbnail Generation",
+    "13_thumbnail_rendering": "Thumbnail Rendering",
 }
 
 SKIP_STEPS = {"1_topic_selection", "2_research", "3_script_writing",
-              "4_voiceover_writing", "7_style_definition", "8_remotion_coding"}
+              "4_voiceover_writing", "7_style_definition", "8_remotion_coding",
+              "11_metadata_generation", "12_thumbnail_generation"}
 
 SKIP_INSTRUCTIONS = {
     "1_topic_selection": (
@@ -124,6 +131,34 @@ SKIP_INSTRUCTIONS = {
         "  8. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
+    "11_metadata_generation": (
+        "Generate YouTube title, description, and tags for the stitched video.\n"
+        "  1. Read SKILL.md Step 11 section for full guidance.\n"
+        "  2. Load claude-youtube sub-skill at:\n"
+        "     skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md\n"
+        "  3. Also load the SEO playbook reference:\n"
+        "     skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md\n"
+        "  4. Read the final stitched video info from versions/ directory.\n"
+        "  5. Write TITLE.md (3 title variants), DESCRIPTION.md (<5000 chars\n"
+        "     with timestamps matching scenes.json durations), TAGS.md (10-15\n"
+        "     tags, <500 chars).\n"
+        "  Then run: ./pipeline.py continue <title>"
+    ),
+    "12_thumbnail_generation": (
+        "Write the Thumbnail.tsx Remotion component (no AI images).\n"
+        "  1. Read SKILL.md Step 12 section for full guidance.\n"
+        "  2. Load claude-youtube thumbnail sub-skill for the design brief:\n"
+        "     skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md\n"
+        "  3. Also load the thumbnail CTR guide:\n"
+        "     skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md\n"
+        "  4. Read TITLE.md, DESCRIPTION.md, STYLES.md, and scenes.json for context.\n"
+        "  5. Write src/components/Thumbnail.tsx using ONLY Remotion primitives\n"
+        "     (<Img> may only reference local staticFile() assets — no external\n"
+        "     URLs, no AI-generated images). Use shapes, text, gradients.\n"
+        "  6. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
+        "  DO NOT use any AI image generation. Thumbnail must be pure Remotion.\n"
+        "  Then run: ./pipeline.py continue <title>"
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -153,6 +188,7 @@ def cmd_new(args):
         rdir / "src" / "scenes",
         rdir / "src" / "components",
         rdir / "public" / "voiceover",
+        rdir / "public" / "thumbnails",
         vdir / "voiceover",
         vdir / "scenes",
         vdir / "versions",
@@ -220,38 +256,60 @@ def cmd_new(args):
         f'export const HEIGHT = {height};\n'
     )
 
-    # Create Root.tsx — single composition with calculateMetadata
+    # Create Root.tsx — MainVideo composition + Thumbnail still composition
     (rdir / "src" / "Root.tsx").write_text(
         'import React from "react";\n'
         'import { Composition } from "remotion";\n'
-        'import type { VideoProps } from "remotion-foundation";\n'
+        'import type { VideoProps, ThumbnailProps } from "remotion-foundation";\n'
         'import { FPS, WIDTH, HEIGHT } from "./lib/config";\n'
         'import { MainVideo } from "./components/MainVideo";\n'
+        'import { Thumbnail } from "./components/Thumbnail";\n'
         '\n'
         'export const RemotionRoot: React.FC = () => {\n'
         '  return (\n'
-        '    <Composition\n'
-        '      id="MainVideo"\n'
-        '      component={MainVideo}\n'
-        '      calculateMetadata={async ({ props }) => {\n'
-        '        const totalFrames = props.scenes.reduce(\n'
-        '          (sum, s) => sum + s.durationInFrames, 0\n'
-        '        );\n'
-        '        return {\n'
-        '          durationInFrames: totalFrames,\n'
-        '          fps: props.fps,\n'
-        '          width: props.width,\n'
-        '          height: props.height,\n'
-        '        };\n'
-        '      }}\n'
-        '      defaultProps={{\n'
-        '        scenes: [],\n'
-        '        fps: FPS,\n'
-        '        width: WIDTH,\n'
-        '        height: HEIGHT,\n'
-        '        burnCaptions: false,\n'
-        '      } as VideoProps}\n'
-        '    />\n'
+        '    <>\n'
+        '      <Composition\n'
+        '        id="MainVideo"\n'
+        '        component={MainVideo}\n'
+        '        calculateMetadata={async ({ props }) => {\n'
+        '          const totalFrames = props.scenes.reduce(\n'
+        '            (sum, s) => sum + s.durationInFrames, 0\n'
+        '          );\n'
+        '          return {\n'
+        '            durationInFrames: totalFrames,\n'
+        '            fps: props.fps,\n'
+        '            width: props.width,\n'
+        '            height: props.height,\n'
+        '          };\n'
+        '        }}\n'
+        '        defaultProps={{\n'
+        '          scenes: [],\n'
+        '          fps: FPS,\n'
+        '          width: WIDTH,\n'
+        '          height: HEIGHT,\n'
+        '          burnCaptions: false,\n'
+        '        } as VideoProps}\n'
+        '      />\n'
+        '      <Composition\n'
+        '        id="Thumbnail"\n'
+        '        component={Thumbnail}\n'
+        '        durationInFrames={1}\n'
+        '        fps={30}\n'
+        '        width={WIDTH}\n'
+        '        height={HEIGHT}\n'
+        '        defaultProps={{\n'
+        '          title: "Video Title",\n'
+        '          subtitle: "",\n'
+        '          palette: {\n'
+        '            primary: "#0F1B2D",\n'
+        '            secondary: "#00BFA6",\n'
+        '            accent: "#FFB300",\n'
+        '            background: "#0A1220",\n'
+        '            text: "#FFFFFF",\n'
+        '          },\n'
+        '        } as ThumbnailProps}\n'
+        '      />\n'
+        '    </>\n'
         '  );\n'
         '};\n'
     )
@@ -309,6 +367,51 @@ def cmd_new(args):
         '          </Sequence>\n'
         '        );\n'
         '      })}\n'
+        '    </AbsoluteFill>\n'
+        '  );\n'
+        '};\n'
+    )
+
+    # Create Thumbnail.tsx stub — the agent fills this in during Step 12
+    (rdir / "src" / "components" / "Thumbnail.tsx").write_text(
+        'import React from "react";\n'
+        'import { AbsoluteFill } from "remotion";\n'
+        'import type { ThumbnailProps } from "remotion-foundation";\n'
+        '\n'
+        'export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {\n'
+        '  return (\n'
+        '    <AbsoluteFill\n'
+        '      style={{\n'
+        '        backgroundColor: palette.background,\n'
+        '        justifyContent: "center",\n'
+        '        alignItems: "center",\n'
+        '        fontFamily: "Inter, sans-serif",\n'
+        '      }}\n'
+        '    >\n'
+        '      <h1\n'
+        '        style={{\n'
+        '          color: palette.text,\n'
+        '          fontSize: 80,\n'
+        '          fontWeight: 700,\n'
+        '          textAlign: "center",\n'
+        '          margin: "0 80px",\n'
+        '          lineHeight: 1.1,\n'
+        '        }}\n'
+        '      >\n'
+        '        {title}\n'
+        '      </h1>\n'
+        '      {subtitle && (\n'
+        '        <p\n'
+        '          style={{\n'
+        '            color: palette.accent,\n'
+        '            fontSize: 36,\n'
+        '            fontWeight: 600,\n'
+        '            marginTop: 20,\n'
+        '          }}\n'
+        '        >\n'
+        '          {subtitle}\n'
+        '        </p>\n'
+        '      )}\n'
         '    </AbsoluteFill>\n'
         '  );\n'
         '};\n'
@@ -416,11 +519,14 @@ def lint_gate(title, vdir):
                  logpath=pl.log_path(title, 9, scene_id=0))
     if r2.returncode != 0:
         return False, "tsc --noEmit failed"
-    # Confirm MainVideo composition is registered
+    # Confirm compositions are registered
     r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
-    if r3.returncode != 0 or "MainVideo" not in (r3.stdout or ""):
+    compositions_out = r3.stdout or ""
+    if r3.returncode != 0 or "MainVideo" not in compositions_out:
         return False, "MainVideo composition not found via `remotion compositions`"
+    if "Thumbnail" not in compositions_out:
+        return False, "Thumbnail composition not found via `remotion compositions`"
     return True, "lint/typecheck/compositions OK"
 
 
@@ -480,6 +586,28 @@ def run_step_10(title, vdir):
     final_dir = vdir / "versions"
     if not final_dir.exists() or not list(final_dir.glob("*.mp4")):
         print("  ERROR: No final MP4 in versions/")
+        return False
+    return True
+
+
+def run_step_13(title, vdir):
+    """Thumbnail rendering via render_thumbnail.py. Idempotent — skips if already rendered."""
+    print("--- Running Step 13: Thumbnail Rendering ---")
+
+    # Run lint gate to ensure Thumbnail.tsx compiles + composition is registered
+    ok, msg = lint_gate(title, vdir)
+    if not ok:
+        print(f"  LINT GATE FAILED: {msg}")
+        return False
+    print(f"  Lint gate: {msg}")
+
+    log_file = pl.log_path(title, 13)
+    run_cmd(f"python3 scripts/render_thumbnail.py videos/{title}/",
+            cwd=REPO_ROOT, check=False, logpath=log_file)
+
+    final_dir = vdir / "versions"
+    if not final_dir.exists() or not list(final_dir.glob("*thumbnail*.png")):
+        print("  ERROR: No thumbnail PNG in versions/")
         return False
     return True
 
@@ -554,6 +682,8 @@ def cmd_continue(args):
             success = run_step_9(title, vdir)
         elif step_key == "10_stitching":
             success = run_step_10(title, vdir)
+        elif step_key == "13_thumbnail_rendering":
+            success = run_step_13(title, vdir)
     except CmdError as e:
         error_msg = f"CmdError: {e}"
         print(f"\n  ERROR: Command failed with exit code {e.returncode}")
@@ -572,13 +702,13 @@ def cmd_continue(args):
         state["steps"][step_key]["status"] = "complete"
         state["steps"][step_key]["completed_at"] = now_iso()
         state["steps"][step_key]["last_error"] = None
-        state["current_step"] = min(step_num + 1, 10)
+        state["current_step"] = min(step_num + 1, len(STEP_KEYS))
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
         next_num, next_key = find_next_step(state)
         if next_num is None:
-            print("\nAll steps complete! Final video is in versions/.")
+            print("\nAll steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.")
         elif next_key in SKIP_STEPS:
             print(f"\nNext: Step {next_num} ({STEP_NAMES[next_key]}) — requires creative input.")
             print(f"Run: ./pipeline.py continue {title}")

@@ -24,9 +24,10 @@ tools:
 
 # Full Video Pipeline — Autonomous YouTube Video Production
 
-> A 10-step pipeline that takes a topic idea and produces a fully rendered YouTube
-> video with voiceover, visuals, and audio. Each step is self-contained with clear
-> inputs, outputs, and validation.
+> A 13-step pipeline that takes a topic idea and produces a fully rendered YouTube
+> video with voiceover, visuals, audio, title/description/tags, and a Remotion-
+> generated thumbnail. Each step is self-contained with clear inputs, outputs,
+> and validation.
 
 ## Prerequisites
 
@@ -90,24 +91,30 @@ videos/{video-title}/
 ├── SCRIPT.md            # Full retention-optimized script
 ├── VOICEOVER.md         # Parseable voiceover text per scene
 ├── STYLES.md            # Visual style guide for Remotion
+├── TITLE.md             # 3 YouTube title variants (generated in Step 11)
+├── DESCRIPTION.md       # YouTube description with timestamps (Step 11)
+├── TAGS.md              # 10-15 YouTube tags (Step 11)
 ├── scenes.json          # Structured scene data (durations, status, files)
 ├── pipeline_state.json  # Pipeline progress tracker
 ├── voiceover_aligned.mp3  # Concatenated voiceover (created by assemble.py)
 ├── remotion/            # Remotion project (scaffolded per video)
 │   ├── PLAN.md          # Implementation plan before coding
 │   ├── src/
-│   │   ├── Root.tsx     # Single <Composition id="MainVideo">
+│   │   ├── Root.tsx     # Compositions: MainVideo + Thumbnail
 │   │   ├── components/
-│   │   │   └── MainVideo.tsx  # Sequence-based scene loader
+│   │   │   ├── MainVideo.tsx  # Sequence-based scene loader
+│   │   │   └── Thumbnail.tsx  # Thumbnail composition (written in Step 12)
 │   │   ├── lib/
-│   │   │   ├── types.ts   # SceneTiming, VideoProps
+│   │   │   ├── types.ts   # SceneTiming, VideoProps, ThumbnailProps
 │   │   │   ├── config.ts
 │   │   │   └── styles.ts
 │   │   └── scenes/
 │   └── public/
 ├── voiceover/           # Generated .mp3 files
 ├── scenes/              # Rendered .mp4 scene files
-└── versions/            # Final stitched .mp4 videos
+└── versions/            # Final stitched .mp4 + thumbnail .png
+    ├── {title}-v1.mp4
+    └── {title}-thumbnail-v1.png
 ```
 
 ## Pipeline Steps
@@ -565,6 +572,128 @@ The script:
 
 ---
 
+### STEP 11: Metadata Generation
+
+**Goal**: Generate YouTube title variants, description with chapters/timestamps, and tags for the stitched video.
+
+**Action**:
+
+1. Load the claude-youtube metadata sub-skill:
+   `skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md`
+2. Also load the SEO playbook reference:
+   `skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md`
+3. Read the stitched video output from `versions/` directory.
+4. Read `scenes.json` for accurate chapter timestamps based on actual scene durations.
+5. Produce the following files in the video directory:
+
+**TITLE.md** — 3 title variants (search-optimised, browse-optimised, hybrid):
+- All under 100 characters
+- Primary keyword in first 40 characters
+- Genuinely distinct strategies, not minor word swaps
+
+**DESCRIPTION.md** — Full 5000-char description:
+- Primary keyword in first 25 words
+- First 2 lines compelling standalone (visible before "Show More")
+- TIMESTAMPS section with accurate chapter markers matching `scenes.json` durations
+- Resource links, channel boilerplate, 3-5 hashtags at the bottom (not in title)
+
+**TAGS.md** — 10-15 comma-separated tags:
+- Exact target keyword first, then variations, then broad terms
+- Total under 500 characters
+
+**Output**: `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` in the video directory.
+
+**Validation**:
+- All title variants are under 100 characters.
+- Primary keyword appears in first 40 characters of every title.
+- Description has keyword in first 25 words.
+- Description under 5000 characters (verified).
+- Timestamps start at 0:00 with at least 3 chapters.
+- Tags under 500 characters total.
+- Hashtags in description body, never in title.
+- First 2 description lines work as standalone ad copy.
+
+---
+
+### STEP 12: Thumbnail Generation
+
+**Goal**: Write a Remotion `Thumbnail.tsx` composition (no AI-generated images).
+
+**CRITICAL RULE**: Do NOT use any AI image generation (NanoBanana, Midjourney, DALL-E, etc.).
+The thumbnail must be composed entirely of Remotion primitives: shapes, text,
+gradients, and optionally local `staticFile()` assets.
+
+**Action**:
+
+1. Load the claude-youtube thumbnail sub-skill for the design brief:
+   `skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md`
+2. Also load the thumbnail CTR guide:
+   `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md`
+3. Read `TITLE.md`, `DESCRIPTION.md`, `STYLES.md`, and `scenes.json` for context.
+4. Follow the thumbnail sub-skill's brief structure (information split, focal point,
+   ≤3-word text overlay, hex palette, mobile-legibility at 168×94px).
+5. Write `src/components/Thumbnail.tsx` using ONLY:
+   - `<AbsoluteFill>` for the container
+   - `<Img>` only for local assets via `staticFile()` (no external URLs)
+   - Native Remotion shapes (divs with CSS, gradients, borders)
+   - Text with proper typography from STYLES.md palette
+   - `interpolate()` / `spring()` if any animation is needed
+   - The `ThumbnailProps` interface from `remotion-foundation`:
+     `{ title: string, subtitle: string, palette: { primary, secondary, accent, background, text } }`
+6. Verify the composition compiles:
+   ```bash
+   cd videos/{video-title}/remotion
+   npm run lint
+   npx tsc --noEmit
+   ```
+7. The `Thumbnail` composition is already registered in `Root.tsx` — do NOT duplicate it.
+
+**Output**: `src/components/Thumbnail.tsx` in the per-video Remotion project.
+
+**Validation**:
+- No AI-generated image assets used.
+- No `fetch()` or external URLs in the component.
+- Component uses only the props passed via `ThumbnailProps`.
+- Text overlay ≤3 words (or as specified by the thumbnail brief).
+- Palette colors from STYLES.md or the brief, not hard-coded.
+- Composition passes `npm run lint` and `tsc --noEmit`.
+- `Thumbnail` composition appears in `npx remotion compositions src/Root.tsx` output.
+
+---
+
+### STEP 13: Thumbnail Rendering
+
+**Goal**: Render the Thumbnail composition to a PNG file via Remotion still.
+
+**Lint/typecheck gate**: `pipeline.py continue` runs `npm run lint`, `tsc --noEmit`,
+and `remotion compositions src/Root.tsx` before rendering. The gate now checks for
+both `MainVideo` and `Thumbnail` compositions. If either is missing, the step fails.
+
+**Action**:
+
+```bash
+python3 scripts/render_thumbnail.py videos/{video-title}/
+```
+
+The script:
+- Reads `TITLE.md` (or falls back to `scenes.json video_title`) for the title text
+- Reads `STYLES.md` for the color palette
+- Builds `ThumbnailProps` JSON from those values
+- Runs `npx remotion still src/Root.tsx Thumbnail <out.png> --frame=0` with the props
+- Writes output to `versions/{title}-thumbnail-v{N}.png` (auto-incremented)
+- Uses `--quality=100` for maximum PNG output quality
+- Records an append-only log to `videos/<title>/logs/step-13.log`
+
+**Output**: `versions/{video-title}-thumbnail-v{N}.png` — the deliverable thumbnail.
+
+**Validation**:
+- Output PNG exists and has non-zero size.
+- Resolution is 1280×720+ (matches the Remotion composition dimensions).
+- File is a valid PNG image.
+- Logs show no errors.
+
+---
+
 ## Error Recovery
 
 | Error | Recovery |
@@ -576,6 +705,9 @@ The script:
 | Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or clean up previous video projects. |
 | Schema validation fails | `pipeline.py continue` refuses to run automated steps. Run `pipeline.py validate <title>` to see the specific violations and fix the offending JSON. |
 | Lint gate fails before render | Fix the TypeScript/lint errors in the Remotion project (`cd videos/<title>/remotion && npm run lint`). `tsc --noEmit` errors must also be resolved. |
+| Metadata step fails | `pipeline.py continue` re-runs the creative Step 11. Check `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` are all present and valid. |
+| Thumbnail composition fails lint | Fix `Thumbnail.tsx` TypeScript/lint errors. Remove any AI image references. |
+| Thumbnail still render fails | The Step 13 render uses `npx remotion still`. Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions` check. |
 
 State forensics: each step's `pipeline_state.json` entry now carries
 `attempts`, `last_error`, and `last_attempt_at`. Scene-level failures record
@@ -605,14 +737,17 @@ Use `python3 pipeline.py continue {title}` to resume. The pipeline:
 1. Validates `scenes.json` + `pipeline_state.json` against the schemas
    (`scripts/validate.py`). Refuses to run automated steps on invalid state.
 2. Reads `pipeline_state.json` to find the last completed step.
-3. Runs the next automated step (5, 6, 9, or 10), or
-4. Prints instructions for creative steps (1-4, 7, 8).
+3. Runs the next automated step (5, 6, 9, 10, or 13), or
+4. Prints instructions for creative steps (1-4, 7, 8, 11, 12).
 5. Steps 5-6 involve file generation. Step 5 is idempotent — unchanged scenes
    are skipped. Step 6 measures all scenes (idempotent validation).
 6. Steps 7-8 involve code — `lint_gate` (lint + tsc) runs before Step 9.
 7. Steps 9-10 involve rendering — Step 9 resumes per-scene via
    `render_status: "rendered"` + new `render_attempts` tracking. Step 10
    always re-stitches atomically into a new versioned MP4.
+8. Step 11 is creative (title/description/tags written to files).
+9. Step 12 is creative (Thumbnail.tsx composition written).
+10. Step 13 runs automated with a lint gate before the still render.
 
 Logs append to `videos/<title>/logs/` across runs — review them after
 overnight failures. Schema violations cause immediate halt with a readable

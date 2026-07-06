@@ -14,6 +14,9 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 8. **Remotion Coding** — React-based video compositions per scene. Scenes render **silent video** — voiceover is muxed at stitch time, not baked into scene MP4s
 9. **Scene Rendering** — One scene at a time with hardware guardrails. Resumable per-scene (failed scenes track `render_attempts` and `last_render_error`)
 10. **Stitching** — Combine silent scene MP4s + concatenated voiceover MP3 into final MP4. One audio pass total
+11. **Metadata Generation** — YouTube title (3 variants), description (with chapters/timestamps), and tags using the claude-youtube SEO sub-skill
+12. **Thumbnail Generation** — Write a Remotion Thumbnail.tsx composition (pure Remotion primitives, no AI images)
+13. **Thumbnail Rendering** — Render the Thumbnail composition to a versioned PNG via `npx remotion still`
 
 ## Optional: Captions
 
@@ -83,6 +86,7 @@ full-video-pipeline/
 │   ├── measure_durations.py      # ffprobe duration measurement
 │   ├── render_scene.py           # Remotion renderer with psutil-based guardrails (Linux)
 │   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
+│   ├── render_thumbnail.py        # Remotion still render for YouTube thumbnail
 │   ├── generate_captions.py      # SRT sidecar + per-scene caption cues
 │   └── requirements.txt          # Python deps
 ├── remotion-foundation/          # Template for new Remotion projects
@@ -98,6 +102,9 @@ full-video-pipeline/
         ├── SCRIPT.md             # Full script
         ├── VOICEOVER.md          # Parseable voiceover text
         ├── STYLES.md             # Visual style guide
+        ├── TITLE.md              # 3 YouTube title variants (Step 11)
+        ├── DESCRIPTION.md        # YouTube description with timestamps (Step 11)
+        ├── TAGS.md               # 10-15 YouTube tags (Step 11)
         ├── scenes.json           # Scene data (durations, status, files, hashes, captions)
         ├── pipeline_state.json   # Pipeline progress (per-step attempts + last_error)
         ├── logs/                 # Per-step + per-scene append-only logs
@@ -108,12 +115,15 @@ full-video-pipeline/
         │   ├── src/
         │   │   ├── Root.tsx
         │   │   ├── components/MainVideo.tsx
+        │   │   ├── components/Thumbnail.tsx  # Thumbnail composition (Step 12)
         │   │   ├── lib/{types,config,styles}.ts
         │   │   └── scenes/
         │   └── public/
         ├── voiceover/            # Generated .mp3 files
         ├── scenes/               # Rendered .mp4 scene files (silent video)
-        └── versions/            # Final stitched .mp4 videos (atomic writes)
+        └── versions/             # Final stitched .mp4 videos + thumbnail .png
+            ├── {title}-v1.mp4
+            └── {title}-thumbnail-v1.png
 ```
 
 ## Configuration
@@ -185,8 +195,8 @@ Use `python3 pipeline.py continue <title>` to resume. The pipeline:
 1. Validates `scenes.json` + `pipeline_state.json` against the schemas
    (`scripts/validate.py`). Refuses to run automated steps on invalid state.
 2. Reads `pipeline_state.json` to find the next incomplete step.
-3. Runs the next automated step (5, 6, 9, 10), or
-4. Prints instructions for creative steps (1-4, 7, 8).
+3. Runs the next automated step (5, 6, 9, 10, 13), or
+4. Prints instructions for creative steps (1-4, 7, 8, 11, 12).
 5. Per-step attempts and `last_error` are recorded for forensics.
 
 Each video tracks progress in `pipeline_state.json`:
@@ -194,13 +204,15 @@ Each video tracks progress in `pipeline_state.json`:
 - Steps 5-6: automated (TTS generation [idempotent], duration measurement)
 - Steps 7-8: creative input required (style definition, Remotion coding)
 - Steps 9-10: automated (resumable scene rendering, atomic stitching)
+- Steps 11-12: creative input required (metadata, thumbnail composition)
+- Step 13: automated (thumbnail still render, idempotent via versioning)
 
 ## Logs
 
 Every automated step and every per-scene render appends to a structured log file
 under `videos/<title>/logs/`. Step-level files: `step-5.log`, `step-6.log`,
-`step-9-scene-{id}.log`, `step-10.log`. These are append-only and survive across
-runs — useful for post-mortem analysis of overnight failures.
+`step-9-scene-{id}.log`, `step-10.log`, `step-13.log`. These are append-only
+and survive across runs — useful for post-mortem analysis of overnight failures.
 
 ## Helper Scripts
 
@@ -219,6 +231,7 @@ python3 scripts/measure_durations.py videos/my-video/
 python3 scripts/render_scene.py videos/my-video/ 1
 python3 scripts/assemble.py videos/my-video/
 python3 scripts/generate_captions.py videos/my-video/
+python3 scripts/render_thumbnail.py videos/my-video/
 python3 scripts/validate.py videos/my-video/
 bash scripts/check_system.sh
 ```
