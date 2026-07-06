@@ -103,21 +103,30 @@ The 13 steps alternate between **creative** (you do the work) and
 **automated** (the orchestrator runs a script). Knowing which is which up front
 prevents confusion when `continue` returns immediately for an automated step.
 
-| Step | Name | Type | You produce |
-|------|------|------|-------------|
-| 1  | Topic Selection        | Creative | topic decision (in context) |
-| 2  | Research               | Creative | research notes (in context) |
-| 3  | Script Writing         | Creative | `SCRIPT.md`, `scenes.json` |
-| 4  | Voiceover Writing      | Creative | `VOICEOVER.md` |
-| 5  | Voiceover Generation   | Automated | — (script: `generate_voiceover.py`) |
-| 6  | Duration Measurement   | Automated | — (script: `measure_durations.py`) |
-| 7  | Style Definition       | Creative | `STYLES.md`, updated `scenes.json` |
-| 8  | Remotion Code Writing  | Creative | `remotion/` project + `PLAN.md` |
-| 9  | Scene Rendering        | Automated | — (script: `render_scene.py`, per-scene, resumable) |
-| 10 | Stitching              | Automated | — (script: `assemble.py`) |
-| 11 | Metadata Generation    | Creative | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` |
-| 12 | Thumbnail Generation   | Creative | `remotion/src/components/Thumbnail.tsx` |
-| 13 | Thumbnail Rendering    | Automated | — (script: `render_thumbnail.py`) |
+| Step | Name | Type | Skill to load first | You produce |
+|------|------|------|---------------------|-------------|
+| 1  | Topic Selection        | Creative | — | topic decision (in context) |
+| 2  | Research               | Creative | — | research notes (in context) |
+| 3  | Script Writing         | Creative | claude-youtube: `sub-skills/script.md`, `references/retention-scripting-guide.md` | `SCRIPT.md`, `scenes.json` |
+| 4  | Voiceover Writing      | Creative | — | `VOICEOVER.md` |
+| 5  | Voiceover Generation   | Automated | — | — (script: `generate_voiceover.py`) |
+| 6  | Duration Measurement   | Automated | — | — (script: `measure_durations.py`) |
+| 7  | Style Definition       | Creative | claude-youtube: `references/thumbnail-ctr-guide.md` | `STYLES.md`, updated `scenes.json` |
+| 8  | Remotion Code Writing  | Creative | remotion-best-practices: `SKILL.md` + 7 `rules/*.md` files | `remotion/` project + `PLAN.md` |
+| 9  | Scene Rendering        | Automated | — | — (script: `render_scene.py`, per-scene, resumable) |
+| 10 | Stitching              | Automated | — | — (script: `assemble.py`) |
+| 11 | Metadata Generation    | Creative | claude-youtube: `sub-skills/metadata.md`, `references/seo-playbook.md` | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` |
+| 12 | Thumbnail Generation   | Creative | claude-youtube: `sub-skills/thumbnail.md`, `references/thumbnail-ctr-guide.md` | `remotion/src/components/Thumbnail.tsx` |
+| 13 | Thumbnail Rendering    | Automated | — | — (script: `render_thumbnail.py`) |
+
+The full paths use the doubled nested form (e.g.
+`skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md` or
+`skills/remotion-best-practices/skills/remotion/SKILL.md`) — see each step's
+"Action" section for the exact path to load.
+
+**Before doing ANY work on a creative step, load its listed skill files first.**
+The skill files contain the retention/CTR/SEO rules your output MUST satisfy —
+skipping the load is the #1 cause of validation failures and rework.
 
 The very first action you take on a brand-new video is
 `python3 pipeline.py new "<proposed-title>"` (see Step 8a for the convention).
@@ -417,15 +426,23 @@ python3 scripts/measure_durations.py videos/{video-title}/
 **Goal**: Define a consistent visual style for the entire video.
 
 **Action**:
-1. Read the video topic, script tone, and target audience.
-2. Decide on a visual style that fits the content:
-   - Color palette (3-5 hex colors)
-   - Typography (1-2 font families, sizes)
+1. Load the claude-youtube thumbnail CTR guide for palette-aware design:
+   `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md`
+   Read the "Visual Design Rules" and "Mobile Optimization" sections specifically.
+   The palette you choose here must also satisfy the thumbnail's contrast,
+   focal-point, and 168×94px mobile-legibility rules — Step 12 will reuse this
+   palette and cannot redo it without breaking scene consistency.
+2. Read the video topic, script tone, and target audience.
+3. Decide on a visual style that fits the content AND is CTR-compatible:
+   - Color palette (3-5 hex colors) — choose high-contrast pairings so a
+     ≤3-word text overlay will read at 168×94px on mobile (per the CTR guide)
+   - Typography (1-2 font families, sizes) — bold weights for overlays/captions
    - Background treatment (gradients, solid, patterns)
    - Animation character (smooth, snappy, minimal, bold)
-   - Element positioning rules
-3. Write `STYLES.md` in the video directory.
-4. Update `scenes.json` with `visual_notes` for each scene based on the style guide.
+   - Element positioning rules (leave 30-40% negative space for focal points,
+     per the CTR guide)
+4. Write `STYLES.md` in the video directory.
+5. Update `scenes.json` with `visual_notes` for each scene based on the style guide.
    - Each scene gets a specific visual treatment: colors, animations, layout, elements
    - `visual_notes` should be detailed enough for Step 8 to implement directly
    - Reference specific colors from the palette, animation types, and element positions
@@ -759,6 +776,10 @@ gradients, and optionally local `staticFile()` assets.
 2. Also load the thumbnail CTR guide:
    `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md`
 3. Read `TITLE.md`, `DESCRIPTION.md`, `STYLES.md`, and `scenes.json` for context.
+   The palette in `STYLES.md` was chosen CTR-safe in Step 7 — reuse it rather
+   than introducing new colors. If the palette would fail the mobile-legibility
+   check for the specific text overlay you planned, that is a Step 7 palette
+   bug — go back and fix STYLES.md before continuing, then re-run `continue`.
 4. Follow the thumbnail sub-skill's brief structure (information split, focal point,
    ≤3-word text overlay, hex palette, mobile-legibility at 168×94px).
 5. Write `src/components/Thumbnail.tsx` using ONLY:
