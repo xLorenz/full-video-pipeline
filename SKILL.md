@@ -3,8 +3,11 @@ name: full-video-pipeline
 description: >
   End-to-end autonomous YouTube video production pipeline. Researches topics,
   writes retention-optimized scripts, generates voiceover audio, builds Remotion
-  video compositions, renders scenes, and stitches the final video. Designed for
-  resource-constrained environments (500MB RAM, no GPU).
+  video compositions, renders scenes, stitches the final video, generates YouTube
+  title/description/tags, and renders a Remotion-only thumbnail (no AI images).
+  Driven by `pipeline.py continue` per an explicit execution protocol — agent
+  never manually advances state. Designed for resource-constrained environments
+  (500MB RAM, no GPU).
 triggers:
   - "make a video"
   - "create a youtube video"
@@ -12,6 +15,8 @@ triggers:
   - "autonomous video"
   - "research and script"
   - "render video"
+  - "youtube thumbnail"
+  - "video metadata"
 tools:
   - Read
   - Write
@@ -44,6 +49,79 @@ If pre-flight fails, resolve issues before proceeding. Required tools:
 - `python3` + `pip` (for edge-tts and helper scripts; `pip install -r scripts/requirements.txt`)
 - `ffmpeg` + `ffprobe` (for audio/video processing)
 - `git` (for cloning skill references)
+
+## Execution Protocol (READ FIRST — DO NOT SKIP)
+
+The pipeline is driven by a single command: `pipeline.py continue <title>`. You
+do NOT manually decide which step is next — the orchestrator does. Your job is
+to follow this **inviolable loop** until the pipeline reports "All steps
+complete!":
+
+```text
+1. Run: python3 pipeline.py continue <title>
+2. READ the output carefully. It will say exactly ONE of:
+   (a) "All steps complete!"             → STOP. You are done.
+   (b) "Step N (name) — automated."      → The orchestrator already ran it.
+                                           Verify the output shows success, then
+                                           GO TO step 1 again.
+   (c) "Step N (name) requires creative input." followed by SKIP_INSTRUCTIONS
+                                        → The orchestrator printed YOUR todo list.
+                                           Do EXACTLY what the instructions say,
+                                           produce the listed output files, then
+                                           GO TO step 1 again. Do NOT start the
+                                           next step yourself — let `continue`
+                                           advance the state.
+   (d) "VALIDATION FAILED" or "Step N FAILED"
+                                        → READ the error, fix the named file, then
+                                           GO TO step 1 again. The orchestrator
+                                           re-runs failed steps automatically.
+```
+
+**Hard rules** (non-negotiable):
+
+- **Never skip `continue` between steps.** Even after you finish a creative
+  step's work, you MUST run `continue` so the orchestrator validates the output
+  and advances `current_step`. Starting the next step's work without first
+  seeing `continue` confirm the previous step is "complete" is a bug.
+- **Never manually invoke** `render_scene.py`, `assemble.py`,
+  `render_thumbnail.py`, `generate_voiceover.py`, or `measure_durations.py`
+  yourself. The orchestrator runs them with idempotency checks, lint gates,
+  atomic writes, and per-step logging that you would bypass.
+- **Never edit `pipeline_state.json` by hand.** Treat it as read-only state.
+  Use `python3 pipeline.py status <title>` to inspect it.
+- **Always let the orchestrator validate.** After every creative step your
+  output is re-checked against the JSON schemas before the next automated step
+  is allowed to run. If validation fails, fix the offending file (SCRIPT.md,
+  scenes.json, etc.) and re-run `continue`.
+- **One step at a time.** Do not pre-load references or start writing code for
+  Step 8 while still on Step 4. Run `continue`, see what step is requested,
+  do only that step's work, then run `continue` again.
+
+## Step Type Reference
+
+The 13 steps alternate between **creative** (you do the work) and
+**automated** (the orchestrator runs a script). Knowing which is which up front
+prevents confusion when `continue` returns immediately for an automated step.
+
+| Step | Name | Type | You produce |
+|------|------|------|-------------|
+| 1  | Topic Selection        | Creative | topic decision (in context) |
+| 2  | Research               | Creative | research notes (in context) |
+| 3  | Script Writing         | Creative | `SCRIPT.md`, `scenes.json` |
+| 4  | Voiceover Writing      | Creative | `VOICEOVER.md` |
+| 5  | Voiceover Generation   | Automated | — (script: `generate_voiceover.py`) |
+| 6  | Duration Measurement   | Automated | — (script: `measure_durations.py`) |
+| 7  | Style Definition       | Creative | `STYLES.md`, updated `scenes.json` |
+| 8  | Remotion Code Writing  | Creative | `remotion/` project + `PLAN.md` |
+| 9  | Scene Rendering        | Automated | — (script: `render_scene.py`, per-scene, resumable) |
+| 10 | Stitching              | Automated | — (script: `assemble.py`) |
+| 11 | Metadata Generation    | Creative | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` |
+| 12 | Thumbnail Generation   | Creative | `remotion/src/components/Thumbnail.tsx` |
+| 13 | Thumbnail Rendering    | Automated | — (script: `render_thumbnail.py`) |
+
+The very first action you take on a brand-new video is
+`python3 pipeline.py new "<proposed-title>"` (see Step 8a for the convention).
+The very last is `continue` reporting "All steps complete!".
 
 ## Audio Path (IMPORTANT — overrides remotion-best-practices skill)
 
@@ -119,8 +197,15 @@ videos/{video-title}/
 
 ## Pipeline Steps
 
-Execute steps 1-10 in strict order. Each step must complete and validate before
-moving to the next. Use `pipeline_state.json` to track progress.
+The 13 steps below are executed **in strict order** by the orchestrator using
+the loop described in **Execution Protocol** above. Each step must complete and
+validate before `pipeline.py continue` advances `current_step`. Do not read the
+step descriptions below and conclude you should "start" a step manually — always
+let `continue` tell you which step is next.
+
+Steps marked **Creative** require your work; **Automated** steps run themselves
+when you invoke `continue`. For details on what each creative step must produce,
+follow its Action and Validation sections exactly.
 
 ---
 
@@ -139,6 +224,9 @@ moving to the next. Use `pipeline_state.json` to track progress.
 
 **Validation**: Topic is specific enough to fill 3-10 minutes of content. Not too
 broad ("technology"), not too narrow ("the 3rd screw on the iPhone 15 camera").
+
+**When done**: Run `python3 pipeline.py continue <title>` so the orchestrator
+validates and advances to Step 2 (Research). Do NOT start researching yet.
 
 ---
 
@@ -160,6 +248,10 @@ broad ("technology"), not too narrow ("the 3rd screw on the iPhone 15 camera").
 - At least 3 verifiable facts or statistics gathered.
 - Multiple perspectives covered.
 - Information is current (within last 12 months for news/trends).
+
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 3
+(Script Writing). Do NOT begin writing the script until `continue` confirms
+Step 2 is recorded complete.
 
 ---
 
@@ -215,6 +307,10 @@ with `actual_duration_seconds: null` and `render_status: "pending"`.
 - Retention re-hook present around 60% mark.
 - Script reads as natural spoken language, not written prose.
 
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 4
+(Voiceover Writing). Do NOT start Step 4's work until `continue` validates
+Step 3 and `scenes.json` passes the schema check.
+
 ---
 
 ### STEP 4: Voiceover Writing
@@ -243,6 +339,10 @@ with `actual_duration_seconds: null` and `render_status: "pending"`.
 - No empty voiceover blocks.
 - Text is clean — no stage directions, no markdown formatting, just spoken words.
 - Scene count in VOICEOVER.md matches scenes.json scene count.
+
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 5
+(Voiceover Generation — automated). The orchestrator will run edge-tts for you;
+just wait for it to report success, then run `continue` again for Step 6.
 
 ---
 
@@ -372,6 +472,10 @@ python3 scripts/measure_durations.py videos/{video-title}/
 - `visual_notes` reference specific colors from the palette defined in `STYLES.md`.
 - `visual_notes` specify animation types consistent with the style guide.
 
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 8
+(Remotion Code Writing). Do NOT scaffold or write Remotion code until `continue`
+confirms Step 7 is complete — the `visual_notes` you set here drive Step 8.
+
 ---
 
 ### STEP 8: Remotion Code Writing
@@ -389,7 +493,8 @@ python3 pipeline.py new "{video-title}"
 ```
 
 This creates the directory structure, copies foundation config, generates starter
-files (Root.tsx with single composition, config.ts, styles.ts), and installs
+files (Root.tsx with **two** compositions — `MainVideo` and `Thumbnail` — along
+with `MainVideo.tsx`, `Thumbnail.tsx` stub, config.ts, styles.ts), and installs
 npm dependencies.
 
 If the `videos/{video-title}/remotion/` directory already has files, skip scaffolding.
@@ -444,9 +549,12 @@ Before writing any code, create `remotion/PLAN.md`:
    cp -r ../voiceover/ public/voiceover/
    ```
 
-2. Write `src/Root.tsx` — define a single `<Composition id="MainVideo">` with
-   `calculateMetadata` that reads scene durations from `props`. Use `--props`
-   JSON at render time to pass scene data, not hard-coded config.
+2. The scaffold already generates `src/Root.tsx` with **two** compositions
+   (`MainVideo` and `Thumbnail`). Do NOT rewrite Root.tsx from scratch — keep
+   the scaffold's file. You only customize it if your scenes need to change
+   the `calculateMetadata` for `MainVideo` (the `Thumbnail` composition is
+   static and should remain untouched until Step 12). Use `--props` JSON at
+   render time to pass scene data, not hard-coded config.
 
 3. Write `src/lib/config.ts` — export scene data (durations, paths, fps).
 
@@ -479,14 +587,30 @@ Before writing any code, create `remotion/PLAN.md`:
 **Output**: Complete Remotion project in `remotion/` + `PLAN.md`.
 
 **Validation**:
-- `src/Root.tsx` exists and exports `RemotionRoot` with single `<Composition id="MainVideo">`.
+- `src/Root.tsx` exists and exports `RemotionRoot` with the `MainVideo` AND
+  `Thumbnail` compositions (both are scaffolded; do not remove either).
 - `src/components/MainVideo.tsx` exists with Sequence-based scene loading.
+- `src/components/Thumbnail.tsx` exists (scaffolded stub — agent fills it in Step 12).
 - Each scene has a corresponding `SceneXX.tsx` file.
 - Scene count matches `scenes.json` scene count.
 - Frame durations match `actual_duration_frames` from `scenes.json`.
 - No CSS transitions or animations used.
 - All animations use `interpolate()` or `spring()`.
 - Voiceover files are in `public/voiceover/`.
+
+**Pre-render self-check**: Before you tell the orchestrator Step 8 is done, run
+the gate yourself to catch errors early:
+```bash
+cd videos/{video-title}/remotion
+npm run lint && npx tsc --noEmit && npx remotion compositions src/Root.tsx
+```
+You should see both `MainVideo` and `Thumbnail` in the compositions output. Fix
+any errors before continuing — the orchestrator will run this gate before Step 9
+renders and will fail the entire run if anything is broken.
+
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 9
+(Scene Rendering — automated, one scene at a time with a lint gate). Do NOT
+manually invoke `render_scene.py`; let the orchestrator drive the render loop.
 
 ---
 
@@ -613,6 +737,11 @@ The script:
 - Hashtags in description body, never in title.
 - First 2 description lines work as standalone ad copy.
 
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 12
+(Thumbnail Generation). Do NOT start writing `Thumbnail.tsx` until `continue`
+confirms Step 11 is complete — the thumbnail title text in Step 12 reads
+`TITLE.md` which you just produced.
+
 ---
 
 ### STEP 12: Thumbnail Generation
@@ -658,6 +787,11 @@ gradients, and optionally local `staticFile()` assets.
 - Palette colors from STYLES.md or the brief, not hard-coded.
 - Composition passes `npm run lint` and `tsc --noEmit`.
 - `Thumbnail` composition appears in `npx remotion compositions src/Root.tsx` output.
+
+**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 13
+(Thumbnail Rendering — automated). The orchestrator will run
+`render_thumbnail.py` for you, which calls `npx remotion still` and writes
+`versions/<title>-thumbnail-vN.png`. Do NOT invoke `render_thumbnail.py` yourself.
 
 ---
 
