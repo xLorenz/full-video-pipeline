@@ -16,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -40,6 +41,25 @@ def find_next_thumbnail_version(versions_dir, safe_title):
             if m and int(m.group(1)) > max_version:
                 max_version = int(m.group(1))
     return max_version + 1
+
+
+def get_last_frame(remotion_dir):
+    """Return the last frame index for the Thumbnail composition (durationInFrames-1)."""
+    result = subprocess.run(
+        ["npx", "remotion", "compositions", "src/Root.tsx", "--json"],
+        capture_output=True, text=True, timeout=60, cwd=remotion_dir,
+    )
+    if result.returncode != 0:
+        return 0
+    try:
+        comps = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return 0
+    for comp in comps if isinstance(comps, list) else []:
+        if comp.get("id") == "Thumbnail":
+            dur = comp.get("durationInFrames", 1)
+            return max(0, dur - 1)
+    return 0
 
 
 def read_title_md(video_dir):
@@ -191,15 +211,17 @@ def main():
     next_version = find_next_thumbnail_version(versions_dir, safe_title)
     output_file = versions_dir / f"{safe_title}-thumbnail-v{next_version}.png"
 
+    frame = get_last_frame(remotion_dir)
     print(f"\n--- Starting Remotion still render ---")
     print(f"Output: {output_file}")
     print(f"Props: {props_path}")
     print(f"Title: {props.get('title', '')[:60]}...")
+    print(f"Frame: {frame}")
 
     cmd = (
         f"npx remotion still src/Root.tsx Thumbnail \"{output_file}\" "
         f"--props=\"{props_path}\" "
-        f"--frame=0 "
+        f"--frame={frame} "
         f"--overwrite "
         f"--log=warn "
         f"--gl={gl_backend} "
