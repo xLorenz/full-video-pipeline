@@ -962,6 +962,122 @@ def cmd_audit(args):
         sys.exit(0)
 
 
+def cmd_doctor(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    rdir = vdir / "remotion"
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    all_ok = True
+
+    # 1. System check
+    print("=== 1. System check ===")
+    sys_check = REPO_ROOT / "scripts" / "check_system.sh"
+    if sys_check.exists():
+        if os.name == "nt":
+            print("  SKIP: bash check requires Linux/WSL (Windows detected)")
+        else:
+            try:
+                r = subprocess.run(
+                    ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
+                )
+                print(r.stdout)
+                if r.stderr:
+                    print(r.stderr)
+                if r.returncode != 0:
+                    all_ok = False
+                    print("  FAIL: system check failed — see above.")
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                print("  SKIP: bash not available or timed out on this system")
+    else:
+        print("  SKIP: scripts/check_system.sh not found")
+        print("  RECOMMENDED: run on Linux or WSL for full system diagnostics.")
+
+    # 2. Remotion version drift
+    print("\n=== 2. Remotion version check ===")
+    if (rdir / "package.json").exists():
+        r = subprocess.run(
+            "npx remotion versions",
+            capture_output=True, text=True, timeout=60, cwd=rdir, shell=True,
+        )
+        if r.returncode == 0 and r.stdout:
+            print(r.stdout)
+            if "ERROR" in r.stdout or "warning" in r.stdout.lower():
+                all_ok = False
+                print("  RECOMMENDED: run npx remotion versions to identify drift,"
+                      " then align versions in remotion-foundation/package.json")
+        else:
+            all_ok = False
+            print(f"  FAIL: npx remotion versions failed (exit {r.returncode})")
+            print("  RECOMMENDED: ensure npm install has been run in the repo root")
+    else:
+        print("  SKIP: no remotion project yet (step 8 not complete)")
+
+    # 3. Schema validation via validate.py
+    print("\n=== 3. Schema validation ===")
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"), str(vdir)],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    print(p.stdout.strip() if p.stdout else "")
+    if p.returncode != 0:
+        all_ok = False
+        print("  RECOMMENDED: fix schema violations shown above.")
+
+    # 4. Bug-pattern checks against the source scripts
+    print("\n=== 4. Source bug-pattern checks ===")
+
+    assemble_path = REPO_ROOT / "scripts" / "assemble.py"
+    thumbnail_path = REPO_ROOT / "scripts" / "render_thumbnail.py"
+
+    if assemble_path.exists():
+        assemble_text = assemble_path.read_text(encoding="utf-8")
+        # 4a. -map flags present in final mux
+        if "-map 0:v:0 -map 1:a:0" in assemble_text:
+            print("  [OK] assemble.py: -map flags present in final mux")
+        else:
+            all_ok = False
+            print("  [FAIL] assemble.py: missing -map 0:v:0 -map 1:a:0 in final mux")
+            print("  RECOMMENDED: add '-map 0:v:0 -map 1:a:0' to the final ffmpeg command"
+                  " after the two -i flags and before -c:v copy")
+        # 4b. atomic_replace_temp -f injection
+        if "-f {fmt}" in assemble_text or "'-f {fmt}'" in assemble_text:
+            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
+        elif "-f mp4" in assemble_text and "-f mp3" in assemble_text:
+            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
+        else:
+            all_ok = False
+            print("  [FAIL] assemble.py: atomic_replace_temp missing -f <ext> injection")
+            print("  RECOMMENDED: rewrite atomic_replace_temp to inject"
+                  " -f {fmt} before the temp output path regardless of codec flags")
+    else:
+        print("  SKIP: scripts/assemble.py not found")
+
+    if thumbnail_path.exists():
+        thumb_text = thumbnail_path.read_text(encoding="utf-8")
+        # 4c. Non-zero frame
+        if "--frame=0" not in thumb_text:
+            print("  [OK] render_thumbnail.py: does not use --frame=0")
+        else:
+            all_ok = False
+            print("  [FAIL] render_thumbnail.py: uses --frame=0")
+            print("  RECOMMENDED: query composition metadata with"
+                  " npx remotion compositions --json and render at durationInFrames-1 instead")
+    else:
+        print("  SKIP: scripts/render_thumbnail.py not found")
+
+    # Summary
+    print(f"\n=== Doctor summary ===")
+    if all_ok:
+        print("  All checks passed.")
+        sys.exit(0)
+    else:
+        print("  One or more checks failed. See recommendations above.")
+        sys.exit(1)
+
+
 def cmd_validate(args):
     title = sanitize_title(args.title)
     if not video_dir(title).exists():
@@ -1204,6 +1320,9 @@ def main():
     audit_p = sub.add_parser("audit", help="Audit a video project for violations")
     audit_p.add_argument("title", help="Video title")
 
+    doctor_p = sub.add_parser("doctor", help="Run system and project diagnostics")
+    doctor_p.add_argument("title", help="Video title")
+
     clean_p = sub.add_parser("clean", help="Free disk space for a completed video")
     clean_p.add_argument("title", help="Video title")
 
@@ -1225,6 +1344,8 @@ def main():
         cmd_clean(args)
     elif args.command == "audit":
         cmd_audit(args)
+    elif args.command == "doctor":
+        cmd_doctor(args)
     else:
         parser.print_help()
         sys.exit(2)
