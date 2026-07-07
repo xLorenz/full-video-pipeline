@@ -86,7 +86,9 @@ def detect_mismatch(scenes_dir, scenes):
 def atomic_replace_temp(output_file, cmd):
     """Run ffmpeg to a temp file, then os.replace to output_file on success."""
     tmp = str(output_file) + ".tmp"
-    full_cmd = cmd.replace(f'"{output_file}"', f'"{tmp}"')
+    ext = Path(output_file).suffix.lstrip(".")
+    fmt = {"mp4": "mp4", "mp3": "mp3"}.get(ext, ext)
+    full_cmd = cmd.replace(f'"{output_file}"', f' -f {fmt} "{tmp}"', 1)
     result = pl.run_cmd(full_cmd, check=False)
     if result.returncode != 0 or not Path(tmp).exists():
         if Path(tmp).exists():
