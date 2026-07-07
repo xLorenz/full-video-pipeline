@@ -81,6 +81,9 @@ SKIP_STEPS = {"1_topic_selection", "2_research", "3_script_writing",
 
 SKIP_INSTRUCTIONS = {
     "1_topic_selection": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/ideate.md\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/strategy.md\n"
         "Select a specific, trending topic for the video.\n"
         "  1. Perform 3-5 web searches to identify trending topics.\n"
         "  2. Choose the most promising topic.\n"
@@ -88,6 +91,9 @@ SKIP_INSTRUCTIONS = {
         "  Then run: ./pipeline.py continue <title>"
     ),
     "2_research": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/competitor.md\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/analyze.md\n"
         "Research the topic thoroughly.\n"
         "  1. Perform 5-10 targeted web searches.\n"
         "  2. Compile key facts, statistics, expert quotes, examples.\n"
@@ -95,19 +101,27 @@ SKIP_INSTRUCTIONS = {
         "  Then run: ./pipeline.py continue <title>"
     ),
     "3_script_writing": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/script.md\n"
+        "  skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md\n"
         "Write the retention-optimized script.\n"
-        "  1. Load skills/claude-youtube skill references.\n"
-        "  2. Write SCRIPT.md in scene-based format (~10s per scene).\n"
-        "  3. Write scenes.json with structured scene data.\n"
+        "  1. Write SCRIPT.md in scene-based format (~10s per scene).\n"
+        "  2. Write scenes.json with structured scene data.\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
     "4_voiceover_writing": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/hook.md\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
         "Extract voiceover text into parseable format.\n"
         "  1. Read SCRIPT.md.\n"
         "  2. Write VOICEOVER.md with ---SCENE:N--- delimiters.\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
     "7_style_definition": (
+        "Required skill files:\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/video-layout.md\n"
         "Define visual style for the video.\n"
         "  1. Read the topic, script tone, and target audience.\n"
         "  2. Choose color palette, typography, background, animation style.\n"
@@ -116,46 +130,48 @@ SKIP_INSTRUCTIONS = {
         "  Then run: ./pipeline.py continue <title>"
     ),
     "8_remotion_coding": (
+        "Required skill files:\n"
+        "  skills/remotion-best-practices/skills/remotion/SKILL.md\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/sequencing.md\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
+        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
         "Implement the Remotion project code.\n"
-        "  1. Load skills/remotion-best-practices skill references.\n"
-        "  2. Write remotion/PLAN.md with implementation plan.\n"
-        "  3. Copy voiceover files to remotion/public/voiceover/ (reference only).\n"
-        "  4. Write src/Root.tsx with single <Composition id=\"MainVideo\">.\n"
-        "  5. Write src/lib/config.ts, src/lib/styles.ts.\n"
-        "  6. Write shared components in src/components/.\n"
-        "  7. Write each scene component in src/scenes/SceneXX.tsx.\n"
+        "  1. Write remotion/PLAN.md with implementation plan.\n"
+        "  2. Copy voiceover files to remotion/public/voiceover/ (reference only).\n"
+        "  3. Write src/Root.tsx with single <Composition id=\"MainVideo\">.\n"
+        "  4. Write src/lib/config.ts, src/lib/styles.ts.\n"
+        "  5. Write shared components in src/components/.\n"
+        "  6. Write each scene component in src/scenes/SceneXX.tsx.\n"
         "  IMPORTANT: scenes render SILENT video. Do NOT use <Audio> —\n"
         "  voiceover is muxed at stitch time by scripts/assemble.py.\n"
         "  Optional burned-in captions: render <Captions> from scene.captions\n"
         "  when scene.showCaptions is true (set per-video via video.burn_captions).\n"
-        "  8. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
+        "  7. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
     "11_metadata_generation": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md\n"
+        "  skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md\n"
         "Generate YouTube title, description, and tags for the stitched video.\n"
         "  1. Read SKILL.md Step 11 section for full guidance.\n"
-        "  2. Load claude-youtube sub-skill at:\n"
-        "     skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md\n"
-        "  3. Also load the SEO playbook reference:\n"
-        "     skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md\n"
-        "  4. Read the final stitched video info from versions/ directory.\n"
-        "  5. Write TITLE.md (3 title variants), DESCRIPTION.md (<5000 chars\n"
+        "  2. Read the final stitched video info from versions/ directory.\n"
+        "  3. Write TITLE.md (3 title variants), DESCRIPTION.md (<5000 chars\n"
         "     with timestamps matching scenes.json durations), TAGS.md (10-15\n"
         "     tags, <500 chars).\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
     "12_thumbnail_generation": (
+        "Required skill files:\n"
+        "  skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md\n"
+        "  skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md\n"
         "Write the Thumbnail.tsx Remotion component (no AI images).\n"
         "  1. Read SKILL.md Step 12 section for full guidance.\n"
-        "  2. Load claude-youtube thumbnail sub-skill for the design brief:\n"
-        "     skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md\n"
-        "  3. Also load the thumbnail CTR guide:\n"
-        "     skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md\n"
-        "  4. Read TITLE.md, DESCRIPTION.md, STYLES.md, and scenes.json for context.\n"
-        "  5. Write src/components/Thumbnail.tsx using ONLY Remotion primitives\n"
+        "  2. Read TITLE.md, DESCRIPTION.md, STYLES.md, and scenes.json for context.\n"
+        "  3. Write src/components/Thumbnail.tsx using ONLY Remotion primitives\n"
         "     (<Img> may only reference local staticFile() assets — no external\n"
         "     URLs, no AI-generated images). Use shapes, text, gradients.\n"
-        "  6. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
+        "  4. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
         "  DO NOT use any AI image generation. Thumbnail must be pure Remotion.\n"
         "  Then run: ./pipeline.py continue <title>"
     ),
@@ -681,6 +697,16 @@ def cmd_continue(args):
     print(f"  Next step: {step_num}. {step_name}")
 
     if step_key in SKIP_STEPS:
+        # Precondition: skills must be confirmed loaded
+        step_state = state["steps"][step_key]
+        if not step_state.get("skills_loaded"):
+            print(f"\nStep {step_num} ({step_name}) requires skill files to be loaded first.\n")
+            print("  Required skill files are listed at the top of the instructions below.\n")
+            print(SKIP_INSTRUCTIONS[step_key])
+            print("\n  After loading all skill files, set skills_loaded: true in")
+            print(f"  pipeline_state.json under steps.{step_key}, then re-run.")
+            print(f"  Example: python -c \"import json; s=json.load(open('videos/{title}/pipeline_state.json')); s['steps']['{step_key}']['skills_loaded']=True; json.dump(s, open('videos/{title}/pipeline_state.json','w'), indent=2)\"")
+            return
         print(f"\nStep {step_num} ({step_name}) requires creative input.\n")
         print(SKIP_INSTRUCTIONS[step_key])
         return
