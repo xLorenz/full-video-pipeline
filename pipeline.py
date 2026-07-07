@@ -819,6 +819,123 @@ def show_all_statuses():
 # VALIDATE subcommand
 # ---------------------------------------------------------------------------
 
+def cmd_audit(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    violations = []
+    state = load_state(title)
+
+    # 1. Pipeline state summary
+    print(f"=== Audit: {title} ===")
+    print(f"  Current step: {state.get('current_step', '?')}")
+    print()
+    for i, key in enumerate(STEP_KEYS, start=1):
+        step = state["steps"].get(key, {})
+        status = step.get("status", "pending")
+        icon = {"complete": "[OK]", "in_progress": "[>>]", "failed": "[!!]", "pending": "[--]"}.get(status, "[??]")
+        print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status}")
+
+    # 2. Log tail (last 50 lines per step log)
+    log_dir = vdir / "logs"
+    print(f"\n--- Log tails ---")
+    if log_dir.exists():
+        for lf in sorted(log_dir.glob("step-*.log")):
+            lines = lf.read_text(encoding="utf-8").rstrip().split("\n")
+            tail = lines[-50:] if len(lines) > 50 else lines
+            print(f"\n  {lf.name} ({len(lines)} lines, last {len(tail)}):")
+            for line in tail:
+                print(f"    {line}")
+    else:
+        print("  (no logs directory)")
+
+    # 3. Versioned MP4 ffprobe
+    versions_dir = vdir / "versions"
+    print(f"\n--- Version files ---")
+    mp4_files = sorted(versions_dir.glob("*.mp4")) if versions_dir.exists() else []
+    if mp4_files:
+        for fp in mp4_files:
+            duration = pl.get_audio_duration(fp)
+            streams = pl.ffprobe_streams(fp) or []
+            vcodec = ""
+            acodec = ""
+            for s in streams:
+                if s.get("codec_type") == "video":
+                    vcodec = s.get("codec_name", "")
+                elif s.get("codec_type") == "audio":
+                    acodec = s.get("codec_name", "")
+            dur_str = f"{duration:.2f}s" if duration else "?"
+            # mean_volume via volumedetect
+            mean_volume = "?"
+            try:
+                r = subprocess.run(
+                    ["ffmpeg", "-i", str(fp), "-filter:a", "volumedetect", "-f", "null", "-"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                m = re.search(r"mean_volume\s*=\s*(-?\d+(?:\.\d+)?)\s*dB", r.stderr)
+                if m:
+                    mean_volume = m.group(1)
+            except Exception:
+                pass
+            print(f"  {fp.name}: dur={dur_str} vcodec={vcodec or '?'} acodec={acodec or '?'} mean_volume={mean_volume}dB")
+
+            # Violation: audio too low
+            try:
+                if mean_volume != "?" and float(mean_volume) < -40.0:
+                    violations.append(f"AUDIO_TOO_LOW: {fp.name} mean_volume={mean_volume}dB < -40dB")
+            except ValueError:
+                pass
+    else:
+        print("  (no version MP4s)")
+
+    # 4. Cross-reference log errors against step status
+    print(f"\n--- Consistency checks ---")
+    if log_dir.exists():
+        for lf in sorted(log_dir.glob("step-*.log")):
+            text = lf.read_text(encoding="utf-8")
+            # Extract step number from filename step-N.log
+            m_step = re.match(r"step-(\d+)", lf.stem)
+            step_num = int(m_step.group(1)) if m_step else None
+            if step_num is not None and step_num <= len(STEP_KEYS):
+                key = STEP_KEYS[step_num - 1]
+                status = state["steps"].get(key, {}).get("status", "")
+                has_error = "ERROR" in text or re.search(r"exit code [1-9]", text)
+                if status == "complete" and has_error:
+                    violations.append(f"LOG_ERROR: {lf.name} marked complete but log contains errors")
+                elif status == "complete":
+                    pass  # all good
+        if not any("LOG_ERROR" in v for v in violations):
+            print("  No log/state mismatches detected.")
+    else:
+        print("  (no logs directory)")
+
+    # 5. Missing scene MP4s
+    scenes = load_scenes(title)
+    scenes_dir = vdir / "scenes"
+    if scenes:
+        missing = [s["id"] for s in scenes if not (scenes_dir / f"scene-{s['id']:02d}.mp4").exists()]
+        if missing:
+            violations.append(f"MISSING_SCENES: scenes {missing} missing MP4 in {scenes_dir}/")
+        else:
+            print("  All scene MP4s present.")
+    else:
+        print("  (no scenes data)")
+
+    # Summary
+    print(f"\n=== Audit summary ===")
+    if violations:
+        print(f"  VIOLATIONS ({len(violations)}):")
+        for v in violations:
+            print(f"    - {v}")
+        sys.exit(1)
+    else:
+        print("  All checks passed.")
+        sys.exit(0)
+
+
 def cmd_validate(args):
     title = sanitize_title(args.title)
     if not video_dir(title).exists():
@@ -1058,6 +1175,9 @@ def main():
     captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
     captions_p.add_argument("title", help="Video title")
 
+    audit_p = sub.add_parser("audit", help="Audit a video project for violations")
+    audit_p.add_argument("title", help="Video title")
+
     clean_p = sub.add_parser("clean", help="Free disk space for a completed video")
     clean_p.add_argument("title", help="Video title")
 
@@ -1077,6 +1197,8 @@ def main():
         cmd_captions(args)
     elif args.command == "clean":
         cmd_clean(args)
+    elif args.command == "audit":
+        cmd_audit(args)
     else:
         parser.print_help()
         sys.exit(2)
