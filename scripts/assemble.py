@@ -227,6 +227,21 @@ def main():
             print("ERROR: Failed to create final video")
             sys.exit(1)
 
+        # Audio sanity check: volumedetect
+        mean_volume = None
+        vd_result = subprocess.run(
+            ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=30,
+        )
+        m = re.search(r"mean_volume\s*=\s*(-?\d+(?:\.\d+)?)\s*dB",
+                      vd_result.stderr)
+        if m:
+            mean_volume = float(m.group(1))
+        if mean_volume is None or mean_volume < -40.0:
+            print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
+            sys.exit(1)
+        print(f"  Audio level: {mean_volume:.1f} dB")
+
         # Duration assertion (tolerance 0.5s for ceil() drift)
         expected_total = data.get("total_actual_seconds") or sum(
             (s.get("actual_duration_seconds") or 0) for s in scenes)
