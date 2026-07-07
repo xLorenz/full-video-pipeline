@@ -217,6 +217,7 @@ def main():
         cmd = (f'ffmpeg -y '
                f'-i "{temp_video}" '
                f'-i "{aligned_audio}" '
+               f'-map 0:v:0 -map 1:a:0 '
                f'-c:v copy '
                f'-c:a {final_audio_codec} -b:a 192k '
                f'-shortest '
