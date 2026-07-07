@@ -1,6 +1,9 @@
 {
   "name": "full-video-pipeline",
   "private": true,
+  "dependencies": {
+    "@remotion/compositor-linux-x64-gnu": "4.0.484"
+  },
   "workspaces": [
     "remotion-foundation",
     "videos/*/remotion"

@@ -202,7 +202,7 @@ def main():
                    f'-an "{temp_video}"')
         else:
             cmd = (f'ffmpeg -y -f concat -safe 0 -i "{video_concat_list}" '
-                   f'-c copy "{temp_video}"')
+                   f'-c:v copy -an "{temp_video}"')
         ok = atomic_replace_temp(temp_video, cmd)
         if not ok or not temp_video.exists():
             print("ERROR: Failed to create temp video")
@@ -236,8 +236,10 @@ def main():
             ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
             capture_output=True, text=True, timeout=30,
         )
-        m = re.search(r"mean_volume\s*=\s*(-?\d+(?:\.\d+)?)\s*dB",
-                      vd_result.stderr)
+        m = re.search(
+            r"mean_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB",
+            vd_result.stdout + vd_result.stderr
+        )
         if m:
             mean_volume = float(m.group(1))
         if mean_volume is None or mean_volume < -40.0:

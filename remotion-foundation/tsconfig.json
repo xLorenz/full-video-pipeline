@@ -4,6 +4,7 @@
     "module": "commonjs",
     "jsx": "react-jsx",
     "strict": true,
+    "strictFunctionTypes": false,
     "noEmit": true,
     "lib": ["es2015"],
     "esModuleInterop": true,

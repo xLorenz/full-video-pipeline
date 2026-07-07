@@ -226,20 +226,12 @@ def cmd_new(args):
         "scripts": {
             "dev": "remotion studio",
             "build": "remotion bundle",
-            "lint": "eslint src && tsc",
+            "lint": "npx eslint src && npx tsc --noEmit",
         },
         "sideEffects": ["*.css"],
     }
     with open(rdir / "package.json", "w") as f:
         json.dump(pkg, f, indent=2)
-
-    # Create index.ts
-    (rdir / "src" / "index.ts").write_text(
-        'import { registerRoot } from "remotion";\n'
-        'import { RemotionRoot } from "./Root";\n'
-        '\n'
-        'registerRoot(RemotionRoot);\n'
-    )
 
     # Create index.css
     (rdir / "src" / "index.css").write_text('@import "tailwindcss";\n')
@@ -274,7 +266,7 @@ def cmd_new(args):
     # Create Root.tsx — MainVideo composition + Thumbnail still composition
     (rdir / "src" / "Root.tsx").write_text(
         'import React from "react";\n'
-        'import { Composition } from "remotion";\n'
+        'import { Composition, registerRoot } from "remotion";\n'
         'import type { VideoProps, ThumbnailProps } from "remotion-foundation";\n'
         'import { FPS, WIDTH, HEIGHT } from "./lib/config";\n'
         'import { MainVideo } from "./components/MainVideo";\n'
@@ -285,13 +277,13 @@ def cmd_new(args):
         '    <>\n'
         '      <Composition\n'
         '        id="MainVideo"\n'
-        '        component={MainVideo}\n'
+        '        component={MainVideo as React.ComponentType<any>}\n'
         '        calculateMetadata={async ({ props }) => {\n'
         '          const totalFrames = props.scenes.reduce(\n'
         '            (sum, s) => sum + s.durationInFrames, 0\n'
         '          );\n'
         '          return {\n'
-        '            durationInFrames: totalFrames,\n'
+        '            durationInFrames: totalFrames || 1,\n'
         '            fps: props.fps,\n'
         '            width: props.width,\n'
         '            height: props.height,\n'
@@ -303,11 +295,11 @@ def cmd_new(args):
         '          width: WIDTH,\n'
         '          height: HEIGHT,\n'
         '          burnCaptions: false,\n'
-        '        } as VideoProps}\n'
+        '        } satisfies VideoProps}\n'
         '      />\n'
         '      <Composition\n'
         '        id="Thumbnail"\n'
-        '        component={Thumbnail}\n'
+        '        component={Thumbnail as React.ComponentType<any>}\n'
         '        durationInFrames={1}\n'
         '        fps={30}\n'
         '        width={WIDTH}\n'
@@ -322,11 +314,12 @@ def cmd_new(args):
         '            background: "#0A1220",\n'
         '            text: "#FFFFFF",\n'
         '          },\n'
-        '        } as ThumbnailProps}\n'
+        '        } satisfies ThumbnailProps}\n'
         '      />\n'
         '    </>\n'
         '  );\n'
         '};\n'
+        'registerRoot(RemotionRoot);\n'
     )
 
     # Create MainVideo component.
@@ -554,6 +547,64 @@ def run_step_9(title, vdir):
     by the end of the loop.
     """
     print("--- Running Step 9: Scene Rendering ---")
+
+    # Regenerate MainVideo.tsx with static scene imports (Webpack can't bundle
+    # dynamic template-literal import()). Reads actual scene IDs from scenes.json.
+    rdir = vdir / "remotion"
+    scenes = load_scenes(title)
+    scene_ids = sorted(set(s["id"] for s in scenes))
+    import_lines = []
+    map_entries = []
+    for sid in scene_ids:
+        padded = f"{sid:02d}"
+        import_lines.append(f'import {{ Scene{padded} }} from "../scenes/Scene{padded}";')
+        map_entries.append(f"  {sid}: Scene{padded},")
+    mainvideo_content = (
+        'import React, { useMemo } from "react";\n'
+        'import { AbsoluteFill, Sequence } from "remotion";\n'
+        'import { Captions } from "remotion-foundation";\n'
+        'import type { VideoProps } from "remotion-foundation";\n'
+        + "\n".join(import_lines)
+        + "\n\n"
+        + "const SCENE_MAP: Record<number, React.FC> = {\n"
+        + "\n".join(map_entries)
+        + "\n};\n\n"
+        + 'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
+        + '  const offsets = useMemo(() => {\n'
+        + '    const result: number[] = [];\n'
+        + '    let offset = 0;\n'
+        + '    for (const scene of scenes) {\n'
+        + '      result.push(offset);\n'
+        + '      offset += scene.durationInFrames;\n'
+        + '    }\n'
+        + '    return result;\n'
+        + '  }, [scenes]);\n'
+        + '\n'
+        + '  return (\n'
+        + '    <AbsoluteFill>\n'
+        + '      {scenes.map((scene, i) => {\n'
+        + '        const SceneComponent = SCENE_MAP[scene.id];\n'
+        + '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
+        + '        return (\n'
+        + '          <Sequence\n'
+        + '            key={scene.id}\n'
+        + '            from={offsets[i]}\n'
+        + '            durationInFrames={scene.durationInFrames}\n'
+        + '          >\n'
+        + '            <SceneComponent />\n'
+        + '            {showCaptions && (\n'
+        + '              <Captions cues={scene.captions!} fps={fps} />\n'
+        + '            )}\n'
+        + '          </Sequence>\n'
+        + '        );\n'
+        + '      })}\n'
+        + '    </AbsoluteFill>\n'
+        + '  );\n'
+        + '};\n'
+    )
+    mv_path = rdir / "src" / "components" / "MainVideo.tsx"
+    mv_path.write_text(mainvideo_content)
+    print(f"  Regenerated MainVideo.tsx with {len(scene_ids)} static scene import(s)")
 
     # Lint gate (fail fast before any render work)
     ok, msg = lint_gate(title, vdir)
