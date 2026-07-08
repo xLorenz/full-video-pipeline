@@ -22,6 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 import _pipeline_lib as pl  # noqa: E402
 
+# Linux-only guard (WSL reports os.name == "posix" and is fine)
+if os.name != "posix" and os.environ.get("PIPELINE_FORCE_NON_POSIX") != "1":
+    print("ERROR: This pipeline is Linux-only. Use WSL on Windows, or set PIPELINE_FORCE_NON_POSIX=1 to override.", file=sys.stderr)
+    sys.exit(2)
+
 REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
@@ -43,138 +48,12 @@ CmdError = pl.CmdError
 def run_cmd(cmd, cwd=None, check=True, logpath=None):
     return pl.run_cmd(cmd, cwd=cwd, check=check, logpath=logpath)
 
-STEP_KEYS = [
-    "1_topic_selection",
-    "2_research",
-    "3_script_writing",
-    "4_voiceover_writing",
-    "5_voiceover_generation",
-    "6_duration_measurement",
-    "7_style_definition",
-    "8_remotion_coding",
-    "9_scene_rendering",
-    "10_stitching",
-    "11_metadata_generation",
-    "12_thumbnail_generation",
-    "13_thumbnail_rendering",
-]
-
-STEP_NAMES = {
-    "1_topic_selection": "Topic Selection",
-    "2_research": "Research",
-    "3_script_writing": "Script Writing",
-    "4_voiceover_writing": "Voiceover Writing",
-    "5_voiceover_generation": "Voiceover Generation",
-    "6_duration_measurement": "Duration Measurement",
-    "7_style_definition": "Style Definition",
-    "8_remotion_coding": "Remotion Code Writing",
-    "9_scene_rendering": "Scene Rendering",
-    "10_stitching": "Stitching",
-    "11_metadata_generation": "Metadata Generation",
-    "12_thumbnail_generation": "Thumbnail Generation",
-    "13_thumbnail_rendering": "Thumbnail Rendering",
-}
-
-SKIP_STEPS = {"1_topic_selection", "2_research", "3_script_writing",
-              "4_voiceover_writing", "7_style_definition", "8_remotion_coding",
-              "11_metadata_generation", "12_thumbnail_generation"}
-
-SKIP_INSTRUCTIONS = {
-    "1_topic_selection": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/ideate.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/strategy.md\n"
-        "Select a specific, trending topic for the video.\n"
-        "  1. Perform 3-5 web searches to identify trending topics.\n"
-        "  2. Choose the most promising topic.\n"
-        "  3. State the chosen topic clearly.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "2_research": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/competitor.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/analyze.md\n"
-        "Research the topic thoroughly.\n"
-        "  1. Perform 5-10 targeted web searches.\n"
-        "  2. Compile key facts, statistics, expert quotes, examples.\n"
-        "  3. Verify critical claims with at least 2 sources.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "3_script_writing": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/script.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md\n"
-        "Write the retention-optimized script.\n"
-        "  1. Write SCRIPT.md in scene-based format (~10s per scene).\n"
-        "  2. Write scenes.json with structured scene data.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "4_voiceover_writing": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/hook.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
-        "Extract voiceover text into parseable format.\n"
-        "  1. Read SCRIPT.md.\n"
-        "  2. Write VOICEOVER.md with ---SCENE:N--- delimiters.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "7_style_definition": (
-        "Required skill files:\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/video-layout.md\n"
-        "Define visual style for the video.\n"
-        "  1. Read the topic, script tone, and target audience.\n"
-        "  2. Choose color palette, typography, background, animation style.\n"
-        "  3. Write STYLES.md.\n"
-        "  4. Update scenes.json with visual_notes for each scene.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "8_remotion_coding": (
-        "Required skill files:\n"
-        "  skills/remotion-best-practices/skills/remotion/SKILL.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/sequencing.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
-        "Implement the Remotion project code. Root.tsx is already scaffolded\n"
-        "with two compositions (MainVideo + Thumbnail) — keep both.\n"
-        "  1. Write remotion/PLAN.md with implementation plan.\n"
-        "  2. Write src/lib/config.ts with scene data.\n"
-        "  3. Write shared components in src/components/.\n"
-        "  4. Write each scene component in src/scenes/SceneXX.tsx.\n"
-        "  IMPORTANT: scenes render SILENT video. Do NOT use <Audio> —\n"
-        "  voiceover is muxed at stitch time by scripts/assemble.py.\n"
-        "  Optional burned-in captions: render <Captions> from scene.captions\n"
-        "  when scene.showCaptions is true (set per-video via video.burn_captions).\n"
-        "  5. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "11_metadata_generation": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md\n"
-        "Generate YouTube title, description, and tags for the stitched video.\n"
-        "  1. Read SKILL.md Step 11 section for full guidance.\n"
-        "  2. Read the final stitched video info from versions/ directory.\n"
-        "  3. Write TITLE.md (3 title variants), DESCRIPTION.md (<5000 chars\n"
-        "     with timestamps matching scenes.json durations), TAGS.md (10-15\n"
-        "     tags, <500 chars).\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "12_thumbnail_generation": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md\n"
-        "Write the Thumbnail.tsx Remotion component (no AI images).\n"
-        "  1. Read SKILL.md Step 12 section for full guidance.\n"
-        "  2. Read TITLE.md, DESCRIPTION.md, STYLES.md, and scenes.json for context.\n"
-        "  3. Write src/components/Thumbnail.tsx using ONLY Remotion primitives\n"
-        "     (<Img> may only reference local staticFile() assets — no external\n"
-        "     URLs, no AI-generated images). Use shapes, text, gradients.\n"
-        "  4. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
-        "  DO NOT use any AI image generation. Thumbnail must be pure Remotion.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-}
+# Import step metadata from the shared lib (single source of truth)
+STEP_KEYS = pl.STEP_KEYS
+STEP_NAMES = pl.STEP_NAMES
+CREATIVE_STEPS = pl.CREATIVE_STEPS
+EXPECTED_ARTIFACTS = pl.EXPECTED_ARTIFACTS
+SKIP_STEPS = pl.CREATIVE_STEPS
 
 # ---------------------------------------------------------------------------
 # NEW subcommand
@@ -460,6 +339,102 @@ def cmd_new(args):
 
 
 # ---------------------------------------------------------------------------
+# COMPLETE subcommand — mark a creative step done after manual work
+# ---------------------------------------------------------------------------
+
+def cmd_complete(args):
+    """Mark a creative step 'complete' (bypassed by the orchestrator, done by human/agent).
+
+    Validates the step's expected artifacts exist, advances current_step,
+    and writes the new state atomically.
+    """
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    state = load_state(title)
+
+    # Determine which step to mark (default: the current pending/failed/in_progress)
+    if args.step:
+        step_num = int(args.step)
+        step_key = STEP_KEYS[step_num - 1]
+    else:
+        step_num, step_key = find_next_step(state)
+        if step_num is None:
+            print("All steps complete! Nothing to mark.")
+            pl.emit_trailer(0, "", "done", 0)
+            return
+
+    step_name = STEP_NAMES.get(step_key, step_key)
+    step_state = state["steps"].get(step_key, {})
+
+    # Refuse if already complete
+    if step_state.get("status") == "complete":
+        print(f"Step {step_num} ({step_name}) is already complete.")
+        sys.exit(2)
+
+    # Refuse if automated (continue handles those)
+    if step_key not in CREATIVE_STEPS:
+        print(f"ERROR: Step {step_num} ({step_name}) is automated — use `pipeline.py continue`, not `complete`.")
+        sys.exit(2)
+
+    print(f"=== Completing step {step_num}: {step_name} ===")
+
+    # Validate expected artifacts exist
+    artifacts = EXPECTED_ARTIFACTS.get(step_key, [])
+    missing = []
+    for art in artifacts:
+        artifact_path = vdir / art
+        if not artifact_path.exists():
+            missing.append(art)
+        elif artifact_path.is_file() and artifact_path.stat().st_size == 0:
+            missing.append(f"{art} (empty)")
+    if missing:
+        print("ERROR: Missing or empty required artifacts:")
+        for m in missing:
+            print(f"  - {m}")
+        print(f"\nComplete the artifacts above, then re-run: python3 pipeline.py complete {title}")
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 4)
+        sys.exit(4)
+
+    # Also validate the pipeline state against schemas as a precondition
+    ok, errs = validate_project(title)
+    if not ok:
+        print("VALIDATION FAILED — refusing to mark complete:")
+        print(errs)
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 1)
+        sys.exit(1)
+
+    # Mark complete
+    state["steps"][step_key] = {
+        "status": "complete",
+        "completed_at": now_iso(),
+        "last_error": None,
+        "error": None,
+        "attempts": step_state.get("attempts", 0),
+        "step_kind": "creative",
+        "artifacts": artifacts,
+    }
+    state["current_step"] = min(step_num + 1, len(STEP_KEYS))
+    save_state(title, state)
+
+    print(f"\n=== Step {step_num} ({step_name}) marked complete ===")
+
+    next_num, next_key = find_next_step(state)
+    if next_num is None:
+        print("\nAll steps complete! Run `pipeline.py continue` to see the summary.")
+        pl.emit_trailer(step_num, step_key, "done", 0)
+    else:
+        next_name = STEP_NAMES.get(next_key, next_key)
+        print(f"\nNext: Step {next_num} ({next_name})")
+        print(f"Run: python3 pipeline.py continue {title}")
+        pl.emit_trailer(next_num, next_key, "run_continue", 0)
+
+
+# ---------------------------------------------------------------------------
 # CONTINUE subcommand
 # ---------------------------------------------------------------------------
 
@@ -739,7 +714,7 @@ def cmd_continue(args):
     step_num, step_key = find_next_step(state)
     if step_num is None:
         print(f"All steps complete for '{title}'!")
-        # Still validate post-completion so a hand-edit is caught.
+        pl.emit_trailer(0, "", "done", 0)
         return
 
     step_name = STEP_NAMES.get(step_key, step_key)
@@ -747,18 +722,15 @@ def cmd_continue(args):
     print(f"  Next step: {step_num}. {step_name}")
 
     if step_key in SKIP_STEPS:
-        # Precondition: skills must be confirmed loaded
-        step_state = state["steps"][step_key]
-        if not step_state.get("skills_loaded"):
-            print(f"\nStep {step_num} ({step_name}) requires skill files to be loaded first.\n")
-            print("  Required skill files are listed at the top of the instructions below.\n")
-            print(SKIP_INSTRUCTIONS[step_key])
-            print("\n  After loading all skill files, set skills_loaded: true in")
-            print(f"  pipeline_state.json under steps.{step_key}, then re-run.")
-            print(f"  Example: python -c \"import json; s=json.load(open('videos/{title}/pipeline_state.json')); s['steps']['{step_key}']['skills_loaded']=True; json.dump(s, open('videos/{title}/pipeline_state.json','w'), indent=2)\"")
-            return
         print(f"\nStep {step_num} ({step_name}) requires creative input.\n")
-        print(SKIP_INSTRUCTIONS[step_key])
+        arts = EXPECTED_ARTIFACTS.get(step_key, [])
+        if arts:
+            print("  Required artifacts:")
+            for a in arts:
+                print(f"    - {a}")
+        print(f"\n  See SKILL.md Step {step_num} for full instructions.")
+        print(f"\n  When done, run: python3 pipeline.py complete {title}")
+        pl.emit_trailer(step_num, step_key, "await_complete", 0)
         return
 
     # Record attempt BEFORE the run
@@ -813,12 +785,15 @@ def cmd_continue(args):
         next_num, next_key = find_next_step(state)
         if next_num is None:
             print("\nAll steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.")
+            pl.emit_trailer(step_num, step_key, "done", 0)
         elif next_key in SKIP_STEPS:
             print(f"\nNext: Step {next_num} ({STEP_NAMES[next_key]}) — requires creative input.")
             print(f"Run: ./pipeline.py continue {title}")
+            pl.emit_trailer(next_num, next_key, "await_complete", 0)
         else:
             print(f"\nNext: Step {next_num} ({STEP_NAMES[next_key]}) — automated.")
             print(f"Run: ./pipeline.py continue {title}")
+            pl.emit_trailer(next_num, next_key, "run_continue", 0)
     else:
         state["steps"][step_key]["status"] = "failed"
         state["steps"][step_key]["last_error"] = (error_msg or "Step failed, see logs")
@@ -828,6 +803,7 @@ def cmd_continue(args):
         print(f"\n=== Step {step_num} ({step_name}) FAILED ===")
         print(f"  Last error: {state['steps'][step_key]['last_error']}")
         print(f"  Logs in: videos/{title}/logs/")
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 1)
         sys.exit(1)
 
 
@@ -1026,21 +1002,18 @@ def cmd_doctor(args):
     print("=== 1. System check ===")
     sys_check = REPO_ROOT / "scripts" / "check_system.sh"
     if sys_check.exists():
-        if os.name == "nt":
-            print("  SKIP: bash check requires Linux/WSL (Windows detected)")
-        else:
-            try:
-                r = subprocess.run(
-                    ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
-                )
-                print(r.stdout)
-                if r.stderr:
-                    print(r.stderr)
-                if r.returncode != 0:
-                    all_ok = False
-                    print("  FAIL: system check failed — see above.")
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                print("  SKIP: bash not available or timed out on this system")
+        try:
+            r = subprocess.run(
+                ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
+            )
+            print(r.stdout)
+            if r.stderr:
+                print(r.stderr)
+            if r.returncode != 0:
+                all_ok = False
+                print("  FAIL: system check failed — see above.")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print("  SKIP: bash not available or timed out on this system")
     else:
         print("  SKIP: scripts/check_system.sh not found")
         print("  RECOMMENDED: run on Linux or WSL for full system diagnostics.")
@@ -1355,6 +1328,10 @@ def main():
     cont_p = sub.add_parser("continue", help="Run the next incomplete pipeline step")
     cont_p.add_argument("title", help="Video title")
 
+    comp_p = sub.add_parser("complete", help="Mark a creative step complete (after manual work)")
+    comp_p.add_argument("title", help="Video title")
+    comp_p.add_argument("--step", type=int, help="Step number to complete (default: next pending step)")
+
     status_p = sub.add_parser("status", help="Show pipeline state")
     status_p.add_argument("title", nargs="?", help="Video title (omit to show all)")
 
@@ -1382,6 +1359,8 @@ def main():
         cmd_new(args)
     elif args.command == "continue":
         cmd_continue(args)
+    elif args.command == "complete":
+        cmd_complete(args)
     elif args.command == "status":
         cmd_status(args)
     elif args.command == "validate":
