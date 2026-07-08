@@ -75,8 +75,12 @@ def main():
 
     pl.save_scenes_full(video_dir, data)
 
-    print(f"\nUpdated {updated}/{len(data.get('scenes', []))} scenes")
+    scenes_total = len(data.get("scenes", []))
+    print(f"\nUpdated {updated}/{scenes_total} scenes")
     print(f"Total video duration: {total_seconds:.2f}s ({total_seconds/60:.1f}min)")
+    if updated < scenes_total:
+        print("ERROR: partial measurement — some scenes were skipped", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

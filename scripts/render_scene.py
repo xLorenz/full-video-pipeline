@@ -213,7 +213,7 @@ def main():
     node_max_old    = r.get("node_max_old_space_size_mb", 384)
     min_ram_mb      = s.get("min_available_ram_mb", 200)
     min_disk_mb     = s.get("min_available_disk_mb", 500)
-    tmpdir          = s.get("temp_dir", "/tmp/remotion")
+    tmpdir          = s.get("temp_dir", "/tmp/remotion/{title}").replace("{title}", video_dir.name)
     post_settle     = s.get("post_render_settle_seconds", 5)
     burn_captions   = v.get("burn_captions", False)
 

@@ -81,7 +81,7 @@ def cmd_new(args):
         rdir / "src" / "lib",
         rdir / "src" / "scenes",
         rdir / "src" / "components",
-        rdir / "public" / "thumbnails",
+        rdir / "public",
         vdir / "voiceover",
         vdir / "scenes",
         vdir / "versions",
@@ -111,197 +111,23 @@ def cmd_new(args):
     with open(rdir / "package.json", "w") as f:
         json.dump(pkg, f, indent=2)
 
-    # Create index.css
-    (rdir / "src" / "index.css").write_text('@import "tailwindcss";\n')
+    # Copy foundation src/ as the per-video Remotion project source.
+    # This copies Root.tsx, MainVideo.tsx, Thumbnail.tsx, SceneMap.generated.ts,
+    # lib/config.ts (with placeholder values), lib/styles.ts, shared components
+    # (Background, TextReveal, StatReveal, Captions), and index.css.
+    def _ignore_for_scaffold(src_dir, names):
+        # Skip index.ts (remotion-foundation package entry — not needed per-video)
+        return {"index.ts"} if Path(src_dir).name == "src" else set()
+    shutil.copytree(FOUNDATION_DIR / "src", rdir / "src", dirs_exist_ok=True,
+                    ignore=_ignore_for_scaffold)
 
-    # Create lib/styles.ts
-    (rdir / "src" / "lib" / "styles.ts").write_text(
-        'export const COLORS = {\n'
-        '  primary: "#0F1B2D",\n'
-        '  secondary: "#00BFA6",\n'
-        '  accent: "#FFB300",\n'
-        '  background: "#0A1220",\n'
-        '  text: "#FFFFFF",\n'
-        '  muted: "#4A5568",\n'
-        '  danger: "#EF4444",\n'
-        '  success: "#10B981",\n'
-        '  gridLine: "#1A2744",\n'
-        '} as const;\n'
-        '\n'
-        'export const FONTS = {\n'
-        '  heading: "Inter",\n'
-        '  body: "Poppins",\n'
-        '} as const;\n'
-    )
-
-    # Create lib/config.ts
-    (rdir / "src" / "lib" / "config.ts").write_text(
-        f'export const FPS = {fps};\n'
-        f'export const WIDTH = {width};\n'
-        f'export const HEIGHT = {height};\n'
-    )
-
-    # Create Root.tsx — MainVideo composition + Thumbnail still composition
-    (rdir / "src" / "Root.tsx").write_text(
-        'import React from "react";\n'
-        'import { Composition, registerRoot } from "remotion";\n'
-        'import type { VideoProps, ThumbnailProps } from "remotion-foundation";\n'
-        'import { FPS, WIDTH, HEIGHT } from "./lib/config";\n'
-        'import { MainVideo } from "./components/MainVideo";\n'
-        'import { Thumbnail } from "./components/Thumbnail";\n'
-        '\n'
-        'export const RemotionRoot: React.FC = () => {\n'
-        '  return (\n'
-        '    <>\n'
-        '      <Composition\n'
-        '        id="MainVideo"\n'
-        '        component={MainVideo as React.ComponentType<any>}\n'
-        '        calculateMetadata={async ({ props }) => {\n'
-        '          const totalFrames = props.scenes.reduce(\n'
-        '            (sum, s) => sum + s.durationInFrames, 0\n'
-        '          );\n'
-        '          return {\n'
-        '            durationInFrames: totalFrames || 1,\n'
-        '            fps: props.fps,\n'
-        '            width: props.width,\n'
-        '            height: props.height,\n'
-        '          };\n'
-        '        }}\n'
-        '        defaultProps={{\n'
-        '          scenes: [],\n'
-        '          fps: FPS,\n'
-        '          width: WIDTH,\n'
-        '          height: HEIGHT,\n'
-        '          burnCaptions: false,\n'
-        '        } satisfies VideoProps}\n'
-        '      />\n'
-        '      <Composition\n'
-        '        id="Thumbnail"\n'
-        '        component={Thumbnail as React.ComponentType<any>}\n'
-        '        durationInFrames={1}\n'
-        '        fps={30}\n'
-        '        width={WIDTH}\n'
-        '        height={HEIGHT}\n'
-        '        defaultProps={{\n'
-        '          title: "Video Title",\n'
-        '          subtitle: "",\n'
-        '          palette: {\n'
-        '            primary: "#0F1B2D",\n'
-        '            secondary: "#00BFA6",\n'
-        '            accent: "#FFB300",\n'
-        '            background: "#0A1220",\n'
-        '            text: "#FFFFFF",\n'
-        '          },\n'
-        '        } satisfies ThumbnailProps}\n'
-        '      />\n'
-        '    </>\n'
-        '  );\n'
-        '};\n'
-        'registerRoot(RemotionRoot);\n'
-    )
-
-    # Create MainVideo component.
-    # NOTE: scenes render SILENT video. Voiceover is muxed at stitch time
-    # by scripts/assemble.py. The Captions layer is rendered only when
-    # burnCaptions=true (set via props from pipeline_config.json).
-    (rdir / "src" / "components" / "MainVideo.tsx").write_text(
-        'import React, { useMemo } from "react";\n'
-        'import { AbsoluteFill, Sequence } from "remotion";\n'
-        'import { Captions } from "remotion-foundation";\n'
-        'import type { SceneTiming, VideoProps } from "remotion-foundation";\n'
-        '\n'
-        'const SCENE_COMPONENTS: Record<number, React.LazyExoticComponent<React.FC<{ scene: SceneTiming }>>> = {};\n'
-        '\n'
-        'function getSceneComponent(id: number) {\n'
-        '  if (!SCENE_COMPONENTS[id]) {\n'
-        '    const padded = String(id).padStart(2, "0");\n'
-        '    SCENE_COMPONENTS[id] = React.lazy(\n'
-        '      () => import(`../scenes/Scene${padded}`)\n'
-        '    );\n'
-        '  }\n'
-        '  return SCENE_COMPONENTS[id];\n'
-        '}\n'
-        '\n'
-        'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
-        '  const offsets = useMemo(() => {\n'
-        '    const result: number[] = [];\n'
-        '    let offset = 0;\n'
-        '    for (const scene of scenes) {\n'
-        '      result.push(offset);\n'
-        '      offset += scene.durationInFrames;\n'
-        '    }\n'
-        '    return result;\n'
-        '  }, [scenes]);\n'
-        '\n'
-        '  return (\n'
-        '    <AbsoluteFill>\n'
-        '      {scenes.map((scene, i) => {\n'
-        '        const SceneComponent = getSceneComponent(scene.id);\n'
-        '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
-        '        return (\n'
-        '          <Sequence\n'
-        '            key={scene.id}\n'
-        '            from={offsets[i]}\n'
-        '            durationInFrames={scene.durationInFrames}\n'
-        '          >\n'
-        '            <React.Suspense fallback={null}>\n'
-        '              <SceneComponent scene={scene} />\n'
-        '            </React.Suspense>\n'
-        '            {showCaptions && (\n'
-        '              <Captions cues={scene.captions!} fps={fps} />\n'
-        '            )}\n'
-        '          </Sequence>\n'
-        '        );\n'
-        '      })}\n'
-        '    </AbsoluteFill>\n'
-        '  );\n'
-        '};\n'
-    )
-
-    # Create Thumbnail.tsx stub — the agent fills this in during Step 12
-    (rdir / "src" / "components" / "Thumbnail.tsx").write_text(
-        'import React from "react";\n'
-        'import { AbsoluteFill } from "remotion";\n'
-        'import type { ThumbnailProps } from "remotion-foundation";\n'
-        '\n'
-        'export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {\n'
-        '  return (\n'
-        '    <AbsoluteFill\n'
-        '      style={{\n'
-        '        backgroundColor: palette.background,\n'
-        '        justifyContent: "center",\n'
-        '        alignItems: "center",\n'
-        '        fontFamily: "Inter, sans-serif",\n'
-        '      }}\n'
-        '    >\n'
-        '      <h1\n'
-        '        style={{\n'
-        '          color: palette.text,\n'
-        '          fontSize: 80,\n'
-        '          fontWeight: 700,\n'
-        '          textAlign: "center",\n'
-        '          margin: "0 80px",\n'
-        '          lineHeight: 1.1,\n'
-        '        }}\n'
-        '      >\n'
-        '        {title}\n'
-        '      </h1>\n'
-        '      {subtitle && (\n'
-        '        <p\n'
-        '          style={{\n'
-        '            color: palette.accent,\n'
-        '            fontSize: 36,\n'
-        '            fontWeight: 600,\n'
-        '            marginTop: 20,\n'
-        '          }}\n'
-        '        >\n'
-        '          {subtitle}\n'
-        '        </p>\n'
-        '      )}\n'
-        '    </AbsoluteFill>\n'
-        '  );\n'
-        '};\n'
-    )
+    # Substitute dynamic values in config.ts (use placeholders in foundation)
+    config_path = rdir / "src" / "lib" / "config.ts"
+    config_text = config_path.read_text(encoding="utf-8")
+    config_text = config_text.replace("FPS = 30", f"FPS = {fps}")
+    config_text = config_text.replace("WIDTH = 1920", f"WIDTH = {width}")
+    config_text = config_text.replace("HEIGHT = 1080", f"HEIGHT = {height}")
+    config_path.write_text(config_text, encoding="utf-8")
 
     # Create pipeline_state.json
     state = {
@@ -522,63 +348,40 @@ def run_step_9(title, vdir):
     """
     print("--- Running Step 9: Scene Rendering ---")
 
-    # Regenerate MainVideo.tsx with static scene imports (Webpack can't bundle
-    # dynamic template-literal import()). Reads actual scene IDs from scenes.json.
+    # Ensure MainVideo.tsx imports SceneMap.generated.ts (B2 contract check).
+    # If not, the agent is running the old scaffold — tell them to re-Step 8.
     rdir = vdir / "remotion"
+    mv_path = rdir / "src" / "components" / "MainVideo.tsx"
+    if mv_path.exists() and "SceneMap" not in mv_path.read_text(encoding="utf-8"):
+        print("  ERROR: MainVideo.tsx must import SceneMap.generated.ts (the B2 contract).")
+        print("  Re-run Step 8 with the updated foundation template to get the new MainVideo.tsx")
+        print("  that imports from src/scenes/SceneMap.generated.ts.")
+        return False
+
+    # Regenerate SceneMap.generated.ts with static scene imports.
+    # MainVideo.tsx imports SCENE_MAP from this file; we only overwrite the map,
+    # never the agent-owned MainVideo.tsx.
     scenes = load_scenes(title)
     scene_ids = sorted(set(s["id"] for s in scenes))
     import_lines = []
     map_entries = []
     for sid in scene_ids:
         padded = f"{sid:02d}"
-        import_lines.append(f'import {{ Scene{padded} }} from "../scenes/Scene{padded}";')
+        import_lines.append(f'import {{ Scene{padded} }} from "./Scene{padded}";')
         map_entries.append(f"  {sid}: Scene{padded},")
-    mainvideo_content = (
-        'import React, { useMemo } from "react";\n'
-        'import { AbsoluteFill, Sequence } from "remotion";\n'
-        'import { Captions } from "remotion-foundation";\n'
-        'import type { VideoProps } from "remotion-foundation";\n'
+    scenemap_content = (
+        '// AUTO-GENERATED by pipeline.py — do not edit.\n'
+        + "import React from 'react';\n"
+        + "import type { SceneTiming } from 'remotion-foundation';\n"
         + "\n".join(import_lines)
         + "\n\n"
-        + "const SCENE_MAP: Record<number, React.FC> = {\n"
+        + "export const SCENE_MAP: Record<number, React.FC<{ scene: SceneTiming }>> = {\n"
         + "\n".join(map_entries)
-        + "\n};\n\n"
-        + 'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
-        + '  const offsets = useMemo(() => {\n'
-        + '    const result: number[] = [];\n'
-        + '    let offset = 0;\n'
-        + '    for (const scene of scenes) {\n'
-        + '      result.push(offset);\n'
-        + '      offset += scene.durationInFrames;\n'
-        + '    }\n'
-        + '    return result;\n'
-        + '  }, [scenes]);\n'
-        + '\n'
-        + '  return (\n'
-        + '    <AbsoluteFill>\n'
-        + '      {scenes.map((scene, i) => {\n'
-        + '        const SceneComponent = SCENE_MAP[scene.id];\n'
-        + '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
-        + '        return (\n'
-        + '          <Sequence\n'
-        + '            key={scene.id}\n'
-        + '            from={offsets[i]}\n'
-        + '            durationInFrames={scene.durationInFrames}\n'
-        + '          >\n'
-        + '            <SceneComponent />\n'
-        + '            {showCaptions && (\n'
-        + '              <Captions cues={scene.captions!} fps={fps} />\n'
-        + '            )}\n'
-        + '          </Sequence>\n'
-        + '        );\n'
-        + '      })}\n'
-        + '    </AbsoluteFill>\n'
-        + '  );\n'
-        + '};\n'
+        + "\n};\n"
     )
-    mv_path = rdir / "src" / "components" / "MainVideo.tsx"
-    mv_path.write_text(mainvideo_content)
-    print(f"  Regenerated MainVideo.tsx with {len(scene_ids)} static scene import(s)")
+    sm_path = rdir / "src" / "scenes" / "SceneMap.generated.ts"
+    sm_path.write_text(scenemap_content)
+    print(f"  Regenerated SceneMap.generated.ts with {len(scene_ids)} static scene import(s)")
 
     # Lint gate (fail fast before any render work)
     ok, msg = lint_gate(title, vdir)
@@ -1141,15 +944,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Removed: voiceover_aligned.mp3 ({sz/1024/1024:.1f} MB)")
 
-    # 2. dup remotion/public/voiceover/
-    dup_dir = vdir / "remotion" / "public" / "voiceover"
-    if dup_dir.exists():
-        sz = sum(f.stat().st_size for f in dup_dir.rglob("*") if f.is_file())
-        shutil.rmtree(dup_dir, ignore_errors=True)
-        freed += sz
-        print(f"  Removed: remotion/public/voiceover/ ({sz/1024/1024:.1f} MB)")
-
-    # 3. Prune old MP4 versions (keep last N)
+    # 2. Prune old MP4 versions (keep last N)
     to_prune = pl.find_versions_to_prune(
         vdir / "versions", safe_title, r'{title}-v(\d+)\.mp4', keep_v)
     for old in to_prune:
@@ -1193,9 +988,9 @@ def cmd_clean(args):
                 freed += sz
                 print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
 
-    # 8. Reap Remotion TMPDIR
-    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion")
-    tdir = Path(tmpdir)
+    # 8. Reap Remotion TMPDIR (per-video — title substitution)
+    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion/{title}")
+    tdir = Path(tmpdir.replace("{title}", title))
     if tdir.exists():
         sz = sum(f.stat().st_size for f in tdir.rglob("*") if f.is_file())
         shutil.rmtree(tdir, ignore_errors=True)
