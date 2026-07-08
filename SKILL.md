@@ -129,7 +129,8 @@ The skill files contain the retention/CTR/SEO rules your output MUST satisfy —
 skipping the load is the #1 cause of validation failures and rework.
 
 The very first action you take on a brand-new video is
-`python3 pipeline.py new "<proposed-title>"` (see Step 8a for the convention).
+`python3 pipeline.py new "<proposed-title>"` — run this once to scaffold the
+project. Do NOT re-run it later; it errors if the directory already exists.
 The very last is `continue` reporting "All steps complete!".
 
 ## Audio Path (IMPORTANT — overrides remotion-best-practices skill)
@@ -359,28 +360,25 @@ just wait for it to report success, then run `continue` again for Step 6.
 
 **Goal**: Generate MP3 audio files for each scene using edge-tts.
 
+**This step is automated.** The orchestrator runs it when you invoke `continue`.
+You do NOT run `generate_voiceover.py` yourself.
+
 **Action**:
-1. Run the voiceover generation script:
-
-```bash
-python3 scripts/generate_voiceover.py videos/{video-title}/ --voice {voice_name}
-```
-
-The voice name comes from `pipeline_config.json` (default: `en-GB-RyanNeural`).
-User can override with `--voice en-GB-SoniaNeural` or similar. Concurrency is
-configurable via `voiceover.concurrency` (default 3).
-
-2. The script will:
-   - Parse `VOICEOVER.md` for scene delimiters
-   - Compute a SHA-256 `voiceover_hash` for each scene from
+1. Run `python3 pipeline.py continue <title>`.
+2. The orchestrator will run `generate_voiceover.py` which:
+   - Parses `VOICEOVER.md` for scene delimiters
+   - Computes a SHA-256 `voiceover_hash` for each scene from
      `(text, voice, rate, volume, pitch)`
-   - **Skip generation** for any scene whose MP3 already exists AND whose stored
+   - **Skips generation** for any scene whose MP3 already exists AND whose stored
      `voiceover_hash` matches (idempotent — editing VOICEOVER.md and re-running
      only regenerates the changed scenes)
-   - Generate MP3s concurrently up to `voiceover.concurrency`
-   - Retry each failed scene once after a 5s backoff
-   - Measure each file's duration
-   - Atomically update `scenes.json` with file paths, durations, and hashes
+   - Generates MP3s concurrently up to `voiceover.concurrency`
+   - Retries each failed scene once after a 5s backoff
+   - Measures each file's duration
+   - Atomically updates `scenes.json` with file paths, durations, and hashes
+
+Voice and concurrency settings come from `pipeline_config.json` (`voiceover.voice`
+default `en-GB-RyanNeural`, `voiceover.concurrency` default 3).
 
 **Output**: `voiceover/scene-XX.mp3` files + updated `scenes.json`.
 
@@ -397,18 +395,16 @@ configurable via `voiceover.concurrency` (default 3).
 
 **Goal**: Verify and finalize the real durations of all voiceover audio files.
 
+**This step is automated.** The orchestrator runs it when you invoke `continue`.
+You do NOT run `measure_durations.py` yourself.
+
 **Action**:
-1. Run the duration measurement script:
-
-```bash
-python3 scripts/measure_durations.py videos/{video-title}/
-```
-
-2. The script will:
-   - Use ffprobe to measure each MP3
-   - Calculate `actual_duration_frames = ceil(duration * fps)`
-   - Update `scenes.json` with real values
-   - Print total video duration
+1. Run `python3 pipeline.py continue <title>`.
+2. The orchestrator runs `measure_durations.py` which:
+   - Uses ffprobe to measure each MP3
+   - Calculates `actual_duration_frames = ceil(duration * fps)`
+   - Updates `scenes.json` with real values
+   - Prints total video duration
 
 **Output**: Updated `scenes.json` with `actual_duration_seconds` and `actual_duration_frames`.
 
@@ -503,18 +499,18 @@ confirms Step 7 is complete — the `visual_notes` you set here drive Step 8.
 
 **Action**:
 
-#### 8a. Scaffold the project
+#### 8a. Verify the Remotion project is scaffolded
+
+The Remotion project was already scaffolded when you ran `python3 pipeline.py new`
+as the very first action. Verify it exists:
 
 ```bash
-python3 pipeline.py new "{video-title}"
+ls videos/{video-title}/remotion/src/Root.tsx
 ```
 
-This creates the directory structure, copies foundation config, generates starter
-files (Root.tsx with **two** compositions — `MainVideo` and `Thumbnail` — along
-with `MainVideo.tsx`, `Thumbnail.tsx` stub, config.ts, styles.ts), and installs
-npm dependencies.
-
-If the `videos/{video-title}/remotion/` directory already has files, skip scaffolding.
+It should contain **two** compositions — `MainVideo` and `Thumbnail` — along with
+`MainVideo.tsx`, `Thumbnail.tsx` stub, config.ts, styles.ts, and installed npm
+dependencies. If the directory is missing or incomplete, run `python3 pipeline.py new "{video-title}"` once.
 
 #### 8b. Load the Remotion best practices skill
 
@@ -579,7 +575,6 @@ Before writing any code, create `remotion/PLAN.md`:
 
 5. Write each scene component in `src/scenes/SceneXX.tsx`:
    - Use `useCurrentFrame()` + `interpolate()` for animations
-   - Use `<Audio>` from `@remotion/media` for voiceover
    - Use `<Sequence>` for sub-timing within the scene
    - NO CSS transitions/animations
    - NO Tailwind animation classes
@@ -589,10 +584,10 @@ Before writing any code, create `remotion/PLAN.md`:
 
 6. Each scene must:
    - Match its `actual_duration_frames` exactly
-   - **NOT include voiceover audio** — scenes render SILENT video. Voiceover is
-     muxed at stitch time by `scripts/assemble.py`. Do NOT use `<Audio>` from
-     `@remotion/media` for the voiceover. (Background music/SFX, if any, are
-     still allowed via `<Audio>`.)
+   - **Render SILENT video only** — voiceover is muxed at stitch time by
+     `scripts/assemble.py`. Do NOT use `<Audio>` from `@remotion/media` for
+     the voiceover. (Background music/SFX, if any, are still allowed via
+     `<Audio>`.)
    - Implement the visual treatment from `visual_notes` in `scenes.json`
    - Follow the style system from STYLES.md
    - Have proper text sizing per video-layout.md rules
