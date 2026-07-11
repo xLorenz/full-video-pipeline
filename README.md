@@ -169,15 +169,14 @@ Edit `pipeline_config.json` to change defaults:
   "system": {
     "min_available_ram_mb": 200,
     "min_available_disk_mb": 500,
-    "swap_target_mb": 2048,
     "chrome_kill_between_renders": true,
     "post_render_settle_seconds": 5,
-    "temp_dir": "/tmp/remotion"
+    "temp_dir": "/tmp/remotion/{title}"
   },
   "retention": {
     "keep_versions": 2,
     "clean_voiceover_aligned_after_stitch": true,
-    "clean_dup_voiceover_in_public_dir": true,
+
     "clean_remotion_node_modules_after_step_13": true,
     "clean_preview_after_success": true,
     "reap_remotion_tmpdir_after_render": true,

@@ -19,6 +19,7 @@ Usage:
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -141,6 +142,17 @@ def main():
     print(f"Captions generated: {len(srt_entries)} cues across {len(scenes)} scenes")
     print(f"  SRT: {srt_path}")
     print(f"  Updated scenes.json with per-scene `captions`")
+
+    # Post-write validation: validate.py --step 6 catches integrity issues
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "validate.py"),
+         str(video_dir), "--step", "6"],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        print("ERROR: captions validation failed", file=sys.stderr)
+        print(r.stdout + r.stderr, file=sys.stderr)
+        sys.exit(1)
+    print("  Caption validation: OK")
 
 
 if __name__ == "__main__":

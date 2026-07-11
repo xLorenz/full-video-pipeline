@@ -86,7 +86,18 @@
         "skills_loaded": {
           "type": "boolean",
           "default": false,
-          "description": "Set to true after the agent has loaded all required skill files for this step."
+          "description": "DEPRECATED — no longer read by the orchestrator. Retained for backward compatibility."
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "List of artifact paths verified to exist by `complete` subcommand or post-step gate."
+        },
+        "step_kind": {
+          "type": "string",
+          "enum": ["creative", "automated"],
+          "description": "Frozen at first continue of this step. Read by audit/doctor."
         }
       }
     }

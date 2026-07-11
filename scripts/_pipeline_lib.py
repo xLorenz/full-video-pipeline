@@ -18,6 +18,65 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 
 # ---------------------------------------------------------------------------
+# Step pipeline metadata (single source of truth for scripts + orchestrator)
+# ---------------------------------------------------------------------------
+
+STEP_KEYS = [
+    "1_topic_selection", "2_research", "3_script_writing",
+    "4_voiceover_writing", "5_voiceover_generation",
+    "6_duration_measurement", "7_style_definition",
+    "8_remotion_coding", "9_scene_rendering", "10_stitching",
+    "11_metadata_generation", "12_thumbnail_generation",
+    "13_thumbnail_rendering",
+]
+
+STEP_NAMES = {
+    "1_topic_selection": "Topic Selection",
+    "2_research": "Research",
+    "3_script_writing": "Script Writing",
+    "4_voiceover_writing": "Voiceover Writing",
+    "5_voiceover_generation": "Voiceover Generation",
+    "6_duration_measurement": "Duration Measurement",
+    "7_style_definition": "Style Definition",
+    "8_remotion_coding": "Remotion Code Writing",
+    "9_scene_rendering": "Scene Rendering",
+    "10_stitching": "Stitching",
+    "11_metadata_generation": "Metadata Generation",
+    "12_thumbnail_generation": "Thumbnail Generation",
+    "13_thumbnail_rendering": "Thumbnail Rendering",
+}
+
+AUTOMATED_STEPS = {
+    "5_voiceover_generation", "6_duration_measurement",
+    "9_scene_rendering", "10_stitching", "13_thumbnail_rendering",
+}
+
+CREATIVE_STEPS = set(STEP_KEYS) - AUTOMATED_STEPS
+
+EXPECTED_ARTIFACTS: dict = {
+    "1_topic_selection": [],
+    "2_research": [],
+    "3_script_writing": ["SCRIPT.md"],
+    "4_voiceover_writing": ["VOICEOVER.md"],
+    "5_voiceover_generation": [],
+    "6_duration_measurement": [],
+    "7_style_definition": ["STYLES.md"],
+    "8_remotion_coding": [
+        "remotion/PLAN.md",
+        "remotion/src/Root.tsx",
+        "remotion/src/components/MainVideo.tsx",
+        "remotion/src/components/Thumbnail.tsx",
+        "remotion/src/lib/config.ts",
+        "remotion/src/lib/styles.ts",
+    ],
+    "9_scene_rendering": [],
+    "10_stitching": [],
+    "11_metadata_generation": ["TITLE.md", "DESCRIPTION.md", "TAGS.md"],
+    "12_thumbnail_generation": ["remotion/src/components/Thumbnail.tsx"],
+    "13_thumbnail_rendering": [],
+}
+
+# ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
@@ -136,6 +195,21 @@ def save_state(title, state):
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int):
+    """Print a machine-readable __PIPELINE_NEXT__ trailer line for the agent."""
+    import json
+    name = STEP_NAMES.get(step_key, step_key)
+    kind = "creative" if step_key in CREATIVE_STEPS else "automated"
+    trailer = json.dumps({
+        "step": step_num,
+        "name": name,
+        "kind": kind,
+        "action": action,
+        "exit": exit_code,
+    })
+    print(f"__PIPELINE_NEXT__ {trailer}")
 
 
 # ---------------------------------------------------------------------------
@@ -277,20 +351,3 @@ class CmdError(Exception):
         super().__init__(f"Command failed (exit {returncode}): {cmd}")
 
 
-# ---------------------------------------------------------------------------
-# Step keys (kept here so scripts and orchestrator stay aligned)
-# ---------------------------------------------------------------------------
-
-STEP_KEYS = [
-    "1_topic_selection", "2_research", "3_script_writing",
-    "4_voiceover_writing", "5_voiceover_generation",
-    "6_duration_measurement", "7_style_definition",
-    "8_remotion_coding", "9_scene_rendering", "10_stitching",
-    "11_metadata_generation", "12_thumbnail_generation",
-    "13_thumbnail_rendering",
-]
-
-AUTOMATED_STEPS = {
-    "5_voiceover_generation", "6_duration_measurement",
-    "9_scene_rendering", "10_stitching", "13_thumbnail_rendering",
-}

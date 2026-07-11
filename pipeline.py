@@ -22,6 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 import _pipeline_lib as pl  # noqa: E402
 
+# Linux-only guard (WSL reports os.name == "posix" and is fine)
+if os.name != "posix" and os.environ.get("PIPELINE_FORCE_NON_POSIX") != "1":
+    print("ERROR: This pipeline is Linux-only. Use WSL on Windows, or set PIPELINE_FORCE_NON_POSIX=1 to override.", file=sys.stderr)
+    sys.exit(2)
+
 REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
@@ -43,138 +48,12 @@ CmdError = pl.CmdError
 def run_cmd(cmd, cwd=None, check=True, logpath=None):
     return pl.run_cmd(cmd, cwd=cwd, check=check, logpath=logpath)
 
-STEP_KEYS = [
-    "1_topic_selection",
-    "2_research",
-    "3_script_writing",
-    "4_voiceover_writing",
-    "5_voiceover_generation",
-    "6_duration_measurement",
-    "7_style_definition",
-    "8_remotion_coding",
-    "9_scene_rendering",
-    "10_stitching",
-    "11_metadata_generation",
-    "12_thumbnail_generation",
-    "13_thumbnail_rendering",
-]
-
-STEP_NAMES = {
-    "1_topic_selection": "Topic Selection",
-    "2_research": "Research",
-    "3_script_writing": "Script Writing",
-    "4_voiceover_writing": "Voiceover Writing",
-    "5_voiceover_generation": "Voiceover Generation",
-    "6_duration_measurement": "Duration Measurement",
-    "7_style_definition": "Style Definition",
-    "8_remotion_coding": "Remotion Code Writing",
-    "9_scene_rendering": "Scene Rendering",
-    "10_stitching": "Stitching",
-    "11_metadata_generation": "Metadata Generation",
-    "12_thumbnail_generation": "Thumbnail Generation",
-    "13_thumbnail_rendering": "Thumbnail Rendering",
-}
-
-SKIP_STEPS = {"1_topic_selection", "2_research", "3_script_writing",
-              "4_voiceover_writing", "7_style_definition", "8_remotion_coding",
-              "11_metadata_generation", "12_thumbnail_generation"}
-
-SKIP_INSTRUCTIONS = {
-    "1_topic_selection": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/ideate.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/strategy.md\n"
-        "Select a specific, trending topic for the video.\n"
-        "  1. Perform 3-5 web searches to identify trending topics.\n"
-        "  2. Choose the most promising topic.\n"
-        "  3. State the chosen topic clearly.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "2_research": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/competitor.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/analyze.md\n"
-        "Research the topic thoroughly.\n"
-        "  1. Perform 5-10 targeted web searches.\n"
-        "  2. Compile key facts, statistics, expert quotes, examples.\n"
-        "  3. Verify critical claims with at least 2 sources.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "3_script_writing": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/script.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md\n"
-        "Write the retention-optimized script.\n"
-        "  1. Write SCRIPT.md in scene-based format (~10s per scene).\n"
-        "  2. Write scenes.json with structured scene data.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "4_voiceover_writing": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/hook.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
-        "Extract voiceover text into parseable format.\n"
-        "  1. Read SCRIPT.md.\n"
-        "  2. Write VOICEOVER.md with ---SCENE:N--- delimiters.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "7_style_definition": (
-        "Required skill files:\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/video-layout.md\n"
-        "Define visual style for the video.\n"
-        "  1. Read the topic, script tone, and target audience.\n"
-        "  2. Choose color palette, typography, background, animation style.\n"
-        "  3. Write STYLES.md.\n"
-        "  4. Update scenes.json with visual_notes for each scene.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "8_remotion_coding": (
-        "Required skill files:\n"
-        "  skills/remotion-best-practices/skills/remotion/SKILL.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/sequencing.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/compositions.md\n"
-        "  skills/remotion-best-practices/skills/remotion/rules/voiceover.md\n"
-        "Implement the Remotion project code. Root.tsx is already scaffolded\n"
-        "with two compositions (MainVideo + Thumbnail) — keep both.\n"
-        "  1. Write remotion/PLAN.md with implementation plan.\n"
-        "  2. Write src/lib/config.ts with scene data.\n"
-        "  3. Write shared components in src/components/.\n"
-        "  4. Write each scene component in src/scenes/SceneXX.tsx.\n"
-        "  IMPORTANT: scenes render SILENT video. Do NOT use <Audio> —\n"
-        "  voiceover is muxed at stitch time by scripts/assemble.py.\n"
-        "  Optional burned-in captions: render <Captions> from scene.captions\n"
-        "  when scene.showCaptions is true (set per-video via video.burn_captions).\n"
-        "  5. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "11_metadata_generation": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md\n"
-        "Generate YouTube title, description, and tags for the stitched video.\n"
-        "  1. Read SKILL.md Step 11 section for full guidance.\n"
-        "  2. Read the final stitched video info from versions/ directory.\n"
-        "  3. Write TITLE.md (3 title variants), DESCRIPTION.md (<5000 chars\n"
-        "     with timestamps matching scenes.json durations), TAGS.md (10-15\n"
-        "     tags, <500 chars).\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-    "12_thumbnail_generation": (
-        "Required skill files:\n"
-        "  skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md\n"
-        "  skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md\n"
-        "Write the Thumbnail.tsx Remotion component (no AI images).\n"
-        "  1. Read SKILL.md Step 12 section for full guidance.\n"
-        "  2. Read TITLE.md, DESCRIPTION.md, STYLES.md, and scenes.json for context.\n"
-        "  3. Write src/components/Thumbnail.tsx using ONLY Remotion primitives\n"
-        "     (<Img> may only reference local staticFile() assets — no external\n"
-        "     URLs, no AI-generated images). Use shapes, text, gradients.\n"
-        "  4. Verify: cd remotion && npm run lint && npx tsc --noEmit\n"
-        "  DO NOT use any AI image generation. Thumbnail must be pure Remotion.\n"
-        "  Then run: ./pipeline.py continue <title>"
-    ),
-}
+# Import step metadata from the shared lib (single source of truth)
+STEP_KEYS = pl.STEP_KEYS
+STEP_NAMES = pl.STEP_NAMES
+CREATIVE_STEPS = pl.CREATIVE_STEPS
+EXPECTED_ARTIFACTS = pl.EXPECTED_ARTIFACTS
+SKIP_STEPS = pl.CREATIVE_STEPS
 
 # ---------------------------------------------------------------------------
 # NEW subcommand
@@ -202,7 +81,7 @@ def cmd_new(args):
         rdir / "src" / "lib",
         rdir / "src" / "scenes",
         rdir / "src" / "components",
-        rdir / "public" / "thumbnails",
+        rdir / "public",
         vdir / "voiceover",
         vdir / "scenes",
         vdir / "versions",
@@ -232,197 +111,23 @@ def cmd_new(args):
     with open(rdir / "package.json", "w") as f:
         json.dump(pkg, f, indent=2)
 
-    # Create index.css
-    (rdir / "src" / "index.css").write_text('@import "tailwindcss";\n')
+    # Copy foundation src/ as the per-video Remotion project source.
+    # This copies Root.tsx, MainVideo.tsx, Thumbnail.tsx, SceneMap.generated.ts,
+    # lib/config.ts (with placeholder values), lib/styles.ts, shared components
+    # (Background, TextReveal, StatReveal, Captions), and index.css.
+    def _ignore_for_scaffold(src_dir, names):
+        # Skip index.ts (remotion-foundation package entry — not needed per-video)
+        return {"index.ts"} if Path(src_dir).name == "src" else set()
+    shutil.copytree(FOUNDATION_DIR / "src", rdir / "src", dirs_exist_ok=True,
+                    ignore=_ignore_for_scaffold)
 
-    # Create lib/styles.ts
-    (rdir / "src" / "lib" / "styles.ts").write_text(
-        'export const COLORS = {\n'
-        '  primary: "#0F1B2D",\n'
-        '  secondary: "#00BFA6",\n'
-        '  accent: "#FFB300",\n'
-        '  background: "#0A1220",\n'
-        '  text: "#FFFFFF",\n'
-        '  muted: "#4A5568",\n'
-        '  danger: "#EF4444",\n'
-        '  success: "#10B981",\n'
-        '  gridLine: "#1A2744",\n'
-        '} as const;\n'
-        '\n'
-        'export const FONTS = {\n'
-        '  heading: "Inter",\n'
-        '  body: "Poppins",\n'
-        '} as const;\n'
-    )
-
-    # Create lib/config.ts
-    (rdir / "src" / "lib" / "config.ts").write_text(
-        f'export const FPS = {fps};\n'
-        f'export const WIDTH = {width};\n'
-        f'export const HEIGHT = {height};\n'
-    )
-
-    # Create Root.tsx — MainVideo composition + Thumbnail still composition
-    (rdir / "src" / "Root.tsx").write_text(
-        'import React from "react";\n'
-        'import { Composition, registerRoot } from "remotion";\n'
-        'import type { VideoProps, ThumbnailProps } from "remotion-foundation";\n'
-        'import { FPS, WIDTH, HEIGHT } from "./lib/config";\n'
-        'import { MainVideo } from "./components/MainVideo";\n'
-        'import { Thumbnail } from "./components/Thumbnail";\n'
-        '\n'
-        'export const RemotionRoot: React.FC = () => {\n'
-        '  return (\n'
-        '    <>\n'
-        '      <Composition\n'
-        '        id="MainVideo"\n'
-        '        component={MainVideo as React.ComponentType<any>}\n'
-        '        calculateMetadata={async ({ props }) => {\n'
-        '          const totalFrames = props.scenes.reduce(\n'
-        '            (sum, s) => sum + s.durationInFrames, 0\n'
-        '          );\n'
-        '          return {\n'
-        '            durationInFrames: totalFrames || 1,\n'
-        '            fps: props.fps,\n'
-        '            width: props.width,\n'
-        '            height: props.height,\n'
-        '          };\n'
-        '        }}\n'
-        '        defaultProps={{\n'
-        '          scenes: [],\n'
-        '          fps: FPS,\n'
-        '          width: WIDTH,\n'
-        '          height: HEIGHT,\n'
-        '          burnCaptions: false,\n'
-        '        } satisfies VideoProps}\n'
-        '      />\n'
-        '      <Composition\n'
-        '        id="Thumbnail"\n'
-        '        component={Thumbnail as React.ComponentType<any>}\n'
-        '        durationInFrames={1}\n'
-        '        fps={30}\n'
-        '        width={WIDTH}\n'
-        '        height={HEIGHT}\n'
-        '        defaultProps={{\n'
-        '          title: "Video Title",\n'
-        '          subtitle: "",\n'
-        '          palette: {\n'
-        '            primary: "#0F1B2D",\n'
-        '            secondary: "#00BFA6",\n'
-        '            accent: "#FFB300",\n'
-        '            background: "#0A1220",\n'
-        '            text: "#FFFFFF",\n'
-        '          },\n'
-        '        } satisfies ThumbnailProps}\n'
-        '      />\n'
-        '    </>\n'
-        '  );\n'
-        '};\n'
-        'registerRoot(RemotionRoot);\n'
-    )
-
-    # Create MainVideo component.
-    # NOTE: scenes render SILENT video. Voiceover is muxed at stitch time
-    # by scripts/assemble.py. The Captions layer is rendered only when
-    # burnCaptions=true (set via props from pipeline_config.json).
-    (rdir / "src" / "components" / "MainVideo.tsx").write_text(
-        'import React, { useMemo } from "react";\n'
-        'import { AbsoluteFill, Sequence } from "remotion";\n'
-        'import { Captions } from "remotion-foundation";\n'
-        'import type { SceneTiming, VideoProps } from "remotion-foundation";\n'
-        '\n'
-        'const SCENE_COMPONENTS: Record<number, React.LazyExoticComponent<React.FC<{ scene: SceneTiming }>>> = {};\n'
-        '\n'
-        'function getSceneComponent(id: number) {\n'
-        '  if (!SCENE_COMPONENTS[id]) {\n'
-        '    const padded = String(id).padStart(2, "0");\n'
-        '    SCENE_COMPONENTS[id] = React.lazy(\n'
-        '      () => import(`../scenes/Scene${padded}`)\n'
-        '    );\n'
-        '  }\n'
-        '  return SCENE_COMPONENTS[id];\n'
-        '}\n'
-        '\n'
-        'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
-        '  const offsets = useMemo(() => {\n'
-        '    const result: number[] = [];\n'
-        '    let offset = 0;\n'
-        '    for (const scene of scenes) {\n'
-        '      result.push(offset);\n'
-        '      offset += scene.durationInFrames;\n'
-        '    }\n'
-        '    return result;\n'
-        '  }, [scenes]);\n'
-        '\n'
-        '  return (\n'
-        '    <AbsoluteFill>\n'
-        '      {scenes.map((scene, i) => {\n'
-        '        const SceneComponent = getSceneComponent(scene.id);\n'
-        '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
-        '        return (\n'
-        '          <Sequence\n'
-        '            key={scene.id}\n'
-        '            from={offsets[i]}\n'
-        '            durationInFrames={scene.durationInFrames}\n'
-        '          >\n'
-        '            <React.Suspense fallback={null}>\n'
-        '              <SceneComponent scene={scene} />\n'
-        '            </React.Suspense>\n'
-        '            {showCaptions && (\n'
-        '              <Captions cues={scene.captions!} fps={fps} />\n'
-        '            )}\n'
-        '          </Sequence>\n'
-        '        );\n'
-        '      })}\n'
-        '    </AbsoluteFill>\n'
-        '  );\n'
-        '};\n'
-    )
-
-    # Create Thumbnail.tsx stub — the agent fills this in during Step 12
-    (rdir / "src" / "components" / "Thumbnail.tsx").write_text(
-        'import React from "react";\n'
-        'import { AbsoluteFill } from "remotion";\n'
-        'import type { ThumbnailProps } from "remotion-foundation";\n'
-        '\n'
-        'export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {\n'
-        '  return (\n'
-        '    <AbsoluteFill\n'
-        '      style={{\n'
-        '        backgroundColor: palette.background,\n'
-        '        justifyContent: "center",\n'
-        '        alignItems: "center",\n'
-        '        fontFamily: "Inter, sans-serif",\n'
-        '      }}\n'
-        '    >\n'
-        '      <h1\n'
-        '        style={{\n'
-        '          color: palette.text,\n'
-        '          fontSize: 80,\n'
-        '          fontWeight: 700,\n'
-        '          textAlign: "center",\n'
-        '          margin: "0 80px",\n'
-        '          lineHeight: 1.1,\n'
-        '        }}\n'
-        '      >\n'
-        '        {title}\n'
-        '      </h1>\n'
-        '      {subtitle && (\n'
-        '        <p\n'
-        '          style={{\n'
-        '            color: palette.accent,\n'
-        '            fontSize: 36,\n'
-        '            fontWeight: 600,\n'
-        '            marginTop: 20,\n'
-        '          }}\n'
-        '        >\n'
-        '          {subtitle}\n'
-        '        </p>\n'
-        '      )}\n'
-        '    </AbsoluteFill>\n'
-        '  );\n'
-        '};\n'
-    )
+    # Substitute dynamic values in config.ts (use placeholders in foundation)
+    config_path = rdir / "src" / "lib" / "config.ts"
+    config_text = config_path.read_text(encoding="utf-8")
+    config_text = config_text.replace("FPS = 30", f"FPS = {fps}")
+    config_text = config_text.replace("WIDTH = 1920", f"WIDTH = {width}")
+    config_text = config_text.replace("HEIGHT = 1080", f"HEIGHT = {height}")
+    config_path.write_text(config_text, encoding="utf-8")
 
     # Create pipeline_state.json
     state = {
@@ -457,6 +162,102 @@ def cmd_new(args):
     print("\nNext steps:")
     print("  1. Select a topic: ./pipeline.py continue " + title)
     print("  2. The pipeline will guide you through each step.")
+
+
+# ---------------------------------------------------------------------------
+# COMPLETE subcommand — mark a creative step done after manual work
+# ---------------------------------------------------------------------------
+
+def cmd_complete(args):
+    """Mark a creative step 'complete' (bypassed by the orchestrator, done by human/agent).
+
+    Validates the step's expected artifacts exist, advances current_step,
+    and writes the new state atomically.
+    """
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    state = load_state(title)
+
+    # Determine which step to mark (default: the current pending/failed/in_progress)
+    if args.step:
+        step_num = int(args.step)
+        step_key = STEP_KEYS[step_num - 1]
+    else:
+        step_num, step_key = find_next_step(state)
+        if step_num is None:
+            print("All steps complete! Nothing to mark.")
+            pl.emit_trailer(0, "", "done", 0)
+            return
+
+    step_name = STEP_NAMES.get(step_key, step_key)
+    step_state = state["steps"].get(step_key, {})
+
+    # Refuse if already complete
+    if step_state.get("status") == "complete":
+        print(f"Step {step_num} ({step_name}) is already complete.")
+        sys.exit(2)
+
+    # Refuse if automated (continue handles those)
+    if step_key not in CREATIVE_STEPS:
+        print(f"ERROR: Step {step_num} ({step_name}) is automated — use `pipeline.py continue`, not `complete`.")
+        sys.exit(2)
+
+    print(f"=== Completing step {step_num}: {step_name} ===")
+
+    # Validate expected artifacts exist
+    artifacts = EXPECTED_ARTIFACTS.get(step_key, [])
+    missing = []
+    for art in artifacts:
+        artifact_path = vdir / art
+        if not artifact_path.exists():
+            missing.append(art)
+        elif artifact_path.is_file() and artifact_path.stat().st_size == 0:
+            missing.append(f"{art} (empty)")
+    if missing:
+        print("ERROR: Missing or empty required artifacts:")
+        for m in missing:
+            print(f"  - {m}")
+        print(f"\nComplete the artifacts above, then re-run: python3 pipeline.py complete {title}")
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 4)
+        sys.exit(4)
+
+    # Also validate the pipeline state against schemas as a precondition
+    ok, errs = validate_project(title)
+    if not ok:
+        print("VALIDATION FAILED — refusing to mark complete:")
+        print(errs)
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 1)
+        sys.exit(1)
+
+    # Mark complete
+    state["steps"][step_key] = {
+        "status": "complete",
+        "completed_at": now_iso(),
+        "last_error": None,
+        "error": None,
+        "attempts": step_state.get("attempts", 0),
+        "step_kind": "creative",
+        "artifacts": artifacts,
+    }
+    state["current_step"] = min(step_num + 1, len(STEP_KEYS))
+    save_state(title, state)
+
+    print(f"\n=== Step {step_num} ({step_name}) marked complete ===")
+
+    next_num, next_key = find_next_step(state)
+    if next_num is None:
+        print("\nAll steps complete! Run `pipeline.py continue` to see the summary.")
+        pl.emit_trailer(step_num, step_key, "done", 0)
+    else:
+        next_name = STEP_NAMES.get(next_key, next_key)
+        print(f"\nNext: Step {next_num} ({next_name})")
+        print(f"Run: python3 pipeline.py continue {title}")
+        pl.emit_trailer(next_num, next_key, "run_continue", 0)
 
 
 # ---------------------------------------------------------------------------
@@ -547,63 +348,40 @@ def run_step_9(title, vdir):
     """
     print("--- Running Step 9: Scene Rendering ---")
 
-    # Regenerate MainVideo.tsx with static scene imports (Webpack can't bundle
-    # dynamic template-literal import()). Reads actual scene IDs from scenes.json.
+    # Ensure MainVideo.tsx imports SceneMap.generated.ts (B2 contract check).
+    # If not, the agent is running the old scaffold — tell them to re-Step 8.
     rdir = vdir / "remotion"
+    mv_path = rdir / "src" / "components" / "MainVideo.tsx"
+    if mv_path.exists() and "SceneMap" not in mv_path.read_text(encoding="utf-8"):
+        print("  ERROR: MainVideo.tsx must import SceneMap.generated.ts (the B2 contract).")
+        print("  Re-run Step 8 with the updated foundation template to get the new MainVideo.tsx")
+        print("  that imports from src/scenes/SceneMap.generated.ts.")
+        return False
+
+    # Regenerate SceneMap.generated.ts with static scene imports.
+    # MainVideo.tsx imports SCENE_MAP from this file; we only overwrite the map,
+    # never the agent-owned MainVideo.tsx.
     scenes = load_scenes(title)
     scene_ids = sorted(set(s["id"] for s in scenes))
     import_lines = []
     map_entries = []
     for sid in scene_ids:
         padded = f"{sid:02d}"
-        import_lines.append(f'import {{ Scene{padded} }} from "../scenes/Scene{padded}";')
+        import_lines.append(f'import {{ Scene{padded} }} from "./Scene{padded}";')
         map_entries.append(f"  {sid}: Scene{padded},")
-    mainvideo_content = (
-        'import React, { useMemo } from "react";\n'
-        'import { AbsoluteFill, Sequence } from "remotion";\n'
-        'import { Captions } from "remotion-foundation";\n'
-        'import type { VideoProps } from "remotion-foundation";\n'
+    scenemap_content = (
+        '// AUTO-GENERATED by pipeline.py — do not edit.\n'
+        + "import React from 'react';\n"
+        + "import type { SceneTiming } from 'remotion-foundation';\n"
         + "\n".join(import_lines)
         + "\n\n"
-        + "const SCENE_MAP: Record<number, React.FC> = {\n"
+        + "export const SCENE_MAP: Record<number, React.FC<{ scene: SceneTiming }>> = {\n"
         + "\n".join(map_entries)
-        + "\n};\n\n"
-        + 'export const MainVideo: React.FC<VideoProps> = ({ scenes, fps, burnCaptions }) => {\n'
-        + '  const offsets = useMemo(() => {\n'
-        + '    const result: number[] = [];\n'
-        + '    let offset = 0;\n'
-        + '    for (const scene of scenes) {\n'
-        + '      result.push(offset);\n'
-        + '      offset += scene.durationInFrames;\n'
-        + '    }\n'
-        + '    return result;\n'
-        + '  }, [scenes]);\n'
-        + '\n'
-        + '  return (\n'
-        + '    <AbsoluteFill>\n'
-        + '      {scenes.map((scene, i) => {\n'
-        + '        const SceneComponent = SCENE_MAP[scene.id];\n'
-        + '        const showCaptions = (scene.showCaptions ?? burnCaptions) && !!scene.captions?.length;\n'
-        + '        return (\n'
-        + '          <Sequence\n'
-        + '            key={scene.id}\n'
-        + '            from={offsets[i]}\n'
-        + '            durationInFrames={scene.durationInFrames}\n'
-        + '          >\n'
-        + '            <SceneComponent />\n'
-        + '            {showCaptions && (\n'
-        + '              <Captions cues={scene.captions!} fps={fps} />\n'
-        + '            )}\n'
-        + '          </Sequence>\n'
-        + '        );\n'
-        + '      })}\n'
-        + '    </AbsoluteFill>\n'
-        + '  );\n'
-        + '};\n'
+        + "\n};\n"
     )
-    mv_path = rdir / "src" / "components" / "MainVideo.tsx"
-    mv_path.write_text(mainvideo_content)
-    print(f"  Regenerated MainVideo.tsx with {len(scene_ids)} static scene import(s)")
+    sm_path = rdir / "src" / "scenes" / "SceneMap.generated.ts"
+    sm_path.write_text(scenemap_content)
+    print(f"  Regenerated SceneMap.generated.ts with {len(scene_ids)} static scene import(s)")
 
     # Lint gate (fail fast before any render work)
     ok, msg = lint_gate(title, vdir)
@@ -739,7 +517,7 @@ def cmd_continue(args):
     step_num, step_key = find_next_step(state)
     if step_num is None:
         print(f"All steps complete for '{title}'!")
-        # Still validate post-completion so a hand-edit is caught.
+        pl.emit_trailer(0, "", "done", 0)
         return
 
     step_name = STEP_NAMES.get(step_key, step_key)
@@ -747,18 +525,15 @@ def cmd_continue(args):
     print(f"  Next step: {step_num}. {step_name}")
 
     if step_key in SKIP_STEPS:
-        # Precondition: skills must be confirmed loaded
-        step_state = state["steps"][step_key]
-        if not step_state.get("skills_loaded"):
-            print(f"\nStep {step_num} ({step_name}) requires skill files to be loaded first.\n")
-            print("  Required skill files are listed at the top of the instructions below.\n")
-            print(SKIP_INSTRUCTIONS[step_key])
-            print("\n  After loading all skill files, set skills_loaded: true in")
-            print(f"  pipeline_state.json under steps.{step_key}, then re-run.")
-            print(f"  Example: python -c \"import json; s=json.load(open('videos/{title}/pipeline_state.json')); s['steps']['{step_key}']['skills_loaded']=True; json.dump(s, open('videos/{title}/pipeline_state.json','w'), indent=2)\"")
-            return
         print(f"\nStep {step_num} ({step_name}) requires creative input.\n")
-        print(SKIP_INSTRUCTIONS[step_key])
+        arts = EXPECTED_ARTIFACTS.get(step_key, [])
+        if arts:
+            print("  Required artifacts:")
+            for a in arts:
+                print(f"    - {a}")
+        print(f"\n  See SKILL.md Step {step_num} for full instructions.")
+        print(f"\n  When done, run: python3 pipeline.py complete {title}")
+        pl.emit_trailer(step_num, step_key, "await_complete", 0)
         return
 
     # Record attempt BEFORE the run
@@ -813,12 +588,15 @@ def cmd_continue(args):
         next_num, next_key = find_next_step(state)
         if next_num is None:
             print("\nAll steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.")
+            pl.emit_trailer(step_num, step_key, "done", 0)
         elif next_key in SKIP_STEPS:
             print(f"\nNext: Step {next_num} ({STEP_NAMES[next_key]}) — requires creative input.")
             print(f"Run: ./pipeline.py continue {title}")
+            pl.emit_trailer(next_num, next_key, "await_complete", 0)
         else:
             print(f"\nNext: Step {next_num} ({STEP_NAMES[next_key]}) — automated.")
             print(f"Run: ./pipeline.py continue {title}")
+            pl.emit_trailer(next_num, next_key, "run_continue", 0)
     else:
         state["steps"][step_key]["status"] = "failed"
         state["steps"][step_key]["last_error"] = (error_msg or "Step failed, see logs")
@@ -828,6 +606,7 @@ def cmd_continue(args):
         print(f"\n=== Step {step_num} ({step_name}) FAILED ===")
         print(f"  Last error: {state['steps'][step_key]['last_error']}")
         print(f"  Logs in: videos/{title}/logs/")
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 1)
         sys.exit(1)
 
 
@@ -1026,21 +805,18 @@ def cmd_doctor(args):
     print("=== 1. System check ===")
     sys_check = REPO_ROOT / "scripts" / "check_system.sh"
     if sys_check.exists():
-        if os.name == "nt":
-            print("  SKIP: bash check requires Linux/WSL (Windows detected)")
-        else:
-            try:
-                r = subprocess.run(
-                    ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
-                )
-                print(r.stdout)
-                if r.stderr:
-                    print(r.stderr)
-                if r.returncode != 0:
-                    all_ok = False
-                    print("  FAIL: system check failed — see above.")
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                print("  SKIP: bash not available or timed out on this system")
+        try:
+            r = subprocess.run(
+                ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
+            )
+            print(r.stdout)
+            if r.stderr:
+                print(r.stderr)
+            if r.returncode != 0:
+                all_ok = False
+                print("  FAIL: system check failed — see above.")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print("  SKIP: bash not available or timed out on this system")
     else:
         print("  SKIP: scripts/check_system.sh not found")
         print("  RECOMMENDED: run on Linux or WSL for full system diagnostics.")
@@ -1168,15 +944,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Removed: voiceover_aligned.mp3 ({sz/1024/1024:.1f} MB)")
 
-    # 2. dup remotion/public/voiceover/
-    dup_dir = vdir / "remotion" / "public" / "voiceover"
-    if dup_dir.exists():
-        sz = sum(f.stat().st_size for f in dup_dir.rglob("*") if f.is_file())
-        shutil.rmtree(dup_dir, ignore_errors=True)
-        freed += sz
-        print(f"  Removed: remotion/public/voiceover/ ({sz/1024/1024:.1f} MB)")
-
-    # 3. Prune old MP4 versions (keep last N)
+    # 2. Prune old MP4 versions (keep last N)
     to_prune = pl.find_versions_to_prune(
         vdir / "versions", safe_title, r'{title}-v(\d+)\.mp4', keep_v)
     for old in to_prune:
@@ -1220,9 +988,9 @@ def cmd_clean(args):
                 freed += sz
                 print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
 
-    # 8. Reap Remotion TMPDIR
-    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion")
-    tdir = Path(tmpdir)
+    # 8. Reap Remotion TMPDIR (per-video — title substitution)
+    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion/{title}")
+    tdir = Path(tmpdir.replace("{title}", title))
     if tdir.exists():
         sz = sum(f.stat().st_size for f in tdir.rglob("*") if f.is_file())
         shutil.rmtree(tdir, ignore_errors=True)
@@ -1355,6 +1123,10 @@ def main():
     cont_p = sub.add_parser("continue", help="Run the next incomplete pipeline step")
     cont_p.add_argument("title", help="Video title")
 
+    comp_p = sub.add_parser("complete", help="Mark a creative step complete (after manual work)")
+    comp_p.add_argument("title", help="Video title")
+    comp_p.add_argument("--step", type=int, help="Step number to complete (default: next pending step)")
+
     status_p = sub.add_parser("status", help="Show pipeline state")
     status_p.add_argument("title", nargs="?", help="Video title (omit to show all)")
 
@@ -1382,6 +1154,8 @@ def main():
         cmd_new(args)
     elif args.command == "continue":
         cmd_continue(args)
+    elif args.command == "complete":
+        cmd_complete(args)
     elif args.command == "status":
         cmd_status(args)
     elif args.command == "validate":
