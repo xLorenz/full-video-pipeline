@@ -4,19 +4,16 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 
 ## What It Does
 
-1. **Topic Selection** — Web research to find trending topics in a niche
-2. **Research** — Deep information gathering on the chosen topic
-3. **Script Writing** — Retention-optimized script with hooks, pattern interrupts, CTAs
-4. **Voiceover Writing** — Parseable voiceover text per scene
-5. **TTS Generation** — Audio files via edge-tts (free, no API key needed). Idempotent (unchanged scenes are skipped), parallel (config: `voiceover.concurrency`)
-6. **Duration Measurement** — Real timing from generated audio
-7. **Style Definition** — Visual style guide (colors, fonts, animations) — single source of visual decisions
-8. **Remotion Coding** — React-based video compositions per scene. Scenes render **silent video** — voiceover is muxed at stitch time, not baked into scene MP4s
-9. **Scene Rendering** — One scene at a time with hardware guardrails. Resumable per-scene (failed scenes track `render_attempts` and `last_render_error`)
-10. **Stitching** — Combine silent scene MP4s + concatenated voiceover MP3 into final MP4. One audio pass total
-11. **Metadata Generation** — YouTube title (3 variants), description (with chapters/timestamps), and tags using the claude-youtube SEO sub-skill
-12. **Thumbnail Generation** — Write a Remotion Thumbnail.tsx composition (pure Remotion primitives, no AI images)
-13. **Thumbnail Rendering** — Render the Thumbnail composition to a versioned PNG via `npx remotion still`
+4 phases (13 internal steps) take a topic idea and produce a fully rendered YouTube video with voiceover, visuals, audio, title/description/tags, and a Remotion-rendered thumbnail.
+
+| Phase | Steps | Agent produces | Auto-runs after `complete` |
+|-------|-------|----------------|-----------------------------|
+| **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
+| **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel), Step 6 (ffprobe duration measurement) |
+| **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
+| **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
+
+The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. No external skill files are loaded — all rules (retention, CTR, SEO, Remotion coding) are inlined in SKILL.md.
 
 ## Optional: Captions
 
@@ -51,27 +48,37 @@ pip install -r scripts/requirements.txt
 # Check system readiness
 bash scripts/check_system.sh
 
-# Scaffold a new video project
-python3 pipeline.py new "my-video-topic"
+# RECOMMENDED: one-shot scaffold + advance (resume-safe — re-run to continue)
+python3 pipeline.py run "my-video-topic"
 
-# Validate scenes/state against schemas (called automatically by `continue`)
+# After each creative phase (producing SCRIPT.md, VOICEOVER.md, STYLES.md+remotion/,
+# TITLE/DESCRIPTION/TAGS+Thumbnail.tsx), validate + auto-run the next automated steps:
+python3 pipeline.py complete "my-video-topic"
+
+# Continue without auto-chain (runs one step at a time, prints creative briefs):
+python3 pipeline.py continue "my-video-topic"
+
+# Validate scenes/state against schemas (called automatically by `continue`/`complete`)
 python3 pipeline.py validate my-video-topic
 
 # Check pipeline status
 python3 pipeline.py status
 
-# Continue to next step
-python3 pipeline.py continue "my-video-topic"
-
-# Optional: smoke-render scene 1 (low-res, ~20 frames) after step 8
+# Optional: smoke-render scene 1 (low-res, ~20 frames) after Phase 3
 python3 pipeline.py preview my-video-topic
 
-# Optional: generate captions SRT + populate scene cues (after step 6)
+# Optional: generate captions SRT + populate scene cues (after Phase 2)
 python3 pipeline.py captions my-video-topic
 
 # Free disk space for a completed video (removes node_modules, old versions, TMPDIR, etc.)
 python3 pipeline.py clean my-video-topic
 ```
+
+> **Note on round trips**: the "4 creative phases" reduction holds when you use
+> `complete` to advance (because `complete` auto-runs the automated sub-steps
+> within a phase — Steps 5-6, 9-10, 13 — in a single invocation). An agent using
+> `continue` exclusively still takes ~13 iterations (one per step). `complete`
+> is the speed path; `continue` is the manual / debug path.
 
 ## Project Structure
 
@@ -208,14 +215,24 @@ ffmpeg pass, and writes the result atomically. This:
 
 ## Resuming Interrupted Runs
 
-Use `python3 pipeline.py continue <title>` to resume. The pipeline:
+Use `python3 pipeline.py run <title>` (resume-safe: detects existing project
+and calls `continue`) or `python3 pipeline.py continue <title>` to resume:
 
-1. Validates `scenes.json` + `pipeline_state.json` against the schemas
+1. Validates `scenes.json` + `pipeline_state.json` against schemas
    (`scripts/validate.py`). Refuses to run automated steps on invalid state.
 2. Reads `pipeline_state.json` to find the next incomplete step.
-3. Runs the next automated step (5, 6, 9, 10, 13), or
-4. Prints instructions for creative steps (1-4, 7, 8, 11, 12).
+3. Runs the next automated step (5, 6, 9, 10, or 13), or
+4. Prints the next creative phase's brief (Steps 1-4, 7, 8, 11, 12) with
+   phase number, anchor to SKILL.md, and expected artifacts.
 5. Per-step attempts and `last_error` are recorded for forensics.
+
+The dramatically faster path is `python3 pipeline.py complete <title>` after
+each creative phase — this validates your artifacts, advances state, and
+**auto-runs all consecutive automated steps in a single invocation**
+(Steps 5-6 after Phase 2's voiceover text; Steps 9-10 after Phase 3's Remotion
+code; Step 13 after Phase 4's Thumbnail.tsx), stopping at the next creative
+phase brief or "All steps complete!". This collapses 8 creative round trips
+into 4.
 
 Each video tracks progress in `pipeline_state.json`:
 - Steps 1-4: creative input required (topic, research, script, voiceover text)
@@ -224,6 +241,23 @@ Each video tracks progress in `pipeline_state.json`:
 - Steps 9-10: automated (resumable scene rendering, atomic stitching)
 - Steps 11-12: creative input required (metadata, thumbnail composition)
 - Step 13: automated (thumbnail still render, idempotent via versioning)
+
+`complete --step N` is refused if any earlier step is still pending, unless
+you pass `--force` (the gap will be flagged by `audit`/`doctor`).
+
+## Machine-Readable Trailer
+
+Every `continue`/`complete`/`run` invocation ends with a `__PIPELINE_NEXT__`
+JSON line for agents that prefer to skip text parsing:
+
+```json
+__PIPELINE_NEXT__ {"step":3,"name":"Script Writing","kind":"creative","action":"await_complete","exit":0,"phase":1,"next_cmd":"python3 pipeline.py complete my-video","skills_section":"#phase-1-research--script","expected_artifacts":["SCRIPT.md"]}
+```
+
+Fields: `step` (0 for terminal), `kind` (`creative`/`automated`/`done`),
+`action` (`await_complete`/`run_continue`/`fix_and_continue`/`use_continue`/`noop`/`done`),
+`phase` (1-4, 0 for terminal), `next_cmd` (exact command to run next),
+`skills_section` (SKILL.md anchor), `expected_artifacts` (files to produce).
 
 ## Logs
 
@@ -236,14 +270,22 @@ and survive across runs — useful for post-mortem analysis of overnight failure
 
 ```bash
 # Pipeline CLI
-python3 pipeline.py new "my-video"             # Scaffold project
-python3 pipeline.py status my-video            # Show specific project (with attempts column)
-python3 pipeline.py continue my-video          # Run next step (validates state first)
-python3 pipeline.py validate my-video          # Standalone schema validation
-python3 pipeline.py preview my-video           # Smoke-render scene 1
-python3 pipeline.py captions my-video          # Generate SRT + populate captions
+python3 pipeline.py run "my-video"                 # One-shot: scaffold + advance (resume-safe)
+python3 pipeline.py new "my-video"                 # Scaffold project only
+python3 pipeline.py continue my-video              # Run next step (validates state first)
+python3 pipeline.py complete my-video              # Validate current creative phase + auto-run next automated steps
+python3 pipeline.py complete my-video --step 7    # Complete a specific step (refused if earlier steps pending)
+python3 pipeline.py complete my-video --step 7 --force  # Out-of-order override (audit/doctor will flag)
+python3 pipeline.py status my-video                # Show specific project (with attempts column)
+python3 pipeline.py validate my-video              # Standalone schema validation
+python3 pipeline.py validate my-video --step 6     # Step-specific requirements
+python3 pipeline.py preview my-video               # Smoke-render scene 1
+python3 pipeline.py captions my-video              # Generate SRT + populate captions
+python3 pipeline.py audit my-video                # Audit for violations
+python3 pipeline.py doctor my-video                # System + project diagnostics
+python3 pipeline.py clean my-video                 # Free disk space (all safe-to-delete items)
 
-# Individual scripts
+# Individual scripts (orchestrator runs these for you — only call manually for debugging)
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
 python3 scripts/measure_durations.py videos/my-video/
 python3 scripts/render_scene.py videos/my-video/ 1
@@ -252,9 +294,6 @@ python3 scripts/generate_captions.py videos/my-video/
 python3 scripts/render_thumbnail.py videos/my-video/
 python3 scripts/validate.py videos/my-video/
 bash scripts/check_system.sh
-
-# Manual cleanup
-python3 pipeline.py clean my-video-topic              # Free disk space (all safe-to-delete items)
 ```
 
 ## License

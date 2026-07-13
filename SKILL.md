@@ -5,9 +5,9 @@ description: >
   writes retention-optimized scripts, generates voiceover audio, builds Remotion
   video compositions, renders scenes, stitches the final video, generates YouTube
   title/description/tags, and renders a Remotion-only thumbnail (no AI images).
-  Driven by `pipeline.py continue` per an explicit execution protocol — agent
-  never manually advances state. Designed for resource-constrained environments
-  (500MB RAM, no GPU).
+  Driven by `pipeline.py run` / `pipeline.py continue` per an explicit execution
+  protocol — agent never manually advances state. Designed for resource-constrained
+  environments (500MB RAM, no GPU).
 triggers:
   - "make a video"
   - "create a youtube video"
@@ -29,10 +29,10 @@ tools:
 
 # Full Video Pipeline — Autonomous YouTube Video Production
 
-> A 13-step pipeline that takes a topic idea and produces a fully rendered YouTube
-> video with voiceover, visuals, audio, title/description/tags, and a Remotion-
-> generated thumbnail. Each step is self-contained with clear inputs, outputs,
-> and validation.
+> 4 phases take a topic idea and produce a fully rendered YouTube video with
+> voiceover, visuals, audio, title/description/tags, and a Remotion-generated
+> thumbnail. Each phase has one creative block (you do the work) followed by
+> automated steps (the orchestrator runs them).
 
 ## Prerequisites
 
@@ -52,92 +52,69 @@ If pre-flight fails, resolve issues before proceeding. Required tools:
 
 ## Execution Protocol (READ FIRST — DO NOT SKIP)
 
-The pipeline is driven by a single command: `pipeline.py continue <title>`. You
-do NOT manually decide which step is next — the orchestrator does. Your job is
-to follow this **inviolable loop** until the pipeline reports "All steps
-complete!":
+The pipeline is driven by **one entry point** and **two commands**:
+
+| Command | Use |
+|---------|-----|
+| `python3 pipeline.py run <title>` | **Recommended one-shot**: scaffold (if dir absent) and print Phase 1 brief. Safe to re-run — resumes an existing project. |
+| `python3 pipeline.py continue <title>` | Print the next pending step's brief (creative) or run one automated step. |
+| `python3 pipeline.py complete <title>` | After producing a creative phase's artifacts, validate them, advance state, and **auto-run all consecutive automated steps** in one invocation. |
+
+### The inviolable loop
 
 ```text
-1. Run: python3 pipeline.py continue <title>
-2. READ the output carefully. It will say exactly ONE of:
-   (a) "All steps complete!"             → STOP. You are done.
-   (b) "Step N (name) — automated."      → The orchestrator already ran it.
-                                           Verify the output shows success, then
-                                           GO TO step 1 again.
-    (c) "Step N (name) requires creative input." followed by required artifacts.
-                                        → The orchestrator printed YOUR todo list.
-                                           Do EXACTLY what the instructions say,
-                                           produce the listed output files, then
-                                           run `python3 pipeline.py complete <title>`
-                                           to validate and advance state. Do NOT
-                                           start the next step yourself — let
-                                           `complete` advance the state.
-   (d) "VALIDATION FAILED" or "Step N FAILED"
-                                        → READ the error, fix the named file, then
-                                           GO TO step 1 again. The orchestrator
-                                           re-runs failed steps automatically.
+1. Run: python3 pipeline.py run <title>                  # or `continue <title>` if resuming
+2. READ the output. It prints a phase brief with phases like:
+   (a) "All steps complete!"                            → STOP. You are done.
+   (b) "Phase N: <name> — Step Nn: <name>" + rules      → Do the work (web search,
+                                                          write files, write Remotion
+                                                          code). Then run `complete`.
+   (c) The orchestrator already auto-ran an automated   → Verify success, then GO TO 1.
+       step after a creative `complete`.
+   (d) "FAILED" / "VALIDATION FAILED"                   → READ the error, fix the named
+                                                          file, then GO TO 1.
 ```
 
-**Hard rules** (non-negotiable):
+After you finish a creative phase's work, run `python3 pipeline.py complete <title>`.
+`complete` validates your artifacts, advances state, then **auto-runs all consecutive
+automated steps** (Steps 5-6 after Phase 2; Steps 9-10 after Phase 3; Step 13 after
+Phase 4) in one invocation. You do NOT call `continue` between phases — `complete`
+both validates AND drives the next automated steps, ending at the next creative phase
+brief (or "All steps complete!").
 
-- **Never skip `continue` between steps.** Even after you finish a creative
-  step's work, you MUST run `python3 pipeline.py complete <title>` to validate
-  your artifacts and advance `current_step`, then run `continue` for the next
-  step. Starting the next step's work without first seeing `complete` confirm
-  the previous step is "complete" is a bug.
-- **Never manually invoke** `render_scene.py`, `assemble.py`,
-  `render_thumbnail.py`, `generate_voiceover.py`, or `measure_durations.py`
-  yourself. The orchestrator runs them with idempotency checks, lint gates,
-  atomic writes, and per-step logging that you would bypass.
+### Hard rules (non-negotiable)
+
+- **Never manually invoke** `render_scene.py`, `assemble.py`, `render_thumbnail.py`,
+  `generate_voiceover.py`, or `measure_durations.py` yourself. The orchestrator runs
+  them with idempotency checks, lint gates, atomic writes, and per-step logging that
+  you would bypass.
 - **Never edit `pipeline_state.json` by hand.** Treat it as read-only state.
   Use `python3 pipeline.py status <title>` to inspect it.
-- **Always let the orchestrator validate.** After every creative step your
+- **Always let the orchestrator validate.** After every creative phase your
   output is re-checked against the JSON schemas before the next automated step
   is allowed to run. If validation fails, fix the offending file (SCRIPT.md,
-  scenes.json, etc.) and re-run `continue`.
-- **One step at a time.** Do not pre-load references or start writing code for
-  Step 8 while still on Step 4. Run `continue`, see what step is requested,
-  do only that step's work, then run `continue` again.
+  scenes.json, etc.) and re-run `complete`.
+- **One phase at a time.** Do not pre-load references or start writing code for
+  Phase 3 while still on Phase 1. Run `continue`/`complete`, see what phase is
+  requested, do only that phase's work, then proceed.
+- **`complete --step N` is refused if earlier steps are still pending**, unless
+  you pass `--force`. Don't skip ahead — the contracts between phases matter.
 
-## Step Type Reference
+### The 4 phases
 
-The 13 steps alternate between **creative** (you do the work) and
-**automated** (the orchestrator runs a script). Knowing which is which up front
-prevents confusion when `continue` returns immediately for an automated step.
+| Phase | Steps | You produce | Auto-runs after `complete` |
+|-------|-------|-------------|----------------------------|
+| Phase 1: Research & Script | 1-3 | `SCRIPT.md`, `scenes.json` | (none — Step 4 is creative) |
+| Phase 2: Voiceover | 4-6 | `VOICEOVER.md` | Steps 5, 6 |
+| Phase 3: Visuals & Render | 7-10 | `STYLES.md`, Remotion project (PLAN.md, Root.tsx, MainVideo.tsx, Thumbnail.tsx stub, lib/*, scenes/SceneXX.tsx) | Steps 9, 10 |
+| Phase 4: Metadata & Thumbnail | 11-13 | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md`, `Thumbnail.tsx` | Step 13 |
 
-| Step | Name | Type | Skill to load first | You produce |
-|------|------|------|---------------------|-------------|
-| 1  | Topic Selection        | Creative | — | topic decision (in context) |
-| 2  | Research               | Creative | — | research notes (in context) |
-| 3  | Script Writing         | Creative | claude-youtube: `sub-skills/script.md`, `references/retention-scripting-guide.md` | `SCRIPT.md`, `scenes.json` |
-| 4  | Voiceover Writing      | Creative | — | `VOICEOVER.md` |
-| 5  | Voiceover Generation   | Automated | — | — (script: `generate_voiceover.py`) |
-| 6  | Duration Measurement   | Automated | — | — (script: `measure_durations.py`) |
-| 7  | Style Definition       | Creative | claude-youtube: `references/thumbnail-ctr-guide.md` | `STYLES.md`, updated `scenes.json` |
-| 8  | Remotion Code Writing  | Creative | remotion-best-practices: `SKILL.md` + 7 `rules/*.md` files | `remotion/` project (SceneMap.generated.ts is auto-generated by Step 9) + `PLAN.md` |
-| 9  | Scene Rendering        | Automated | — | — (script: `render_scene.py`, per-scene, resumable) |
-| 10 | Stitching              | Automated | — | — (script: `assemble.py`) |
-| 11 | Metadata Generation    | Creative | claude-youtube: `sub-skills/metadata.md`, `references/seo-playbook.md` | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` |
-| 12 | Thumbnail Generation   | Creative | claude-youtube: `sub-skills/thumbnail.md`, `references/thumbnail-ctr-guide.md` | `remotion/src/components/Thumbnail.tsx` |
-| 13 | Thumbnail Rendering    | Automated | — | — (script: `render_thumbnail.py`) |
+> Steps 1 and 2 produce in-context decisions/notes (no files). `complete` for
+> those steps only runs the schema gate and advances state.
 
-The full paths use the doubled nested form (e.g.
-`skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md` or
-`skills/remotion-best-practices/skills/remotion/SKILL.md`) — see each step's
-"Action" section for the exact path to load.
+## Audio Path (IMPORTANT — overrides Remotion skill rules)
 
-**Before doing ANY work on a creative step, load its listed skill files first.**
-The skill files contain the retention/CTR/SEO rules your output MUST satisfy —
-skipping the load is the #1 cause of validation failures and rework.
-
-The very first action you take on a brand-new video is
-`python3 pipeline.py new "<proposed-title>"` — run this once to scaffold the
-project. Do NOT re-run it later; it errors if the directory already exists.
-The very last is `continue` reporting "All steps complete!".
-
-## Audio Path (IMPORTANT — overrides remotion-best-practices skill)
-
-Voiceover is **NOT** baked into scene MP4s. Scene components render silent
+Voiceover is **NOT** baked into scene MP4s. Scene components render **silent**
 video only — do NOT use `<Audio>` in `SceneXX.tsx`. At stitch time,
 `scripts/assemble.py` concatenates the per-scene MP3s into one
 `voiceover_aligned.mp3` and muxes it onto the concatenated scene MP4s in a
@@ -145,15 +122,14 @@ single ffmpeg pass. This:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps exactly one audio encode pass total (fastest path for low-RAM boxes)
-- Relies on `actual_duration_frames` matching voiceover durations, enforced by Step 6
+- Relies on `actual_duration_frames` matching voiceover durations (enforced by Step 6)
 
-The remotion-best-practices submodule (`skills/remotion-best-practices/`)
-may still document `<Audio>` / voiceover patterns. Those patterns are
-**superseded for this pipeline** — render silent, mux at stitch.
+The remotion-best-practices submodule may document `<Audio>` / voiceover patterns.
+Those are **superseded for this pipeline** — render silent, mux at stitch.
 
 ## Optional: Captions
 
-After Step 6 (duration measurement), you can generate captions:
+After Phase 2 (`complete` auto-runs Steps 5-6), you can generate captions:
 
 ```bash
 python3 pipeline.py captions <title>
@@ -162,177 +138,178 @@ python3 pipeline.py captions <title>
 This produces `videos/<title>/<title>.srt` (YouTube sidecar) and populates
 per-scene `captions` cues in `scenes.json`. To burn captions into the video,
 set `video.burn_captions: true` in `pipeline_config.json` — the scaffolded
-`MainVideo.tsx` will then render the shared `<Captions>` component from
-`remotion-foundation` when a scene has captions and `showCaptions` is true.
-Off by default to preserve render performance.
+`MainVideo.tsx` will then render a `<Captions>` component from `remotion-foundation`
+when a scene has captions and `showCaptions` is true. Off by default to preserve
+render performance.
 
 ## Configuration
 
-Default settings are in `pipeline_config.json`. Override per-video as needed:
+Defaults are in `pipeline_config.json`. Override per-video as needed:
 - `video.fps`, `video.width`, `video.height` — composition settings
+- `video.burn_captions` — render `<Captions>` layer when scene has cues (default `false`)
 - `voiceover.voice` — edge-tts voice name (list voices: `edge-tts --list-voices`)
 - `render.*` — rendering guardrails (concurrency, codec, memory limits)
 - `system.*` — resource thresholds
-
-## Directory Structure
-
-```
-videos/{video-title}/
-├── SCRIPT.md            # Full retention-optimized script
-├── VOICEOVER.md         # Parseable voiceover text per scene
-├── STYLES.md            # Visual style guide for Remotion
-├── TITLE.md             # 3 YouTube title variants (generated in Step 11)
-├── DESCRIPTION.md       # YouTube description with timestamps (Step 11)
-├── TAGS.md              # 10-15 YouTube tags (Step 11)
-├── scenes.json          # Structured scene data (durations, status, files)
-├── pipeline_state.json  # Pipeline progress tracker
-├── voiceover_aligned.mp3  # Concatenated voiceover (created by assemble.py)
-├── remotion/            # Remotion project (scaffolded per video)
-│   ├── PLAN.md          # Implementation plan before coding
-│   ├── src/
-│   │   ├── Root.tsx     # Compositions: MainVideo + Thumbnail
-│   │   ├── components/
-│   │   │   ├── MainVideo.tsx  # Sequence-based scene loader
-│   │   │   └── Thumbnail.tsx  # Thumbnail composition (written in Step 12)
-│   │   ├── lib/
-│   │   │   ├── types.ts   # SceneTiming, VideoProps, ThumbnailProps
-│   │   │   ├── config.ts
-│   │   │   └── styles.ts
-│   │   └── scenes/
-│   └── public/
-├── voiceover/           # Generated .mp3 files
-├── scenes/              # Rendered .mp4 scene files
-└── versions/            # Final stitched .mp4 + thumbnail .png
-    ├── {title}-v1.mp4
-    └── {title}-thumbnail-v1.png
-```
-
-## Pipeline Steps
-
-The 13 steps below are executed **in strict order** by the orchestrator using
-the loop described in **Execution Protocol** above. Each step must complete and
-validate before `pipeline.py continue` advances `current_step`. Do not read the
-step descriptions below and conclude you should "start" a step manually — always
-let `continue` tell you which step is next.
-
-Steps marked **Creative** require your work; **Automated** steps run themselves
-when you invoke `continue`. For details on what each creative step must produce,
-follow its Action and Validation sections exactly.
+- `retention.*` — disk cleanup flags (see "Disk Cleanup" below)
 
 ---
 
-### STEP 1: Topic Selection
+## Phase 1: Research & Script (Steps 1-3)
 
-**Goal**: Choose a specific, trending topic for the video.
+**Goal**: Pick a topic, research it, write a retention-optimized script with
+discrete ~10-second scenes structured as `SCRIPT.md` + `scenes.json`.
 
-**Action**:
-1. Ask the user for a niche or category (if not provided).
-2. Perform 3-5 web searches to identify trending topics in that niche.
-3. Select the most promising topic based on: search volume signals, freshness,
-   audience interest, and content depth potential.
-4. State the chosen topic clearly.
+### Action
 
-**Output**: Topic decision (stored in context, written to `pipeline_state.json`).
+1. (Step 1) If a topic isn't given, perform 3-5 web searches in the requested
+   niche. Select a topic specific enough to fill 3-10 minutes (not "technology",
+   not "the 3rd screw on the iPhone 15 camera"). State the chosen topic clearly.
+2. (Step 2) Perform 5-10 targeted web searches on the topic. Visit and extract
+   key information from top results. Compile: key facts, statistics, expert
+   quotes, examples, counterarguments, timeline, current state, future outlook.
+   Verify critical claims with at least 2 sources. Keep notes in your context.
+3. (Step 3) Adapt the research into scene-based format (~10s per scene) and write
+   `SCRIPT.md` + `scenes.json` per the rules and templates below.
 
-**Validation**: Topic is specific enough to fill 3-10 minutes of content. Not too
-broad ("technology"), not too narrow ("the 3rd screw on the iPhone 15 camera").
+### Use these rules:
 
-**When done**: Run `python3 pipeline.py continue <title>` so the orchestrator
-validates and advances to Step 2 (Research). Do NOT start researching yet.
+#### Hook (0:00-0:30) — 3 scenes (Grab, Promise, Stakes)
+- **Grab (0:00-0:05)**: single most important line; start mid-thought/action,
+  no intro graphics. **MUST NOT** open with "Hey guys welcome back" — measurable
+  retention killer.
+- **Promise (0:05-0:15)**: specific, tangible outcome the viewer will get.
+- **Stakes (0:15-0:30)**: emotional/practical consequence of leaving.
 
----
+Value prop in first 15s = +18% retention at 1-min mark. Target >70% retention
+at 0:30; below 50% at 10-15s = failing hook.
 
-### STEP 2: Research
+#### Intro (0:30-1:30) — 6 scenes — Context, credibility, viewer outcome
 
-**Goal**: Compile comprehensive, accurate information on the chosen topic.
+#### Content Blocks: 6-10 scenes each — Pattern interrupt → value → B-roll cue →
+micro-summary → forward hook. Every content block MUST end with BOTH micro-summary
+AND forward hook. Order key points: strongest early and late, weaker in middle.
 
-**Action**:
-1. Perform 5-10 targeted web searches on the topic.
-2. Visit and extract key information from the top results.
-3. Compile: key facts, statistics, expert quotes, examples, counterarguments,
-   timeline/history, current state, future outlook.
-4. Verify critical claims with at least 2 sources.
-5. Organize findings by subtopic.
+#### Mid-CTA (~25% mark): 1 scene — Soft, 10-15s, conversational, tied to content
 
-**Output**: Research notes (kept in agent context, key facts transferred to script).
+#### Retention re-hook (~60% mark): 1 scene — Re-engage dropping viewers.
+Do NOT save the only CTA for the end (only 16% see it).
 
-**Validation**:
-- At least 3 verifiable facts or statistics gathered.
-- Multiple perspectives covered.
-- Information is current (within last 12 months for news/trends).
+#### Outro (final 60s): 6 scenes — Hard CTA, end screen, next video tease.
+**MUST NOT** use "thanks for watching" or "don't forget to" — maintain energy
+to the final second.
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 3
-(Script Writing). Do NOT begin writing the script until `continue` confirms
-Step 2 is recorded complete.
+#### Pattern interrupts
+Every 3-5 scenes (~60-90s). First 5s interrupt = +23% retention. Mark with
+type tags: `[CAMERA CHANGE]`, `[B-ROLL CUE]`, `[GRAPHIC]`, `[SOUND EFFECT]`,
+`[UNEXPECTED STAT]`. Verify via interrupt log at end of SCRIPT.md.
 
----
+#### Spoken language
+Natural spoken language (short sentences, contractions, direct address, ~150 wpm).
+Not written prose. **MUST NOT** use AI narration style (drops retention 70%)
+unless the channel is explicitly AI-themed.
 
-### STEP 3: Script Writing
-
-**Goal**: Write a retention-optimized script with discrete ~10-second scenes.
-
-**Action**:
-1. Load the YouTube script sub-skill reference:
-   `skills/claude-youtube/skills/claude-youtube/sub-skills/script.md`
-2. Also load the retention scripting guide:
-   `skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md`
-3. Adapt the script structure into **scene-based format** (~10 seconds per scene).
-4. Write the full script to `SCRIPT.md`.
-5. Write the structured scene data to `scenes.json`.
-
-**Script structure** (adapted from the YouTube skill):
-
-```
-HOOK (0:00-0:30): 3 scenes — Grab, Promise, Stakes
-INTRO (0:30-1:30): 6 scenes — Context, credibility, viewer outcome
-CONTENT BLOCKS: 6-10 scenes each — Pattern interrupt, value, micro-summary, forward hook
-MID-CTA (~25%): 1 scene — Soft call to action
-RETENTION RE-HOOK (~60%): 1 scene — Re-engage dropping viewers
-OUTRO (final 60s): 6 scenes — Hard CTA, end screen, next video tease
-```
-
-**SCRIPT.md format**:
+### SCRIPT.md format
 
 ```markdown
 # Script: {Video Title}
 
 ## Scene 1: [Title] (~10s)
 **Script:** [What appears on screen / narration context]
-**Voiceover:** [Exact words to be spoken]
-**Transition:** [fade/cut/wipe/slide]
+**Voiceover:** [Exact words to be spoken — short sentences, contractions]
+**Transition:** [cut|fade|wipe|slide]
 
 ## Scene 2: [Title] (~10s)
 ...
+
+<!-- Retention artifacts at end of SCRIPT.md -->
+## Pattern Interrupt Log
+- Scene 3: [CAMERA CHANGE] — 0:30
+- Scene 7: [UNEXPECTED STAT] — 1:15
+Average interval: 45s (target ≤90s)
+
+## Retention Risk Map
+- Risk 1: Scene 5 dense stats → mitigation: visual reveal
+- Risk 2: ...
 ```
 
-**scenes.json**: Must follow the schema in `schemas/scenes.schema.json`. Initialize
-with `actual_duration_seconds: null` and `render_status: "pending"`.
+### scenes.json format
 
-**Output**: `SCRIPT.md` and `scenes.json` in the video directory.
+Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
+`actual_duration_seconds: null`, `actual_duration_frames: null`,
+`render_status: "pending"`, `voiceover_file: null`, `voiceover_hash: null`.
 
-**Validation**:
-- All scenes have: id, title, script_text, voiceover_text, target_duration_seconds.
-- Total estimated duration matches target video length (within 10%).
-- Hook has all 3 elements (grab, promise, stakes).
-- Pattern interrupts appear every 3-5 scenes (every 60-90s).
-- Mid-CTA present around 25% mark.
-- Retention re-hook present around 60% mark.
+```json
+{
+  "video_title": "my-video",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "scenes": [
+    {
+      "id": 1,
+      "title": "Hook — Grab",
+      "script_text": "[full narration + visual context]",
+      "voiceover_text": "[exact words TTS will speak]",
+      "target_duration_seconds": 5,
+      "actual_duration_seconds": null,
+      "actual_duration_frames": null,
+      "render_status": "pending",
+      "voiceover_file": null,
+      "voiceover_hash": null,
+      "visual_notes": "",
+      "transition_in": "cut",
+      "transition_out": "fade"
+    }
+  ],
+  "total_estimated_seconds": 0
+}
+```
+
+> `scenes.json` is scaffolded empty by `pipeline.py run`/`new` — you populate
+> the `scenes` array. `complete` validates `SCRIPT.md` exists; `scenes.json`
+> is verified by schema + downstream steps.
+
+### Validation (Phase 1)
+
+- Every scene has: `id`, `title`, `script_text`, `voiceover_text`,
+  `target_duration_seconds`.
+- Total estimated duration matches target length (within 10%).
+- Hook has all 3 elements (grab, promise, stakes) — derivable from titles.
+- Pattern interrupts every 3-5 scenes (the Pattern Interrupt Log proves it).
+- Mid-CTA present around 25% mark. Retention re-hook around 60% mark.
 - Script reads as natural spoken language, not written prose.
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 4
-(Voiceover Writing). Do NOT start Step 4's work until `continue` validates
-Step 3 and `scenes.json` passes the schema check.
+### When done
+
+```bash
+python3 pipeline.py complete <title>
+```
+
+`complete` validates `SCRIPT.md` exists, validates `scenes.json` + state against
+the JSON schemas, marks Steps 1-3 done, and prints the Phase 2 brief (no
+auto-run — Phase 2 starts with a creative Step 4).
 
 ---
 
-### STEP 4: Voiceover Writing
+## Phase 2: Voiceover (Steps 4-6)
 
-**Goal**: Extract voiceover text into a parseable format for TTS generation.
+**Goal**: Extract TTS-ready text into `VOICEOVER.md`. Steps 5-6 (audio generation
+and duration measurement) auto-run after `complete`.
 
-**Action**:
+### Action
+
 1. Read `SCRIPT.md`.
 2. Extract the "Voiceover:" line from each scene.
-3. Write `VOICEOVER.md` in the standardized format:
+3. Write `VOICEOVER.md` per the format below.
+
+### Use these rules:
+
+- Every scene from `scenes.json` has a corresponding `---SCENE:N---` block.
+- No empty voiceover blocks.
+- Text is clean — no stage directions, no markdown formatting, just spoken words.
+- Scene count in VOICEOVER.md matches scenes.json scene count.
+
+### VOICEOVER.md format
 
 ```markdown
 # VOICEOVER
@@ -344,108 +321,73 @@ Step 3 and `scenes.json` passes the schema check.
 ---END---
 ```
 
-**Output**: `VOICEOVER.md` in the video directory.
+### Validation (Phase 2)
 
-**Validation**:
-- Every scene from `scenes.json` has a corresponding `---SCENE:N---` block.
-- No empty voiceover blocks.
-- Text is clean — no stage directions, no markdown formatting, just spoken words.
-- Scene count in VOICEOVER.md matches scenes.json scene count.
+- Scene count in VOICEOVER.md == `scenes.json` scene count.
+- Every block has non-empty text.
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 5
-(Voiceover Generation — automated). The orchestrator will run edge-tts for you;
-just wait for it to report success, then run `continue` again for Step 6.
+### When done
 
----
+```bash
+python3 pipeline.py complete <title>
+```
 
-### STEP 5: Voiceover Generation
+`complete` validates `VOICEOVER.md` exists, marks Step 4 done, then **auto-runs**:
 
-**Goal**: Generate MP3 audio files for each scene using edge-tts.
+- **Step 5 (Voiceover Generation)**: Runs `generate_voiceover.py` — parses
+  VOICEOVER.md delimiters, computes a SHA-256 `voiceover_hash` per scene from
+  `(text, voice, rate, volume, pitch)`, **skips** any scene whose MP3 exists AND
+  matches the stored hash (idempotent — editing VOICEOVER.md only regenerates
+  changed scenes), generates MP3s concurrently (config: `voiceover.concurrency`),
+  retries failed scenes once after 5s backoff, updates `scenes.json`.
+- **Step 6 (Duration Measurement)**: Runs `measure_durations.py` — uses ffprobe
+  on each MP3, computes `actual_duration_frames = ceil(duration * fps)`, updates
+  `scenes.json` with real values. **Do NOT proceed to Phase 3 until Step 6
+  succeeds — all Remotion compositions depend on exact frame counts.**
 
-**This step is automated.** The orchestrator runs it when you invoke `continue`.
-You do NOT run `generate_voiceover.py` yourself.
-
-**Action**:
-1. Run `python3 pipeline.py continue <title>`.
-2. The orchestrator will run `generate_voiceover.py` which:
-   - Parses `VOICEOVER.md` for scene delimiters
-   - Computes a SHA-256 `voiceover_hash` for each scene from
-     `(text, voice, rate, volume, pitch)`
-   - **Skips generation** for any scene whose MP3 already exists AND whose stored
-     `voiceover_hash` matches (idempotent — editing VOICEOVER.md and re-running
-     only regenerates the changed scenes)
-   - Generates MP3s concurrently up to `voiceover.concurrency`
-   - Retries each failed scene once after a 5s backoff
-   - Measures each file's duration
-   - Atomically updates `scenes.json` with file paths, durations, and hashes
-
-Voice and concurrency settings come from `pipeline_config.json` (`voiceover.voice`
-default `en-GB-RyanNeural`, `voiceover.concurrency` default 3).
-
-**Output**: `voiceover/scene-XX.mp3` files + updated `scenes.json`.
-
-**Validation**:
-- All MP3 files exist in `voiceover/` directory and have non-zero size.
-- `scenes.json` has `voiceover_file`, `voiceover_hash`, and
-  `actual_duration_seconds` populated for every scene.
-- If any scene failed after retry, re-run the script — the failed scenes will
-  be retried while unchanged ones are skipped.
+The chain stops at the Phase 3 brief (Step 7 is creative). If Step 5 or 6 fails,
+`complete` emits `fix_and_continue` and exits 1 — fix the issue and re-run
+`complete` (idempotent — unchanged scenes are skipped).
 
 ---
 
-### STEP 6: Duration Measurement
+## Phase 3: Visuals & Render (Steps 7-10)
 
-**Goal**: Verify and finalize the real durations of all voiceover audio files.
+**Goal**: Define a consistent visual style, write the Remotion project code for
+all scenes. Steps 9-10 (scene rendering and stitching) auto-run after `complete`.
 
-**This step is automated.** The orchestrator runs it when you invoke `continue`.
-You do NOT run `measure_durations.py` yourself.
+### Action
 
-**Action**:
-1. Run `python3 pipeline.py continue <title>`.
-2. The orchestrator runs `measure_durations.py` which:
-   - Uses ffprobe to measure each MP3
-   - Calculates `actual_duration_frames = ceil(duration * fps)`
-   - Updates `scenes.json` with real values
-   - Prints total video duration
+#### 3a. Verify the Remotion project is scaffolded
 
-**Output**: Updated `scenes.json` with `actual_duration_seconds` and `actual_duration_frames`.
+The Remotion project is scaffolded by `pipeline.py run`/`new`. Verify it exists:
 
-**Validation**:
-- Every scene has non-null `actual_duration_seconds` and `actual_duration_frames`.
-- No scene duration is 0.
-- Total duration is reasonable for the target length.
-- **CRITICAL**: Do NOT proceed to Step 7 until ALL scene durations are measured.
-  The Remotion compositions depend on exact frame counts.
+```bash
+ls videos/{video-title}/remotion/src/Root.tsx
+```
 
----
+It should contain **two** compositions — `MainVideo` and `Thumbnail` — along
+with `MainVideo.tsx`, `Thumbnail.tsx` stub, `SceneMap.generated.ts`,
+`lib/config.ts`, `lib/styles.ts`, shared components (`Background`, `TextReveal`,
+`StatReveal`, `Captions`), and installed npm dependencies. If missing, re-run
+`pipeline.py new "{video-title}"` once.
 
-### STEP 7: Style Definition
+#### 3b. Write `STYLES.md` (Step 7)
 
-**Goal**: Define a consistent visual style for the entire video.
+Define a single visual style that fits the content AND is CTR-compatible.
 
-**Action**:
-1. Load the claude-youtube thumbnail CTR guide for palette-aware design:
-   `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md`
-   Read the "Visual Design Rules" and "Mobile Optimization" sections specifically.
-   The palette you choose here must also satisfy the thumbnail's contrast,
-   focal-point, and 168×94px mobile-legibility rules — Step 12 will reuse this
-   palette and cannot redo it without breaking scene consistency.
-2. Read the video topic, script tone, and target audience.
-3. Decide on a visual style that fits the content AND is CTR-compatible:
-   - Color palette (3-5 hex colors) — choose high-contrast pairings so a
-     ≤3-word text overlay will read at 168×94px on mobile (per the CTR guide)
-   - Typography (1-2 font families, sizes) — bold weights for overlays/captions
-   - Background treatment (gradients, solid, patterns)
-   - Animation character (smooth, snappy, minimal, bold)
-   - Element positioning rules (leave 30-40% negative space for focal points,
-     per the CTR guide)
-4. Write `STYLES.md` in the video directory.
-5. Update `scenes.json` with `visual_notes` for each scene based on the style guide.
-   - Each scene gets a specific visual treatment: colors, animations, layout, elements
-   - `visual_notes` should be detailed enough for Step 8 to implement directly
-   - Reference specific colors from the palette, animation types, and element positions
+**Use these rules (CTR palette — also reused in Phase 4):**
 
-**STYLES.md format**:
+- Color palette: 3-5 hex codes. 2-3 primary colors; viewer decides in <1 second.
+- High-contrast pairings so a ≤3-word text overlay will read at 168×94px on mobile
+  (Phase 4 thumbnail reuses this palette — choose CTR-safe now or fix later).
+- Negative space: 30-40% of frame area. One clear focal point.
+- Typography: 1-2 font families. Bold weights for overlays/captions. Must be
+  Google Fonts or web-safe.
+- Background treatment: gradients, solid, or patterns.
+- Animation character: smooth, snappy, minimal, or bold — pick one.
+
+**STYLES.md format:**
 
 ```markdown
 # Visual Style Guide
@@ -477,62 +419,13 @@ You do NOT run `measure_durations.py` yourself.
 [Description of the default visual structure for a scene]
 ```
 
-**Output**: `STYLES.md` in the video directory.
+Then update `scenes.json` with `visual_notes` for each scene based on the style.
+Each scene's `visual_notes` should specify colors (from palette), animations,
+layout, and element positions — detailed enough for Step 8 to implement directly.
 
-**Validation**:
-- Colors are valid hex codes.
-- Font choices are available via Google Fonts or are web-safe.
-- Style is consistent and reproducible across all scenes.
-- Every scene in `scenes.json` has non-empty `visual_notes`.
-- `visual_notes` reference specific colors from the palette defined in `STYLES.md`.
-- `visual_notes` specify animation types consistent with the style guide.
+#### 3c. Write `remotion/PLAN.md` (start of Step 8)
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 8
-(Remotion Code Writing). Do NOT scaffold or write Remotion code until `continue`
-confirms Step 7 is complete — the `visual_notes` you set here drive Step 8.
-
----
-
-### STEP 8: Remotion Code Writing
-
-**Goal**: Write the Remotion project code for all scenes. The scaffold's
-`MainVideo.tsx` imports `SCENE_MAP` from `src/scenes/SceneMap.generated.ts`;
-Step 9 regenerates that file with the correct scene imports. You do NOT
-write or touch `SceneMap.generated.ts` — write only the individual
-`src/scenes/SceneXX.tsx` files.
-
-**This is the most complex step. Take it slow and methodical.**
-
-**Action**:
-
-#### 8a. Verify the Remotion project is scaffolded
-
-The Remotion project was already scaffolded when you ran `python3 pipeline.py new`
-as the very first action. Verify it exists:
-
-```bash
-ls videos/{video-title}/remotion/src/Root.tsx
-```
-
-It should contain **two** compositions — `MainVideo` and `Thumbnail` — along with
-`MainVideo.tsx`, `Thumbnail.tsx` stub, config.ts, styles.ts, and installed npm
-dependencies. If the directory is missing or incomplete, run `python3 pipeline.py new "{video-title}"` once.
-
-#### 8b. Load the Remotion best practices skill
-
-Read `skills/remotion-best-practices/skills/remotion/SKILL.md` and its referenced
-rule files. Key rules to load:
-- `rules/video-layout.md` — layout and text sizing
-- `rules/voiceover.md` — audio integration patterns
-- `rules/calculate-metadata.md` — dynamic duration
-- `rules/transitions.md` — scene transitions
-- `rules/sequencing.md` — timing with `<Sequence>`
-- `rules/compositions.md` — composition structure
-- `rules/effects.md` — visual effects patterns
-
-#### 8c. Write PLAN.md
-
-Before writing any code, create `remotion/PLAN.md`:
+Before any code, write the per-video Remotion rebuild plan:
 
 ```markdown
 # Implementation Plan
@@ -548,314 +441,310 @@ Before writing any code, create `remotion/PLAN.md`:
 ## Scenes
 ### Scene 1: {title}
 - Duration: {actual_duration_frames} frames
-- Visual: {visual_notes from scenes.json — set by Step 7}
-- Audio: voiceover/scene-01.mp3
+- Visual: {visual_notes from scenes.json}
+- Audio: voiceover/scene-01.mp3 (muted — muxed at stitch)
 - Key elements: [what needs to animate]
 - Transition in: {transition_in}
 - Transition out: {transition_out}
 
-### Scene 2: {title}
-...
+### Scene 2: ...
 
 ## Style Reference
 {Key points from STYLES.md}
 ```
 
-#### 8d. Write the code
+#### 3d. Write the Remotion code (Step 8)
 
-1. Audio is muxed at stitch time by `scripts/assemble.py`, so scene components
-   render silent video. No voiceover copy into `public/voiceover/` is needed.
-   The scaffold no longer creates this directory.
+**Use these rules (Remotion coding):**
 
-2. The scaffold already generates `src/Root.tsx` with **two** compositions
-   (`MainVideo` and `Thumbnail`). Do NOT rewrite Root.tsx from scratch — keep
-   the scaffold's file. You only customize it if your scenes need to change
-   the `calculateMetadata` for `MainVideo` (the `Thumbnail` composition is
-   static and should remain untouched until Step 12). Use `--props` JSON at
-   render time to pass scene data, not hard-coded config.
+- Animation via `useCurrentFrame()` + `interpolate()`. **MUST NOT** use CSS
+  transitions/animations (won't render). **MUST NOT** use Tailwind animation
+  classes. Prefer `interpolate()` over `spring()` unless physics-based motion
+  is explicitly needed. Use `Easing.bezier()` for custom timing.
+- For Studio-editable animations: keep `interpolate()` inline in `style` prop;
+  use **individual CSS transform properties** (`scale`, `translate`, `rotate`)
+  instead of composing a `transform` string.
+- Use `<Sequence>` with `from` for delays and `durationInFrames` for limits.
+  **Always premount** any `<Sequence>` (use `premountFor={1 * fps}`).
+  `useCurrentFrame()` inside a Sequence returns LOCAL frame (0-based), not global.
+- Use `layout="none"` on `<Sequence>` when you don't want wrapping in AbsoluteFill.
+- Compositions: define in `src/Root.tsx` with `width`/`height`/`fps`/`durationInFrames`.
+  Use `type` declarations (not `interface`) for props — ensures `defaultProps`
+  type safety. `defaultProps` must be JSON-serializable. Use `<Still>` for
+  single-frame images (Thumbnail composition is not a Still — it's a Composition
+  rendered at frame 0; see Phase 4).
+- For dynamic duration: `calculateMetadata` with `Math.ceil(seconds * fps)`.
+  Pass `abortSignal` to fetch. **MUST** use `Math.ceil()` for seconds→frames.
+- Assets: place in `public/`; reference with `staticFile()`. `<Img>` for images;
+  `<Video>` from `@remotion/media` for video.
 
-3. Write `src/lib/config.ts` — export scene data (durations, paths, fps).
+**Layout / text sizing (1080px frame):**
+- Key text at least 80px from sides, 100px from top/bottom.
+- Minimums: **headline 84px**, supporting 44px, labels 32px (scale with width).
+- Use flex/grid/gap for readable content. **MUST NOT** absolutely position every
+  readable element independently. Absolute positioning is for
+  backgrounds/decorative shapes/glows/particles only.
+- **MUST NOT** animate elements into space occupied by another element.
+- **MUST NOT** stack many text blocks in the same area.
+- One strong message per frame > dashboard of widgets. Assume text may wrap —
+  give width and vertical room. Reveal elements sequentially to solve crowding.
 
-4. Write shared components in `src/components/` — reusable visual elements
-   defined in STYLES.md.
+**Use these contracts (Phase 3-internal MUSTs):**
 
-5. Write each scene component in `src/scenes/SceneXX.tsx`:
-   - Use `useCurrentFrame()` + `interpolate()` for animations
-   - Use `<Sequence>` for sub-timing within the scene
-   - NO CSS transitions/animations
-   - NO Tailwind animation classes
-   - Use `staticFile()` for assets
-   - Use individual CSS transform properties (scale, translate, rotate)
-     instead of composing a `transform` string
+- **`MainVideo.tsx` MUST import `SCENE_MAP` from `src/scenes/SceneMap.generated.ts`.**
+  The orchestrator **auto-generates** `SceneMap.generated.ts` in Step 9 from
+  `scenes.json`. You only write the individual `src/scenes/SceneXX.tsx` files.
+  Do NOT edit `SceneMap.generated.ts`.
+- **Both `MainVideo` AND `Thumbnail` compositions MUST register in `Root.tsx`**
+  via `<Composition>`. `lint_gate` verifies via `remotion compositions` — missing
+  either fails the gate before rendering.
+- Each `SceneXX.tsx` MUST:
+  - Match its `actual_duration_frames` exactly
+  - Render **SILENT video only** — do NOT use `<Audio>` for the voiceover.
+    Background music/SFX, if any, are still allowed via `<Audio>`.
+  - Implement the visual treatment from `visual_notes` in `scenes.json`
+  - Follow the style system from STYLES.md
 
-6. Each scene must:
-   - Match its `actual_duration_frames` exactly
-   - **Render SILENT video only** — voiceover is muxed at stitch time by
-     `scripts/assemble.py`. Do NOT use `<Audio>` from `@remotion/media` for
-     the voiceover. (Background music/SFX, if any, are still allowed via
-     `<Audio>`.)
-   - Implement the visual treatment from `visual_notes` in `scenes.json`
-   - Follow the style system from STYLES.md
-   - Have proper text sizing per video-layout.md rules
-   - (Optional) Render `<Captions cues={scene.captions} fps={fps} />` from
-     `remotion-foundation` when `scene.showCaptions` is true — this is only
-     active if `video.burn_captions: true` in `pipeline_config.json`.
+**Optional:** Render `<Captions cues={scene.captions} fps={fps} />` from
+`remotion-foundation` when `scene.showCaptions` is true — only active if
+`video.burn_captions: true` in `pipeline_config.json`.
 
-**Output**: Complete Remotion project in `remotion/` + `PLAN.md`.
+**Output**: `STYLES.md` + complete Remotion project (`remotion/PLAN.md`, `Root.tsx`
+kept from scaffold, `MainVideo.tsx` kept from scaffold, `Thumbnail.tsx` kept as stub
+until Phase 4, `lib/config.ts`, `lib/styles.ts`, `scenes/SceneXX.tsx`).
 
-**Validation**:
-- `src/Root.tsx` exists and exports `RemotionRoot` with the `MainVideo` AND
-  `Thumbnail` compositions (both are scaffolded; do not remove either).
-- `src/components/MainVideo.tsx` exists with Sequence-based scene loading.
-- `src/components/Thumbnail.tsx` exists (scaffolded stub — agent fills it in Step 12).
-- Each scene has a corresponding `SceneXX.tsx` file.
-- Scene count matches `scenes.json` scene count.
-- Frame durations match `actual_duration_frames` from `scenes.json`.
-- No CSS transitions or animations used.
-- All animations use `interpolate()` or `spring()`.
+### Pre-render self-check (run yourself before `complete`)
 
-**Pre-render self-check**: Before you tell the orchestrator Step 8 is done, run
-the gate yourself to catch errors early:
 ```bash
 cd videos/{video-title}/remotion
 npm run lint && npx tsc --noEmit && npx remotion compositions src/Root.tsx
 ```
+
 You should see both `MainVideo` and `Thumbnail` in the compositions output. Fix
 any errors before continuing — the orchestrator will run this gate before Step 9
 renders and will fail the entire run if anything is broken.
 
-**Important**: `MainVideo.tsx` must import `SceneMap` from `../scenes/SceneMap.generated`
-for the Step 9 gate to pass. If Step 9 fails with a "MainVideo.tsx must import
-SceneMap.generated.ts" error, re-run Step 8 with the `python3 pipeline.py new`
-scaffold to get the correct template file.
+> Note about MainVideo.tsx import contract: if Step 9 fails with a
+> "MainVideo.tsx must import SceneMap.generated.ts" error, your scaffold is
+> out of date — copy a fresh `MainVideo.tsx` from `remotion-foundation/src/components/MainVideo.tsx`.
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 9
-(Scene Rendering — automated, one scene at a time with a lint gate). Do NOT
-manually invoke `render_scene.py`; let the orchestrator drive the render loop.
+### Validation (Phase 3)
 
----
+- `src/Root.tsx` exists and exports `RemotionRoot` with the `MainVideo` AND
+  `Thumbnail` compositions (both scaffolded; do not remove either).
+- `src/components/MainVideo.tsx` exists, imports `SceneMap` from
+  `SceneMap.generated.ts`, and uses Sequence-based scene loading.
+- `src/components/Thumbnail.tsx` exists (scaffolded stub — agent fills it in
+  Phase 4).
+- Each scene has a corresponding `SceneXX.tsx` file. Scene count matches
+  `scenes.json` scene count.
+- Frame durations match `actual_duration_frames` from `scenes.json`.
+- No CSS transitions or animations used. All animations use `interpolate()` or
+  `spring()`.
+- Every scene in `scenes.json` has non-empty `visual_notes` referencing specific
+  palette colors from STYLES.md.
+- `npm run lint`, `tsc --noEmit`, and `remotion compositions` all pass.
 
-### STEP 9: Scene Rendering
-
-**Goal**: Render each scene as a separate MP4 file.
-
-**CRITICAL**: Render one scene at a time. Do NOT attempt parallel rendering.
-
-**Lint/typecheck gate**: `pipeline.py continue` runs `npm run lint`, `tsc --noEmit`,
-and `remotion compositions src/Root.tsx` before any render. If any of those fail,
-step 9 fails without rendering scenes. Fix Step 8 issues before re-running.
-
-**SceneMap auto-generation**: Before the lint gate, Step 9 regenerates
-`src/scenes/SceneMap.generated.ts` with the correct scene-import map from
-`scenes.json`. This file is **auto-generated** — the agent never edits it. The
-lint gate also checks that `MainVideo.tsx` actually imports `SceneMap`; if not,
-it fails and tells you to re-step 8 with the updated scaffold.
-
-**Action**:
-
-For each scene (1 through N), sequentially:
+### When done
 
 ```bash
-python3 scripts/render_scene.py videos/{video-title}/ {scene_id}
+python3 pipeline.py complete <title>
 ```
 
-The script:
-- Builds a props JSON from `scenes.json` with all scene durations
-  (`audioFile` is intentionally empty — scenes are silent)
-- Calculates the frame range for the specific scene (`--frames`)
-- Renders only that scene's portion of the single `MainVideo` composition
-- Handles all guardrails via `psutil` (RAM/disk checks) and orphaned-Chrome
-  cleanup (smart: only kills chrome-headless-shell whose parent node/remotion
-  process is no longer alive)
-- Updates `render_status`, `render_attempts`, `last_render_error` per scene
-- Writes an append-only log to `videos/<title>/logs/step-9-scene-{id}.log`
+`complete` validates the expected artifacts exist (`remotion/PLAN.md`,
+`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx`, `lib/config.ts`, `lib/styles.ts`),
+marks Steps 7-8 done, then **auto-runs**:
 
-**Between scenes**: Wait for the script to complete before starting the next.
-Monitor output for errors. **A failed scene does NOT abort the batch** — the
-orchestrator records the failure and continues. Re-running `continue` skips
-already-rendered scenes and retries only the failed ones.
+- **Step 9 (Scene Rendering)**: Regenerates `SceneMap.generated.ts` from
+  `scenes.json`, runs the lint/typecheck/compositions gate, then renders each
+  scene one at a time via `render_scene.py` with hardware guardrails via
+  `psutil` (RAM/disk checks, orphaned-Chrome cleanup). A failed scene records
+  `render_attempts += 1` and `last_render_error`, **does NOT abort the batch**
+  — the orchestrator records the failure and continues. Re-running `complete`
+  skips already-rendered scenes and retries only failures. Per-scene logs in
+  `videos/<title>/logs/step-9-scene-{id}.log`.
+- **Step 10 (Stitching)**: Runs `assemble.py` — concatenates per-scene MP3s
+  into `voiceover_aligned.mp3`, concatenates scene MP4 video streams (copy, no
+  re-encode), muxes audio on video (single ffmpeg pass, `-c:v copy -c:a aac`),
+  auto-increments version `versions/{title}-v1.mp4`, `v2`, etc.
 
-**Output**: `scenes/scene-XX.mp4` files.
-
-**Validation** (after ALL scenes are rendered):
-- All MP4 files exist in `scenes/` directory and have non-zero size.
-- `scenes.json` has `render_status: "rendered"` for every scene.
-- Total disk usage is within system limits.
-- Logs in `videos/<title>/logs/step-9-scene-*.log` show no errors.
-
-**If a scene fails**:
-1. Read the per-scene log: `videos/<title>/logs/step-9-scene-{id}.log`
-2. Read the `last_render_error` field for the scene in `scenes.json`
-3. Run `pkill -f chrome` to clean up leftover processes.
-4. Wait 30 seconds.
-5. Re-run `python3 pipeline.py continue <title>` — only the failed scene(s)
-   will be re-attempted.
-6. If still failing, run `bash scripts/check_system.sh` and consider reducing
-   quality settings in `pipeline_config.json` (resolution, `crf`, `node_max_old_space_size_mb`).
+The chain stops at the Phase 4 brief (Step 11 is creative). If Step 9 partial-fails
+(some scenes fail), `complete` exits 1 with `fix_and_continue`. To retry just the
+failed scenes: `pkill -f chrome`, wait 30s, re-run `pipeline.py continue <title>`
+(Step 9 is resumable per-scene via `render_status: "rendered"`). For persistent
+OOM, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`.
 
 ---
 
-### STEP 10: Stitching
+## Phase 4: Metadata & Thumbnail (Steps 11-13)
 
-**Goal**: Combine all scene videos with voiceover audio into the final output.
+**Goal**: Generate YouTube metadata (title, description, tags) and write a
+Remotion `Thumbnail.tsx` composition. Step 13 (thumbnail PNG render) auto-runs
+after `complete`.
 
-**Action**:
+### Action
+
+#### 4a. Write `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` (Step 11)
+
+Read `scenes.json` for accurate chapter timestamps based on cumulative
+`actual_duration_seconds`. Read the stitched MP4 output path from `versions/`.
+
+**Use these rules (SEO metadata):**
+
+**TITLE.md — 3 variants (all under 100 chars):**
+- **Search-optimized** (keyword-forward), **Browse-optimized** (curiosity/emotional),
+  **Hybrid** (recommended).
+- **MUST**: primary keyword in first 40 characters of every variant. Mobile
+  truncates ~40-50 chars, desktop ~60-70 — front-load the keyword.
+- **MUST**: genuinely distinct strategies, not minor word swaps. 70-100 char
+  titles outperform shorter by 10-14%. Numbers add +20-30% CTR.
+- **MUST NOT**: put hashtags in the title. **MUST NOT**: exceed 100 chars.
+
+**DESCRIPTION.md — full description (under 5000 chars):**
+- **MUST**: primary keyword in first 25 words.
+- First 2 lines compelling standalone (visible before "Show More" — treat as
+  ad copy).
+- Structure: hook → TIMESTAMPS → body (200-350 words, keyword 2-4x) → resource
+  links → channel boilerplate → 3-5 hashtags at the bottom.
+- **TIMESTAMPS**: start at 0:00, minimum 3 chapters, minimum 10s each. Use
+  cumulative `actual_duration_seconds` from `scenes.json` for accurate markers.
+  Omitting 0:00 disables the entire chapter system. Chapters enable Google
+  Key Moments (+4% AVD).
+- **MUST NOT**: stuff keywords beyond 2-4x in the body. **MUST NOT**: exceed 15
+  hashtags (ALL become ignored above 15).
+
+**TAGS.md — 10-15 comma-separated tags:**
+- Priority order: exact target keyword first → variations → long-tail → broader
+  → channel name.
+- **MUST**: total under 500 characters.
+- Note: tags are effectively dead per the 2025 SEO playbook; spend max 30
+  seconds. Only for misspellings, disambiguation, brand-new channels.
+
+```markdown
+# Title Variants
+
+1. **Search-optimized:** [keyword-forward title]
+2. **Browse-optimized:** [curiosity/emotional title]
+3. **Hybrid:** [balanced title]
+```
+
+```markdown
+# Description
+
+[Hook — first 2 lines work as ad copy]
+
+## Timestamps
+0:00 Intro
+0:32 [Chapter 1]
+...
+
+## [Body — 200-350 words, keyword 2-4x]
+
+## Resources
+- [Link 1]
+- [Link 2]
+
+## Channel
+[Boilerplate]
+
+#hashtags #here #at #bottom
+```
+
+```markdown
+# Tags
+exact keyword, variation 1, variation 2, long-tail 1, broad term 1, channel name
+```
+
+#### 4b. Write `Thumbnail.tsx` (Step 12)
+
+Compose the thumbnail entirely of Remotion primitives — shapes, text,
+gradients. **NO AI image generation** (no NanoBanana, Midjourney, DALL-E, etc.).
+
+**Use these rules (thumbnail design):**
+
+> **Back-ref: Phase 3 §CTR palette (your STYLES.md).** The palette you chose in
+> Phase 3 was CTR-safe for mobile legibility at 168×94px. **Reuse it** — do NOT
+> introduce new colors. If the palette would fail the mobile-legibility check
+> for the specific text overlay you planned, that is a Phase 7 palette bug — go
+> back and fix STYLES.md before continuing, then re-run `complete`.
+
+- **MUST**: text overlay ≤3 words. Bold sans-serif. Legible at 168×94px. High
+  contrast. Stroke/shadow recommended.
+- **MUST**: thumbnail adds NEW info — never duplicates the title text. Title =
+  keyword + promise; thumbnail = visual + emotional hook.
+- **MUST**: design for 1920×1080 even though 1280×720 is the YouTube minimum
+  (TV-safe). 70%+ of views are mobile.
+- **MUST**: maintain 30-40% negative space (cluttered loses focal point).
+- **MUST NOT**: use `fetch()` or external URLs. `<Img>` only for local assets
+  via `staticFile()`.
+- Use only the `ThumbnailProps` interface from `remotion-foundation`:
+  `{ title: string, subtitle: string, palette: { primary, secondary, accent, background, text } }`.
+- Native Remotion shapes (divs with CSS, gradients, borders), text with
+  typography from STYLES.md palette.
+- No animation needed (still render at frame 0) but `interpolate()`/`spring()`
+  are OK if you want a tiny effect on a single frame.
+- The `Thumbnail` composition is already registered in `Root.tsx` — do NOT
+  duplicate it. Just write the component body in `Thumbnail.tsx`.
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { ThumbnailProps } from "remotion-foundation";
+
+export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {
+  return (
+    <AbsoluteFill style={{ backgroundColor: palette.background }}>
+      {/* ... your composition ... */}
+    </AbsoluteFill>
+  );
+};
+```
+
+**Verify before `complete`:**
 
 ```bash
-python3 scripts/assemble.py videos/{video-title}/
+cd videos/{video-title}/remotion
+npm run lint
+npx tsc --noEmit
+npx remotion compositions src/Root.tsx   # must list both MainVideo and Thumbnail
 ```
 
-The script:
-1. Concatenates all voiceover MP3 files in scene order -> `voiceover_aligned.mp3`
-2. Concatenates all scene MP4 video streams (copy, no re-encode)
-3. Overlays audio on video with `-c:v copy -c:a aac` (no video re-encode)
-4. Auto-increments version number: `versions/{title}-v1.mp4`, `v2`, etc.
-5. Cleans up intermediate files
+### Validation (Phase 4)
 
-**Output**: `versions/{video-title}-v{N}.mp4` — the final deliverable.
-
-**Validation**:
-- Final MP4 exists and is playable.
-- Duration matches expected total (within 1 second).
-- Audio is present and synced.
-- File size is reasonable for the duration.
-- `voiceover_aligned.mp3` exists with correct total duration.
-
----
-
-### STEP 11: Metadata Generation
-
-**Goal**: Generate YouTube title variants, description with chapters/timestamps, and tags for the stitched video.
-
-**Action**:
-
-1. Load the claude-youtube metadata sub-skill:
-   `skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md`
-2. Also load the SEO playbook reference:
-   `skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md`
-3. Read the stitched video output from `versions/` directory.
-4. Read `scenes.json` for accurate chapter timestamps based on actual scene durations.
-5. Produce the following files in the video directory:
-
-**TITLE.md** — 3 title variants (search-optimised, browse-optimised, hybrid):
-- All under 100 characters
-- Primary keyword in first 40 characters
-- Genuinely distinct strategies, not minor word swaps
-
-**DESCRIPTION.md** — Full 5000-char description:
-- Primary keyword in first 25 words
-- First 2 lines compelling standalone (visible before "Show More")
-- TIMESTAMPS section with accurate chapter markers matching `scenes.json` durations
-- Resource links, channel boilerplate, 3-5 hashtags at the bottom (not in title)
-
-**TAGS.md** — 10-15 comma-separated tags:
-- Exact target keyword first, then variations, then broad terms
-- Total under 500 characters
-
-**Output**: `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` in the video directory.
-
-**Validation**:
-- All title variants are under 100 characters.
-- Primary keyword appears in first 40 characters of every title.
-- Description has keyword in first 25 words.
-- Description under 5000 characters (verified).
-- Timestamps start at 0:00 with at least 3 chapters.
-- Tags under 500 characters total.
-- Hashtags in description body, never in title.
+- All 3 title variants under 100 chars. Primary keyword in first 40 chars of each.
+- Description under 5000 chars. Primary keyword in first 25 words. Chapters
+  start at 0:00 with ≥3 entries.
+- Tags under 500 chars total. Hashtags in description body (not in title).
 - First 2 description lines work as standalone ad copy.
+- No AI-generated image assets in `Thumbnail.tsx`. No `fetch()` / external URLs.
+- `Thumbnail.tsx` uses only `ThumbnailProps`. Text overlay ≤3 words. Palette
+  colors from STYLES.md.
+- `npm run lint`, `tsc --noEmit` pass. `Thumbnail` composition appears in
+  `remotion compositions` output.
 
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 12
-(Thumbnail Generation). Do NOT start writing `Thumbnail.tsx` until `continue`
-confirms Step 11 is complete — the thumbnail title text in Step 12 reads
-`TITLE.md` which you just produced.
-
----
-
-### STEP 12: Thumbnail Generation
-
-**Goal**: Write a Remotion `Thumbnail.tsx` composition (no AI-generated images).
-
-**CRITICAL RULE**: Do NOT use any AI image generation (NanoBanana, Midjourney, DALL-E, etc.).
-The thumbnail must be composed entirely of Remotion primitives: shapes, text,
-gradients, and optionally local `staticFile()` assets.
-
-**Action**:
-
-1. Load the claude-youtube thumbnail sub-skill for the design brief:
-   `skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md`
-2. Also load the thumbnail CTR guide:
-   `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md`
-3. Read `TITLE.md`, `DESCRIPTION.md`, `STYLES.md`, and `scenes.json` for context.
-   The palette in `STYLES.md` was chosen CTR-safe in Step 7 — reuse it rather
-   than introducing new colors. If the palette would fail the mobile-legibility
-   check for the specific text overlay you planned, that is a Step 7 palette
-   bug — go back and fix STYLES.md before continuing, then re-run `continue`.
-4. Follow the thumbnail sub-skill's brief structure (information split, focal point,
-   ≤3-word text overlay, hex palette, mobile-legibility at 168×94px).
-5. Write `src/components/Thumbnail.tsx` using ONLY:
-   - `<AbsoluteFill>` for the container
-   - `<Img>` only for local assets via `staticFile()` (no external URLs)
-   - Native Remotion shapes (divs with CSS, gradients, borders)
-   - Text with proper typography from STYLES.md palette
-   - `interpolate()` / `spring()` if any animation is needed
-   - The `ThumbnailProps` interface from `remotion-foundation`:
-     `{ title: string, subtitle: string, palette: { primary, secondary, accent, background, text } }`
-6. Verify the composition compiles:
-   ```bash
-   cd videos/{video-title}/remotion
-   npm run lint
-   npx tsc --noEmit
-   ```
-7. The `Thumbnail` composition is already registered in `Root.tsx` — do NOT duplicate it.
-
-**Output**: `src/components/Thumbnail.tsx` in the per-video Remotion project.
-
-**Validation**:
-- No AI-generated image assets used.
-- No `fetch()` or external URLs in the component.
-- Component uses only the props passed via `ThumbnailProps`.
-- Text overlay ≤3 words (or as specified by the thumbnail brief).
-- Palette colors from STYLES.md or the brief, not hard-coded.
-- Composition passes `npm run lint` and `tsc --noEmit`.
-- `Thumbnail` composition appears in `npx remotion compositions src/Root.tsx` output.
-
-**When done**: Run `python3 pipeline.py continue <title>` to advance to Step 13
-(Thumbnail Rendering — automated). The orchestrator will run
-`render_thumbnail.py` for you, which calls `npx remotion still` and writes
-`versions/<title>-thumbnail-vN.png`. Do NOT invoke `render_thumbnail.py` yourself.
-
----
-
-### STEP 13: Thumbnail Rendering
-
-**Goal**: Render the Thumbnail composition to a PNG file via Remotion still.
-
-**Lint/typecheck gate**: `pipeline.py continue` runs `npm run lint`, `tsc --noEmit`,
-and `remotion compositions src/Root.tsx` before rendering. The gate now checks for
-both `MainVideo` and `Thumbnail` compositions. If either is missing, the step fails.
-
-**Action**:
+### When done
 
 ```bash
-python3 scripts/render_thumbnail.py videos/{video-title}/
+python3 pipeline.py complete <title>
 ```
 
-The script:
-- Reads `TITLE.md` (or falls back to `scenes.json video_title`) for the title text
-- Reads `STYLES.md` for the color palette
-- Builds `ThumbnailProps` JSON from those values
-- Runs `npx remotion still src/Root.tsx Thumbnail <out.png> --frame=0` with the props
-- Writes output to `versions/{title}-thumbnail-v{N}.png` (auto-incremented)
-- Uses `--quality=100` for maximum PNG output quality
-- Records an append-only log to `videos/<title>/logs/step-13.log`
+`complete` validates `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` exist,
+marks Steps 11-12 done, then **auto-runs**:
 
-**Output**: `versions/{video-title}-thumbnail-v{N}.png` — the deliverable thumbnail.
+- **Step 13 (Thumbnail Rendering)**: Runs `lint_gate` then `render_thumbnail.py`.
+  Reads `TITLE.md` (or falls back to `scenes.json video_title`) for the title
+  text, reads `STYLES.md` for the color palette, builds `ThumbnailProps` JSON,
+  runs `npx remotion still src/Root.tsx Thumbnail <out.png> --frame=0`
+  with `--quality=100`. Writes `versions/{title}-thumbnail-v{N}.png` (auto-incremented).
+  Per the `retention.clean_remotion_node_modules_after_step_13` config flag
+  (default `true`), `remotion/node_modules/` is cleaned after Step 13 success.
 
-**Validation**:
-- Output PNG exists and has non-zero size.
-- Resolution is 1280×720+ (matches the Remotion composition dimensions).
-- File is a valid PNG image.
-- Logs show no errors.
+If Step 13 fails, check `videos/<title>/logs/step-13.log`. Ensure `Thumbnail`
+composition is registered in `Root.tsx` and `Thumbnail.tsx` passes the lint gate.
+Re-run `complete` to retry.
+
+If all steps complete, `complete` prints:
+`All steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.`
 
 ---
 
@@ -882,67 +771,100 @@ To force-clean a completed video (respects `keep_versions` and
 python3 pipeline.py clean <title>
 ```
 
-This removes: `voiceover_aligned.mp3`, old MP4/PNG versions beyond the
-`keep_versions` limit, `remotion/node_modules/`, `.preview/`, Remotion TMPDIR,
-and rotates logs. Scene MP4s are only removed
-if `clean_scene_mp4s_after_stitch: true` is set.
-
 ## Error Recovery
 
 | Error | Recovery |
 |-------|----------|
-| `edge-tts` network failure | Step 5 retries each scene once after a 5s backoff. Re-run `continue` — unchanged scenes are skipped (idempotent). |
-| Remotion render OOM | The scene's `last_render_error` records the OOM. `render_attempts` is incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
+| `edge-tts` network failure | Step 5 retries each scene once after 5s backoff. Re-run `complete` — unchanged scenes skipped (idempotent). |
+| Remotion render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
 | Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
-| ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `continue`. |
-| Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or clean up previous video projects. |
-| Schema validation fails | `pipeline.py continue` refuses to run automated steps. Run `pipeline.py validate <title>` to see the specific violations and fix the offending JSON. |
-| Lint gate fails before render | Fix the TypeScript/lint errors in the Remotion project (`cd videos/<title>/remotion && npm run lint`). `tsc --noEmit` errors must also be resolved. |
-| Metadata step fails | `pipeline.py continue` re-runs the creative Step 11. Check `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` are all present and valid. |
+| ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `complete`. |
+| Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or `python3 pipeline.py clean <title>`. |
+| Schema validation fails | `complete` refuses to advance. Run `python3 pipeline.py validate <title>` to see violations and fix the offending JSON. |
+| Lint gate fails before render | Fix TypeScript/lint errors in the Remotion project (`cd videos/<title>/remotion && npm run lint`). `tsc --noEmit` errors must also be resolved. |
+| Metadata step fails | `complete` re-runs the creative Step 11. Check `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` are present and valid. |
 | Thumbnail composition fails lint | Fix `Thumbnail.tsx` TypeScript/lint errors. Remove any AI image references. |
-| Thumbnail still render fails | The Step 13 render uses `npx remotion still`. Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions` check. |
-| Disk space low | Run `python3 pipeline.py clean <title>` to free safe-to-delete files (node_modules, old versions, TMPDIR, duplicate voiceover). Or edit `retention` flags in `pipeline_config.json` to enable automatic cleanup. |
+| Thumbnail still render fails | Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions`. |
+| `complete --step N` refused | Earlier steps incomplete — pass `--force` only if you understand the gap will be flagged by `audit`/`doctor`. |
 
-State forensics: each step's `pipeline_state.json` entry now carries
-`attempts`, `last_error`, and `last_attempt_at`. Scene-level failures record
-`render_attempts` and `last_render_error` per scene in `scenes.json`.
-
-## Progress Tracking
-
-Use `pipeline_state.json` to track which steps are complete. Before starting
-any step, check if it's already marked complete (for resuming interrupted runs).
-
-Update the file after each step completes:
-```json
-{
-  "video_title": "...",
-  "current_step": 5,
-  "steps": {
-    "1_topic_selection": {"status": "complete", "completed_at": "2025-01-15T10:30:00Z"},
-    "2_research": {"status": "complete", "completed_at": "2025-01-15T10:45:00Z"},
-    ...
-  }
-}
-```
+State forensics: each step's `pipeline_state.json` entry carries `attempts`,
+`last_error`, and `last_attempt_at`. Scene-level failures record `render_attempts`
+and `last_render_error` per scene in `scenes.json`. The `__PIPELINE_NEXT__` JSON
+trailer at the end of every command output is machine-readable — it includes
+`step`, `kind`, `action`, `phase`, `next_cmd`, `skills_section`, `expected_artifacts`.
 
 ## Resuming Interrupted Pipelines
 
-Use `python3 pipeline.py continue {title}` to resume. The pipeline:
-1. Validates `scenes.json` + `pipeline_state.json` against the schemas
-   (`scripts/validate.py`). Refuses to run automated steps on invalid state.
-2. Reads `pipeline_state.json` to find the last completed step.
-3. Runs the next automated step (5, 6, 9, 10, or 13), or
-4. Prints instructions for creative steps (1-4, 7, 8, 11, 12).
-5. Steps 5-6 involve file generation. Step 5 is idempotent — unchanged scenes
-   are skipped. Step 6 measures all scenes (idempotent validation).
-6. Steps 7-8 involve code — `lint_gate` (lint + tsc) runs before Step 9.
-7. Steps 9-10 involve rendering — Step 9 resumes per-scene via
-   `render_status: "rendered"` + new `render_attempts` tracking. Step 10
-   always re-stitches atomically into a new versioned MP4.
-8. Step 11 is creative (title/description/tags written to files).
-9. Step 12 is creative (Thumbnail.tsx composition written).
-10. Step 13 runs automated with a lint gate before the still render.
+Use `python3 pipeline.py run <title>` (resume-safe: detects existing project and
+calls `continue`) or `python3 pipeline.py continue <title>` to resume:
 
-Logs append to `videos/<title>/logs/` across runs — review them after
-overnight failures. Schema violations cause immediate halt with a readable
-error list rather than silent corruption downstream.
+1. Validates `scenes.json` + `pipeline_state.json` against schemas (`validate.py`).
+   Refuses to run automated steps on invalid state.
+2. Reads `pipeline_state.json` to find the next incomplete step.
+3. Runs the next automated step (5, 6, 9, 10, or 13), or
+4. Prints the next creative phase's brief (Steps 1-4, 7, 8, 11, 12).
+5. Per-step attempts and `last_error` recorded for forensics.
+
+Each video tracks progress in `pipeline_state.json`:
+- Steps 1-4: creative input required (topic, research, script, voiceover text)
+- Steps 5-6: automated (TTS generation [idempotent], duration measurement)
+- Steps 7-8: creative input required (style definition, Remotion coding)
+- Steps 9-10: automated (resumable scene rendering, atomic stitching)
+- Steps 11-12: creative input required (metadata, thumbnail composition)
+- Step 13: automated (thumbnail still render, idempotent via versioning)
+
+## Directory Structure
+
+```
+videos/{video-title}/
+├── SCRIPT.md            # Phase 1: full retention-optimized script
+├── VOICEOVER.md         # Phase 2: parseable voiceover text per scene
+├── STYLES.md            # Phase 3: visual style guide
+├── TITLE.md             # Phase 4: 3 YouTube title variants
+├── DESCRIPTION.md       # Phase 4: YouTube description with timestamps
+├── TAGS.md              # Phase 4: 10-15 YouTube tags
+├── scenes.json          # Structured scene data (durations, status, files, hashes, visual_notes)
+├── pipeline_state.json  # Pipeline progress (per-step attempts + last_error)
+├── voiceover_aligned.mp3  # Concatenated voiceover (created by assemble.py)
+├── remotion/            # Remotion project (scaffolded per video)
+│   ├── PLAN.md          # Rebuild plan before coding (Step 8)
+│   ├── src/
+│   │   ├── Root.tsx     # Compositions: MainVideo + Thumbnail
+│   │   ├── components/
+│   │   │   ├── MainVideo.tsx    # Sequence-based scene loader (imports SCENE_MAP)
+│   │   │   └── Thumbnail.tsx    # Thumbnail composition (written in Phase 4)
+│   │   ├── lib/
+│   │   │   ├── types.ts
+│   │   │   ├── config.ts
+│   │   │   └── styles.ts
+│   │   └── scenes/
+│   │       ├── SceneMap.generated.ts   # auto-generated in Step 9 — do NOT edit
+│   │       └── SceneXX.tsx
+│   └── public/
+├── voiceover/           # Generated .mp3 files
+├── scenes/              # Rendered .mp4 scene files (silent video)
+├── logs/                # Per-step + per-scene append-only logs
+└── versions/            # Final stitched .mp4 + thumbnail .png
+    ├── {title}-v1.mp4
+    └── {title}-thumbnail-v1.png
+```
+
+## Helper Scripts
+
+```bash
+# Pipeline CLI
+python3 pipeline.py run "my-video"             # One-shot: scaffold (if absent) + advance
+python3 pipeline.py new "my-video"             # Scaffold project only
+python3 pipeline.py continue my-video          # Run next step (creative brief or automated)
+python3 pipeline.py complete my-video          # Validate current creative phase + auto-run next automated steps
+python3 pipeline.py status my-video            # Show specific project (with attempts column)
+python3 pipeline.py status                     # Show all projects
+python3 pipeline.py validate my-video          # Standalone schema validation
+python3 pipeline.py validate my-video --step 6 # Step-specific requirements
+python3 pipeline.py preview my-video           # Smoke-render scene 1
+python3 pipeline.py captions my-video          # Generate SRT + populate captions
+python3 pipeline.py audit my-video            # Audit for violations
+python3 pipeline.py doctor my-video            # System + project diagnostics
+python3 pipeline.py clean my-video            # Free disk space (all safe-to-delete items)
+python3 pipeline.py complete my-video --step 7 --force  # Out-of-order override (use with care)
+```

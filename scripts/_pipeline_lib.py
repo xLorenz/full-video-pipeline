@@ -53,6 +53,52 @@ AUTOMATED_STEPS = {
 
 CREATIVE_STEPS = set(STEP_KEYS) - AUTOMATED_STEPS
 
+# Steps whose EXPECTED_ARTIFACTS is [] — they produce in-context decisions/notes,
+# not files. `complete` for these runs only the schema gate, no artifact check.
+# `continue` and `_print_creative_brief` use this to print instruction text instead
+# of an artifact list.
+UNVALIDATED_CREATIVE_STEPS = {"1_topic_selection", "2_research"}
+
+# Canonical phase mapping — single source of truth.
+# Used by emit_trailer, _print_creative_brief, cmd_run, and SKILL.md anchors.
+# Anchor strings MUST match the lowercase-hyphenated form of the H2 headings in SKILL.md:
+#   "## Phase 1: Research & Script"     -> #phase-1-research--script     (ampersand drops, leaving --)
+#   "## Phase 2: Voiceover"             -> #phase-2-voiceover
+#   "## Phase 3: Visuals & Render"      -> #phase-3-visuals--render       (ampersand drops, leaving --)
+#   "## Phase 4: Metadata & Thumbnail" -> #phase-4-metadata--thumbnail
+PHASES = {
+    1: {"name": "Research & Script",
+        "anchor": "#phase-1-research--script",
+        "steps": (1, 2, 3)},
+    2: {"name": "Voiceover",
+        "anchor": "#phase-2-voiceover",
+        "steps": (4, 5, 6)},
+    3: {"name": "Visuals & Render",
+        "anchor": "#phase-3-visuals--render",
+        "steps": (7, 8, 9, 10)},
+    4: {"name": "Metadata & Thumbnail",
+        "anchor": "#phase-4-metadata--thumbnail",
+        "steps": (11, 12, 13)},
+}
+
+
+def _phase_for_step(step_key: str):
+    """Return (phase_num, anchor_string) for a step_key.
+
+    Returns (0, "") for terminal/empty/unknown step_keys.
+    """
+    if not step_key:
+        return 0, ""
+    try:
+        idx = STEP_KEYS.index(step_key) + 1
+    except ValueError:
+        return 0, ""
+    for pnum, info in PHASES.items():
+        if idx in info["steps"]:
+            return pnum, info["anchor"]
+    return 0, ""
+
+
 EXPECTED_ARTIFACTS: dict = {
     "1_topic_selection": [],
     "2_research": [],
@@ -197,17 +243,45 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int):
-    """Print a machine-readable __PIPELINE_NEXT__ trailer line for the agent."""
+def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int,
+                 next_cmd: str = "", expected_artifacts=None):
+    """Print a machine-readable __PIPELINE_NEXT__ trailer line for the agent.
+
+    JSON fields:
+      step              — 1-13 (0 for terminal "all done")
+      name              — human step name (Step 0 name is "")
+      kind              — "creative" | "automated" | "done"
+                          ("done" replaces the misleading "automated" that the
+                          CREATIVE_STEPS membership check returned for empty step_key)
+      action            — "await_complete" | "run_continue" | "fix_and_continue"
+                          | "use_continue" | "noop" | "done"
+      exit              — process exit code (mirrors sys.exit if you act on it)
+      phase             — 1-4 (0 for terminal)
+      next_cmd          — exact command for the agent to run next ("" if terminal)
+      skills_section    — SKILL.md anchor for the current phase (e.g. "#phase-2-voiceover")
+      expected_artifacts — list of files the agent must produce (empty for Steps 1-2
+                          and for terminal; populated for Steps 3,4,7,8,11,12)
+
+    Backward compatible: the new params default to "" / None so existing callers
+    that pass only (step_num, step_key, action, exit_code) still work.
+    """
     import json
     name = STEP_NAMES.get(step_key, step_key)
-    kind = "creative" if step_key in CREATIVE_STEPS else "automated"
+    if step_key == "":
+        kind = "done"
+    else:
+        kind = "creative" if step_key in CREATIVE_STEPS else "automated"
+    phase, anchor = _phase_for_step(step_key)
     trailer = json.dumps({
         "step": step_num,
         "name": name,
         "kind": kind,
         "action": action,
         "exit": exit_code,
+        "phase": phase,
+        "next_cmd": next_cmd,
+        "skills_section": anchor,
+        "expected_artifacts": expected_artifacts or [],
     })
     print(f"__PIPELINE_NEXT__ {trailer}")
 
