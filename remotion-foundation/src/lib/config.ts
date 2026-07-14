@@ -1,4 +1,4 @@
 // AUTO-GENERATED — substituted during scaffolding.
-export const FPS = 30;
-export const WIDTH = 1920;
-export const HEIGHT = 1080;
+export const FPS = {{FPS}};
+export const WIDTH = {{WIDTH}};
+export const HEIGHT = {{HEIGHT}};

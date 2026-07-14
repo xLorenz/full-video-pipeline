@@ -13,7 +13,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 | **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
 | **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
 
-The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. No external skill files are loaded — all rules (retention, CTR, SEO, Remotion coding) are inlined in SKILL.md.
+The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, Remotion coding, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
 
 ## Optional: Captions
 
@@ -47,6 +47,9 @@ pip install -r scripts/requirements.txt
 
 # Check system readiness
 bash scripts/check_system.sh
+
+# Override config from a custom JSON (applied before per-video auto-discovery)
+python3 pipeline.py --config /path/to/custom.json run "my-video-topic"
 
 # RECOMMENDED: one-shot scaffold + advance (resume-safe — re-run to continue)
 python3 pipeline.py run "my-video-topic"
@@ -138,10 +141,56 @@ full-video-pipeline/
 
 ## Configuration
 
-Edit `pipeline_config.json` to change defaults:
+Edit `pipeline_config.json` to change defaults. The config supports a three-layer merge:
+
+1. **Repo-root** `pipeline_config.json` — defaults
+2. **`--config <path>`** CLI flag — override any subset (passed before the subcommand)
+3. **Per-video auto-discovery** — `videos/<title>/pipeline_config.json` (enable/disable via `config_files.auto_discover_per_video`)
 
 ```json
 {
+  "skills": {
+    "sources": [
+      {
+        "name": "claude-youtube",
+        "path": "skills/claude-youtube/skills/claude-youtube",
+        "phases": {
+          "1": ["sub-skills/script.md", "references/retention-scripting-guide.md"],
+          "4": ["sub-skills/metadata.md", "references/seo-playbook.md",
+                 "sub-skills/thumbnail.md", "references/thumbnail-ctr-guide.md"]
+        }
+      },
+      {
+        "name": "remotion-best-practices",
+        "path": "skills/remotion-best-practices/skills/remotion",
+        "phases": {
+          "3": ["SKILL.md", "rules/video-layout.md", "rules/calculate-metadata.md",
+                "rules/transitions.md", "rules/sequencing.md",
+                "rules/compositions.md", "rules/effects.md", "rules/voiceover.md"]
+        }
+      }
+    ]
+  },
+  "steps": {
+    "5_voiceover_generation": {
+      "command_template": "python3 scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}"
+    },
+    "6_duration_measurement": {
+      "command_template": "python3 scripts/measure_durations.py {video_dir}"
+    },
+    "9_scene_rendering": {
+      "command_template": "python3 scripts/render_scene.py {video_dir} {scene_id}"
+    },
+    "10_stitching": {
+      "command_template": "python3 scripts/assemble.py {video_dir}"
+    },
+    "13_thumbnail_rendering": {
+      "command_template": "python3 scripts/render_thumbnail.py {video_dir}"
+    }
+  },
+  "config_files": {
+    "auto_discover_per_video": true
+  },
   "video": {
     "fps": 30,
     "width": 1920,
@@ -199,6 +248,11 @@ defaults). Set `max_log_size_mb: 0` to disable log rotation (unlimited). Set
 `clean_scene_mp4s_after_stitch: true` to delete per-scene MP4s after a stitch
 (saves ~1 GB per video but forfeits re-stitch without re-render).
 
+The `steps.{key}.command_template` strings support `{variable}` substitution:
+`{video_dir}`, `{scene_id}`, and any dotted config path (e.g., `{voiceover.voice}`,
+`{render.crf}`, `{video.fps}`). Override a template per-video to swap in a different
+binary or plugin without touching the orchestrator code.
+
 List available voices: `edge-tts --list-voices`
 
 ## Audio Path (important)
@@ -245,19 +299,24 @@ Each video tracks progress in `pipeline_state.json`:
 `complete --step N` is refused if any earlier step is still pending, unless
 you pass `--force` (the gap will be flagged by `audit`/`doctor`).
 
+Pass `--config <path>` before the subcommand to override any subset of the
+pipeline configuration. This is useful for CI/CD, multi-environment deployments,
+or A/B testing render settings without modifying the repo-root config.
+
 ## Machine-Readable Trailer
 
 Every `continue`/`complete`/`run` invocation ends with a `__PIPELINE_NEXT__`
 JSON line for agents that prefer to skip text parsing:
 
 ```json
-__PIPELINE_NEXT__ {"step":3,"name":"Script Writing","kind":"creative","action":"await_complete","exit":0,"phase":1,"next_cmd":"python3 pipeline.py complete my-video","skills_section":"#phase-1-research--script","expected_artifacts":["SCRIPT.md"]}
+__PIPELINE_NEXT__ {"step":3,"name":"Script Writing","kind":"creative","action":"await_complete","exit":0,"phase":1,"next_cmd":"python3 pipeline.py complete my-video","skills_section":"#phase-1-research--script","skills_files":["skills/claude-youtube/skills/claude-youtube/sub-skills/script.md","skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md"],"expected_artifacts":["SCRIPT.md"]}
 ```
 
 Fields: `step` (0 for terminal), `kind` (`creative`/`automated`/`done`),
 `action` (`await_complete`/`run_continue`/`fix_and_continue`/`use_continue`/`noop`/`done`),
 `phase` (1-4, 0 for terminal), `next_cmd` (exact command to run next),
-`skills_section` (SKILL.md anchor), `expected_artifacts` (files to produce).
+`skills_section` (SKILL.md anchor), `skills_files` (skill file paths for the phase),
+`expected_artifacts` (files to produce).
 
 ## Logs
 
@@ -270,6 +329,7 @@ and survive across runs — useful for post-mortem analysis of overnight failure
 
 ```bash
 # Pipeline CLI
+python3 pipeline.py --config custom.json run "my-video"  # With config override (any subcommand)
 python3 pipeline.py run "my-video"                 # One-shot: scaffold + advance (resume-safe)
 python3 pipeline.py new "my-video"                 # Scaffold project only
 python3 pipeline.py continue my-video              # Run next step (validates state first)

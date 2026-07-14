@@ -95,12 +95,21 @@ def cmd_new(args):
         if src.exists():
             shutil.copy2(src, rdir / fname)
 
-    # Create package.json
+    # Create package.json — mirror foundation deps for version consistency
+    foundation_pkg_path = FOUNDATION_DIR / "package.json"
+    if foundation_pkg_path.exists():
+        foundation_pkg = json.loads(foundation_pkg_path.read_text(encoding="utf-8"))
+        deps = dict(foundation_pkg.get("dependencies", {}))
+        dev_deps = dict(foundation_pkg.get("devDependencies", {}))
+    else:
+        deps = {"remotion-foundation": "*"}
+        dev_deps = {}
     pkg = {
         "name": f"remotion-{title}",
         "version": "1.0.0",
         "private": True,
-        "dependencies": {"remotion-foundation": "*"},
+        "dependencies": deps,
+        "devDependencies": dev_deps,
         "scripts": {
             "dev": "remotion studio",
             "build": "remotion bundle",
@@ -121,12 +130,12 @@ def cmd_new(args):
     shutil.copytree(FOUNDATION_DIR / "src", rdir / "src", dirs_exist_ok=True,
                     ignore=_ignore_for_scaffold)
 
-    # Substitute dynamic values in config.ts (use placeholders in foundation)
+    # Substitute dynamic values in config.ts (foundation uses {{}} markers)
     config_path = rdir / "src" / "lib" / "config.ts"
     config_text = config_path.read_text(encoding="utf-8")
-    config_text = config_text.replace("FPS = 30", f"FPS = {fps}")
-    config_text = config_text.replace("WIDTH = 1920", f"WIDTH = {width}")
-    config_text = config_text.replace("HEIGHT = 1080", f"HEIGHT = {height}")
+    config_text = config_text.replace("{{FPS}}", str(fps))
+    config_text = config_text.replace("{{WIDTH}}", str(width))
+    config_text = config_text.replace("{{HEIGHT}}", str(height))
     config_path.write_text(config_text, encoding="utf-8")
 
     # Create pipeline_state.json
@@ -365,19 +374,27 @@ def _print_creative_brief(step_num, step_key, title):
     phase_info = pl.PHASES.get(phase, {})
     phase_name = phase_info.get("name", "")
     arts = EXPECTED_ARTIFACTS.get(step_key, [])
+    vdir = video_dir(title)
+    cfg = load_pipeline_config(video_dir=vdir)
 
     print(f"\n=== Phase {phase}: {phase_name} — Step {step_num}: {step_name} ===")
 
     if step_key in pl.UNVALIDATED_CREATIVE_STEPS:
         # Steps 1 & 2 produce in-context decisions/notes, not files
         print("  This step produces a decision/notes in your own context (no file required).")
-        print(f"  See SKILL.md {anchor} for what to do.")
     else:
         if arts:
             print("  Required artifacts:")
             for a in arts:
                 print(f"    - {a}")
-        print(f"  See SKILL.md {anchor} for complete rules and templates.")
+
+    # Print skill file paths for this phase
+    skills_files = pl._skill_paths_for_phase(phase, cfg=cfg)
+    if skills_files:
+        print("\n  Follow these instructions:")
+        for sf in skills_files:
+            print(f"    {sf}")
+    print(f"  See SKILL.md {anchor} for pipeline-specific formats and contracts.")
 
     next_cmd = f"python3 pipeline.py complete {title}"
     print(f"\n  When done, run: {next_cmd}")
@@ -477,11 +494,11 @@ def find_next_step(state):
 def run_step_5(title, vdir):
     """Voiceover generation. Idempotent — unchanged scenes are skipped."""
     print("--- Running Step 5: Voiceover Generation ---")
-    cfg = load_pipeline_config()
-    voice = cfg.get("voiceover", {}).get("voice", "en-GB-RyanNeural")
+    cfg = load_pipeline_config(video_dir=vdir)
+    template = pl.get_step_command_template("5_voiceover_generation", cfg)
+    cmd = pl.render_step_command(template, vdir, cfg=cfg)
     log_file = pl.log_path(title, 5)
-    run_cmd(f"python3 scripts/generate_voiceover.py videos/{title}/ --voice {voice}",
-            cwd=REPO_ROOT, logpath=log_file)
+    run_cmd(cmd, cwd=REPO_ROOT, logpath=log_file)
 
     # Verify output
     scenes = load_scenes(title)
@@ -499,9 +516,11 @@ def run_step_5(title, vdir):
 def run_step_6(title, vdir):
     """Duration measurement."""
     print("--- Running Step 6: Duration Measurement ---")
+    cfg = load_pipeline_config(video_dir=vdir)
+    template = pl.get_step_command_template("6_duration_measurement", cfg)
+    cmd = pl.render_step_command(template, vdir, cfg=cfg)
     log_file = pl.log_path(title, 6)
-    run_cmd(f"python3 scripts/measure_durations.py videos/{title}/",
-            cwd=REPO_ROOT, logpath=log_file)
+    run_cmd(cmd, cwd=REPO_ROOT, logpath=log_file)
 
     scenes = load_scenes(title)
     for s in scenes:
@@ -588,6 +607,8 @@ def run_step_9(title, vdir):
         return False
     print(f"  Lint gate: {msg}")
 
+    cfg_step9 = load_pipeline_config(video_dir=vdir)
+    tmpl_step9 = pl.get_step_command_template("9_scene_rendering", cfg_step9)
     scenes = load_scenes(title)
     failed_scenes = []
     for s in scenes:
@@ -599,8 +620,8 @@ def run_step_9(title, vdir):
         # render_scene.py never raises for render failures; it returns exit 1.
         # Wrap anyway in case of unexpected exception.
         try:
-            r = run_cmd(f"python3 scripts/render_scene.py videos/{title}/ {sid}",
-                        cwd=REPO_ROOT, check=False,
+            cmd = pl.render_step_command(tmpl_step9, vdir, scene_id=sid, cfg=cfg_step9)
+            r = run_cmd(cmd, cwd=REPO_ROOT, check=False,
                         logpath=pl.log_path(title, 9, scene_id=sid))
             if r.returncode != 0:
                 failed_scenes.append(sid)
@@ -621,8 +642,10 @@ def run_step_9(title, vdir):
 def run_step_10(title, vdir):
     """Stitching — single ffmpeg pass via assemble.py."""
     print("--- Running Step 10: Stitching (assemble.py) ---")
-    run_cmd(f"python3 scripts/assemble.py videos/{title}/",
-            cwd=REPO_ROOT, logpath=pl.log_path(title, 10))
+    cfg = load_pipeline_config(video_dir=vdir)
+    template = pl.get_step_command_template("10_stitching", cfg)
+    cmd = pl.render_step_command(template, vdir, cfg=cfg)
+    run_cmd(cmd, cwd=REPO_ROOT, logpath=pl.log_path(title, 10))
 
     final_dir = vdir / "versions"
     if not final_dir.exists() or not list(final_dir.glob("*.mp4")):
@@ -642,9 +665,11 @@ def run_step_13(title, vdir):
         return False
     print(f"  Lint gate: {msg}")
 
+    cfg = load_pipeline_config(video_dir=vdir)
+    template = pl.get_step_command_template("13_thumbnail_rendering", cfg)
+    cmd = pl.render_step_command(template, vdir, cfg=cfg)
     log_file = pl.log_path(title, 13)
-    run_cmd(f"python3 scripts/render_thumbnail.py videos/{title}/",
-            cwd=REPO_ROOT, check=False, logpath=log_file)
+    run_cmd(cmd, cwd=REPO_ROOT, check=False, logpath=log_file)
 
     final_dir = vdir / "versions"
     if not final_dir.exists() or not list(final_dir.glob("*thumbnail*.png")):
@@ -1359,6 +1384,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
+    parser.add_argument("--config", type=str,
+                        help="Path to pipeline config override JSON")
     sub = parser.add_subparsers(dest="command")
 
     new_p = sub.add_parser("new", help="Scaffold a new video project")
@@ -1400,6 +1427,9 @@ def main():
     clean_p.add_argument("title", help="Video title")
 
     args = parser.parse_args()
+
+    if args.config:
+        pl.set_config_override(args.config)
 
     if args.command == "new":
         cmd_new(args)

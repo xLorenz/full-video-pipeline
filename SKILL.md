@@ -100,6 +100,14 @@ brief (or "All steps complete!").
 - **`complete --step N` is refused if earlier steps are still pending**, unless
   you pass `--force`. Don't skip ahead — the contracts between phases matter.
 
+### Skill file loading
+
+Each creative phase prints a "Follow these instructions:" block listing the skill files you
+must read for that phase's rules. These files live under `skills/` and contain the detailed
+rules for script writing, Remotion coding, SEO metadata, and thumbnail design. The paths
+are configured in `pipeline_config.json` under `skills.sources` and can be overridden per
+video via `videos/<title>/pipeline_config.json`.
+
 ### The 4 phases
 
 | Phase | Steps | You produce | Auto-runs after `complete` |
@@ -151,6 +159,9 @@ Defaults are in `pipeline_config.json`. Override per-video as needed:
 - `render.*` — rendering guardrails (concurrency, codec, memory limits)
 - `system.*` — resource thresholds
 - `retention.*` — disk cleanup flags (see "Disk Cleanup" below)
+- `skills.sources` — skill file paths per phase (each entry has `name`, `path`, `phases` mapping)
+- `steps.{step_key}.command_template` — plugin escape hatch for automated step commands
+- `config_files.auto_discover_per_video` — enable/disable per-video config discovery (default `true`)
 
 ---
 
@@ -171,42 +182,10 @@ discrete ~10-second scenes structured as `SCRIPT.md` + `scenes.json`.
 3. (Step 3) Adapt the research into scene-based format (~10s per scene) and write
    `SCRIPT.md` + `scenes.json` per the rules and templates below.
 
-### Use these rules:
+### Follow these instructions:
 
-#### Hook (0:00-0:30) — 3 scenes (Grab, Promise, Stakes)
-- **Grab (0:00-0:05)**: single most important line; start mid-thought/action,
-  no intro graphics. **MUST NOT** open with "Hey guys welcome back" — measurable
-  retention killer.
-- **Promise (0:05-0:15)**: specific, tangible outcome the viewer will get.
-- **Stakes (0:15-0:30)**: emotional/practical consequence of leaving.
-
-Value prop in first 15s = +18% retention at 1-min mark. Target >70% retention
-at 0:30; below 50% at 10-15s = failing hook.
-
-#### Intro (0:30-1:30) — 6 scenes — Context, credibility, viewer outcome
-
-#### Content Blocks: 6-10 scenes each — Pattern interrupt → value → B-roll cue →
-micro-summary → forward hook. Every content block MUST end with BOTH micro-summary
-AND forward hook. Order key points: strongest early and late, weaker in middle.
-
-#### Mid-CTA (~25% mark): 1 scene — Soft, 10-15s, conversational, tied to content
-
-#### Retention re-hook (~60% mark): 1 scene — Re-engage dropping viewers.
-Do NOT save the only CTA for the end (only 16% see it).
-
-#### Outro (final 60s): 6 scenes — Hard CTA, end screen, next video tease.
-**MUST NOT** use "thanks for watching" or "don't forget to" — maintain energy
-to the final second.
-
-#### Pattern interrupts
-Every 3-5 scenes (~60-90s). First 5s interrupt = +23% retention. Mark with
-type tags: `[CAMERA CHANGE]`, `[B-ROLL CUE]`, `[GRAPHIC]`, `[SOUND EFFECT]`,
-`[UNEXPECTED STAT]`. Verify via interrupt log at end of SCRIPT.md.
-
-#### Spoken language
-Natural spoken language (short sentences, contractions, direct address, ~150 wpm).
-Not written prose. **MUST NOT** use AI narration style (drops retention 70%)
-unless the channel is explicitly AI-themed.
+Follow skills/claude-youtube/skills/claude-youtube/sub-skills/script.md instructions
+Follow skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md instructions
 
 ### SCRIPT.md format
 
@@ -455,39 +434,16 @@ Before any code, write the per-video Remotion rebuild plan:
 
 #### 3d. Write the Remotion code (Step 8)
 
-**Use these rules (Remotion coding):**
+#### Follow these instructions:
 
-- Animation via `useCurrentFrame()` + `interpolate()`. **MUST NOT** use CSS
-  transitions/animations (won't render). **MUST NOT** use Tailwind animation
-  classes. Prefer `interpolate()` over `spring()` unless physics-based motion
-  is explicitly needed. Use `Easing.bezier()` for custom timing.
-- For Studio-editable animations: keep `interpolate()` inline in `style` prop;
-  use **individual CSS transform properties** (`scale`, `translate`, `rotate`)
-  instead of composing a `transform` string.
-- Use `<Sequence>` with `from` for delays and `durationInFrames` for limits.
-  **Always premount** any `<Sequence>` (use `premountFor={1 * fps}`).
-  `useCurrentFrame()` inside a Sequence returns LOCAL frame (0-based), not global.
-- Use `layout="none"` on `<Sequence>` when you don't want wrapping in AbsoluteFill.
-- Compositions: define in `src/Root.tsx` with `width`/`height`/`fps`/`durationInFrames`.
-  Use `type` declarations (not `interface`) for props — ensures `defaultProps`
-  type safety. `defaultProps` must be JSON-serializable. Use `<Still>` for
-  single-frame images (Thumbnail composition is not a Still — it's a Composition
-  rendered at frame 0; see Phase 4).
-- For dynamic duration: `calculateMetadata` with `Math.ceil(seconds * fps)`.
-  Pass `abortSignal` to fetch. **MUST** use `Math.ceil()` for seconds→frames.
-- Assets: place in `public/`; reference with `staticFile()`. `<Img>` for images;
-  `<Video>` from `@remotion/media` for video.
-
-**Layout / text sizing (1080px frame):**
-- Key text at least 80px from sides, 100px from top/bottom.
-- Minimums: **headline 84px**, supporting 44px, labels 32px (scale with width).
-- Use flex/grid/gap for readable content. **MUST NOT** absolutely position every
-  readable element independently. Absolute positioning is for
-  backgrounds/decorative shapes/glows/particles only.
-- **MUST NOT** animate elements into space occupied by another element.
-- **MUST NOT** stack many text blocks in the same area.
-- One strong message per frame > dashboard of widgets. Assume text may wrap —
-  give width and vertical room. Reveal elements sequentially to solve crowding.
+Follow skills/remotion-best-practices/skills/remotion/SKILL.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/video-layout.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/calculate-metadata.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/transitions.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/sequencing.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/compositions.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/effects.md instructions
+Follow skills/remotion-best-practices/skills/remotion/rules/voiceover.md instructions
 
 **Use these contracts (Phase 3-internal MUSTs):**
 
@@ -589,36 +545,10 @@ after `complete`.
 Read `scenes.json` for accurate chapter timestamps based on cumulative
 `actual_duration_seconds`. Read the stitched MP4 output path from `versions/`.
 
-**Use these rules (SEO metadata):**
+#### Follow these instructions:
 
-**TITLE.md — 3 variants (all under 100 chars):**
-- **Search-optimized** (keyword-forward), **Browse-optimized** (curiosity/emotional),
-  **Hybrid** (recommended).
-- **MUST**: primary keyword in first 40 characters of every variant. Mobile
-  truncates ~40-50 chars, desktop ~60-70 — front-load the keyword.
-- **MUST**: genuinely distinct strategies, not minor word swaps. 70-100 char
-  titles outperform shorter by 10-14%. Numbers add +20-30% CTR.
-- **MUST NOT**: put hashtags in the title. **MUST NOT**: exceed 100 chars.
-
-**DESCRIPTION.md — full description (under 5000 chars):**
-- **MUST**: primary keyword in first 25 words.
-- First 2 lines compelling standalone (visible before "Show More" — treat as
-  ad copy).
-- Structure: hook → TIMESTAMPS → body (200-350 words, keyword 2-4x) → resource
-  links → channel boilerplate → 3-5 hashtags at the bottom.
-- **TIMESTAMPS**: start at 0:00, minimum 3 chapters, minimum 10s each. Use
-  cumulative `actual_duration_seconds` from `scenes.json` for accurate markers.
-  Omitting 0:00 disables the entire chapter system. Chapters enable Google
-  Key Moments (+4% AVD).
-- **MUST NOT**: stuff keywords beyond 2-4x in the body. **MUST NOT**: exceed 15
-  hashtags (ALL become ignored above 15).
-
-**TAGS.md — 10-15 comma-separated tags:**
-- Priority order: exact target keyword first → variations → long-tail → broader
-  → channel name.
-- **MUST**: total under 500 characters.
-- Note: tags are effectively dead per the 2025 SEO playbook; spend max 30
-  seconds. Only for misspellings, disambiguation, brand-new channels.
+Follow skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md instructions
+Follow skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md instructions
 
 ```markdown
 # Title Variants
@@ -660,7 +590,10 @@ exact keyword, variation 1, variation 2, long-tail 1, broad term 1, channel name
 Compose the thumbnail entirely of Remotion primitives — shapes, text,
 gradients. **NO AI image generation** (no NanoBanana, Midjourney, DALL-E, etc.).
 
-**Use these rules (thumbnail design):**
+#### Follow these instructions:
+
+Follow skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md instructions
+Follow skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md instructions
 
 > **Back-ref: Phase 3 §CTR palette (your STYLES.md).** The palette you chose in
 > Phase 3 was CTR-safe for mobile legibility at 168×94px. **Reuse it** — do NOT
@@ -668,21 +601,11 @@ gradients. **NO AI image generation** (no NanoBanana, Midjourney, DALL-E, etc.).
 > for the specific text overlay you planned, that is a Phase 7 palette bug — go
 > back and fix STYLES.md before continuing, then re-run `complete`.
 
-- **MUST**: text overlay ≤3 words. Bold sans-serif. Legible at 168×94px. High
-  contrast. Stroke/shadow recommended.
-- **MUST**: thumbnail adds NEW info — never duplicates the title text. Title =
-  keyword + promise; thumbnail = visual + emotional hook.
-- **MUST**: design for 1920×1080 even though 1280×720 is the YouTube minimum
-  (TV-safe). 70%+ of views are mobile.
-- **MUST**: maintain 30-40% negative space (cluttered loses focal point).
-- **MUST NOT**: use `fetch()` or external URLs. `<Img>` only for local assets
-  via `staticFile()`.
+- **MUST**: design for 1920×1080 even though 1280×720 is the YouTube minimum.
+- **MUST**: thumbnail adds NEW info — never duplicates the title text.
+- **MUST NOT**: use `fetch()` or external URLs. `<Img>` only for local assets.
 - Use only the `ThumbnailProps` interface from `remotion-foundation`:
   `{ title: string, subtitle: string, palette: { primary, secondary, accent, background, text } }`.
-- Native Remotion shapes (divs with CSS, gradients, borders), text with
-  typography from STYLES.md palette.
-- No animation needed (still render at frame 0) but `interpolate()`/`spring()`
-  are OK if you want a tiny effect on a single frame.
 - The `Thumbnail` composition is already registered in `Root.tsx` — do NOT
   duplicate it. Just write the component body in `Thumbnail.tsx`.
 
@@ -791,7 +714,8 @@ State forensics: each step's `pipeline_state.json` entry carries `attempts`,
 `last_error`, and `last_attempt_at`. Scene-level failures record `render_attempts`
 and `last_render_error` per scene in `scenes.json`. The `__PIPELINE_NEXT__` JSON
 trailer at the end of every command output is machine-readable — it includes
-`step`, `kind`, `action`, `phase`, `next_cmd`, `skills_section`, `expected_artifacts`.
+`step`, `kind`, `action`, `phase`, `next_cmd`, `skills_section`, `skills_files`,
+`expected_artifacts`.
 
 ## Resuming Interrupted Pipelines
 
@@ -853,6 +777,7 @@ videos/{video-title}/
 
 ```bash
 # Pipeline CLI
+python3 pipeline.py --config custom.json run "my-video"  # Override config (any subcommand)
 python3 pipeline.py run "my-video"             # One-shot: scaffold (if absent) + advance
 python3 pipeline.py new "my-video"             # Scaffold project only
 python3 pipeline.py continue my-video          # Run next step (creative brief or automated)
