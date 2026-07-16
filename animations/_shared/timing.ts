@@ -23,7 +23,9 @@ const EASINGS: Record<EasingName, (x: number) => number> = {
   "ease-in-out": Easing.inOut(Easing.cubic),
   "ease-in-cubic": Easing.in(Easing.cubic),
   "ease-out-cubic": Easing.out(Easing.cubic),
-  "ease-out-quint": Easing.out(Easing.quint),
+  // Easing.quint doesn't exist in Remotion 4.0.x — use Easing.poly(5) which
+  // returns the (1 - (1-t)^5) curve; wrap with .out for ease-out behaviour.
+  "ease-out-quint": Easing.out(Easing.poly(5)),
   "ease-out-expo": Easing.out(Easing.exp),
   "ease-out-back": Easing.out(Easing.back(1.7)),
   "ease-in-back": Easing.in(Easing.back(1.7)),

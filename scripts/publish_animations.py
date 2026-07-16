@@ -61,9 +61,50 @@ def load_json(path: Path) -> dict:
         fail(f"ERROR: failed to load {path}: {e}", 1)
 
 
+def _build_referencing() -> "object":
+    """Build a `referencing` registry that resolves local-files-based refs.
+
+    The global schema declares `$id: https://full-video-pipeline/schemas/
+    animations.schema.json` so the $ref values in per-template schemas can
+    reference it via `../../schemas/animations.schema.json#/...` and we can
+    also resolve the synthetic URI when `$ref` is the full URL.
+    """
+    from referencing import Registry
+    from referencing.jsonschema import DRAFT7
+
+    def _res(contents):
+        return DRAFT7.create_resource(contents)
+
+    resources: list = []
+    if GLOBAL_SCHEMA.exists():
+        global_schema = load_json(GLOBAL_SCHEMA)
+        global_id = global_schema.get("$id", "")
+        resources.append((global_id, _res(global_schema)))
+        resources.append((
+            str(GLOBAL_SCHEMA.resolve()).replace("\\", "/"),
+            _res(global_schema),
+        ))
+
+    for t in collect_templates():
+        spath = t / "config" / "schema.json"
+        if spath.exists():
+            tschema = load_json(spath)
+            tid = tschema.get("$id", "")
+            if tid:
+                resources.append((tid, _res(tschema)))
+            resources.append((
+                str(spath.resolve()).replace("\\", "/"),
+                _res(tschema),
+            ))
+    return Registry().with_resources(resources)
+
+
 def validate_defaults(defaults_path: Path, schema_path: Path) -> list:
-    """Validate a template's defaults.json against both global + per-template schema."""
-    errors = []
+    """Validate a template's defaults.json against both global + per-template
+    schema. Local-file $ref resolution is wired via `referencing` so the
+    `$id: https://full-video-pipeline/...` URIs in our schemas do not trigger
+    network fetches."""
+    errors: list = []
     if not defaults_path.exists():
         return [f"{defaults_path}: defaults.json not found"]
     if not schema_path.exists():
@@ -77,33 +118,29 @@ def validate_defaults(defaults_path: Path, schema_path: Path) -> list:
     except SystemExit:
         return [f"{schema_path}: invalid JSON"]
 
-    # Per-template schema layers on top of the global one. Validate against
-    # that first (it usually $refs the global schema via its own $schema key).
-    validator = jsonschema.Draft7Validator(schema)
+    registry = _build_referencing()
+
+    # Per-template schema (extends the global). Validates against both
+    # template-specific fields (extras, elements[].id enums) and the core
+    # fields (theme/global/elements schema) via $ref.
+    validator = jsonschema.Draft7Validator(schema, registry=registry)
     errors += [
         f"{defaults_path.name} (per-template): {e.message} at /{'/'.join(str(p) for p in e.absolute_path) or '(root)'}"
         for e in sorted(validator.iter_errors(defaults), key=lambda x: list(x.absolute_path))
     ]
 
-    # Also validate against the global schema to catch issues where the
-    # per-template schema truncated required fields. Skip if the per-template
-    # schema already $refs the global definitions via its own $id — Draft7
-    # handles that and we don't want to double-report.
+    # Also validate against the bare global schema to catch any template-vs-core
+    # conflicts directly. The per-template schema's $refs to the global
+    # definitions are resolved by the registry, so this is redundant with the
+    # per-template pass when the template opts into all core fields via $ref —
+    # but cheap and useful when a template forgot to $ref a core field.
     if GLOBAL_SCHEMA.exists():
         global_schema = load_json(GLOBAL_SCHEMA)
-        # Only validate if the per-template schema doesn't already $ref into the
-        # global schema's $id ( avoidance of duplicate errors).
-        ref_uses_global = any(
-            isinstance(v, dict) and isinstance(v.get("$ref", ""), str) and
-            "animations.schema.json" in v["$ref"]
-            for v in (schema.get("properties", {}) or {}).values()
-        )
-        if not ref_uses_global:
-            g_validator = jsonschema.Draft7Validator(global_schema)
-            errors += [
-                f"{defaults_path.name} (global): {e.message} at /{'/'.join(str(p) for p in e.absolute_path) or '(root)'}"
-                for e in sorted(g_validator.iter_errors(defaults), key=lambda x: list(x.absolute_path))
-            ]
+        g_validator = jsonschema.Draft7Validator(global_schema, registry=registry)
+        errors += [
+            f"{defaults_path.name} (global): {e.message} at /{'/'.join(str(p) for p in e.absolute_path) or '(root)'}"
+            for e in sorted(g_validator.iter_errors(defaults), key=lambda x: list(x.absolute_path))
+        ]
     return errors
 
 

@@ -85,8 +85,8 @@ export function gridCells(
   cols: number,
   rect: Rect,
   gutter = 0,
-): Rect[] {
-  const cells: Rect[] = [];
+): PositionedRect[] {
+  const cells: PositionedRect[] = [];
   const usableW = rect.width - gutter * (cols - 1);
   const usableH = rect.height - gutter * (rows - 1);
   const cw = usableW / cols;

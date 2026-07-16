@@ -351,6 +351,65 @@ with `MainVideo.tsx`, `Thumbnail.tsx` stub, `SceneMap.generated.ts`,
 `StatReveal`, `Captions`), and installed npm dependencies. If missing, re-run
 `pipeline.py new "{video-title}"` once.
 
+The scaffold also publishes animation templates (if any exist in
+`animations/`) into `remotion/src/components/animations/`. Templates are
+data-driven reusable animations; see the next section.
+
+#### 3a-anim. Animation templates (when to use one)
+
+The repo ships an `animations/` directory with a catalog of **hard-to-hand-code**
+animation templates (judge-style right/wrong cards, racing data bars, count-up
+stats, before/after splits, timelines, comparison grids). Each is a Remotion
+component you customize via **JSON config — never by editing the `.tsx`**.
+
+**Use a template when a scene's `visual_notes` describes a complex,
+multi-element, multi-property animation that you couldn't trivially one-shot
+by composing `Background`/`TextReveal`/`StatReveal` yourself**. Trivial hooks,
+title cards, and single-text reveals are faster to hand-author — leave
+templates for the gap in between.
+
+To use one:
+
+1. Read `animations/README.md` (the master catalog) and pick from the table.
+2. Open that template's `animation.md` — it lists every recognized element
+   id, the `extras.*` keys, copy-paste snippets, and customization recipes.
+3. Drop a per-scene config at `videos/<title>/remotion/src/scene-assets/scene-NN-<template>.json` (or inline an
+   object literal if it's short).
+4. Use the one-line import in your `SceneXX.tsx`:
+   ```tsx
+   import { RightWrongCard } from "../components/animations";
+   import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+   import config from "../scene-assets/scene-04-rightwrong.json";
+
+   export const Scene04: React.FC<{ scene: SceneTiming }> = () => (
+     <AbsoluteFill>
+       <Background backgroundColor={COLORS.background} />
+       <RightWrongCard config={config}
+                       styles={{colors: COLORS, fonts: FONTS}}
+                       fontSizes={FONT_SIZES} />
+     </AbsoluteFill>
+   );
+   ```
+5. **Never edit any file under `remotion/src/components/animations/` per video.**
+   If a template's behavior doesn't fit, copy the template folder from the
+   repo-root `animations/` directory into a new folder and customize that.
+   (Re-publishing on next scaffold reverts any per-video edits.)
+
+**Previewing**: when you've added or customized templates that you want to
+visually verify, write `"animations_preview_requested": true` into
+`pipeline_state.json` before running `complete` for Step 8. Step 9 will then
+render a 3-second stub of every published template into
+`videos/<title>/.animation-previews/` before the scene render loop. Failures
+are non-fatal — preview render errors are diagnostics.
+
+**Theme**: `lib/styles.ts` stays the single source of truth for palette/fonts.
+Templates read it via the shared helper; per-instance `theme.palette` /
+`theme.fonts` overrides win per-key, but you keep the styles.ts defaults
+canonical.
+
+**Full reference**: `animations/README.md`, `animations/CATALOG.md`,
+`animations/SCHEMA.md`, and each template's `animation.md`.
+
 #### 3b. Write `STYLES.md` (Step 7)
 
 Define a single visual style that fits the content AND is CTR-compatible.

@@ -7,8 +7,6 @@
  */
 
 import type {
-  PaletteOverride,
-  FontsOverride,
   ThemeOverride,
   ResolvedTheme,
   HexColor,

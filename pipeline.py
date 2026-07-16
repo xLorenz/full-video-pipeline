@@ -626,6 +626,31 @@ def run_step_9(title, vdir):
         return False
     print(f"  Lint gate: {msg}")
 
+    # Optional on-demand animation preview step. Triggered when the agent sets
+    # `animations_preview_requested: true` in pipeline_state.json before running
+    # `complete` at Step 8. Renders a 3s stub of every published animation
+    # template into .animation-previews/. Failures are non-fatal (diagnostic
+    # only) — the regular scene render continues regardless.
+    state = load_state(title) or {}
+    if state.get("animations_preview_requested"):
+        print("\n  --- Running optional animation preview step ---")
+        preview_script = REPO_ROOT / "scripts" / "preview_animations.py"
+        if preview_script.exists():
+            anim_dir = rdir / "src" / "components" / "animations"
+            if anim_dir.is_dir() and any(anim_dir.iterdir()):
+                run_cmd(
+                    [sys.executable, str(preview_script), str(vdir)],
+                    cwd=REPO_ROOT,
+                    check=False,  # non-fatal — preview failures must not block scenes
+                )
+            else:
+                print("  No published animation templates — skipping previews.")
+        else:
+            print("  preview_animations.py not found — skipping previews.")
+        # Reset the flag so previews don't auto-rerun on every subsequent Step 9.
+        state.pop("animations_preview_requested", None)
+        save_state(title, state)
+
     cfg_step9 = load_pipeline_config(video_dir=vdir)
     tmpl_step9 = pl.get_step_command_template("9_scene_rendering", cfg_step9)
     scenes = load_scenes(title)
