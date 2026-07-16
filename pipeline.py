@@ -138,6 +138,25 @@ def cmd_new(args):
     config_text = config_text.replace("{{HEIGHT}}", str(height))
     config_path.write_text(config_text, encoding="utf-8")
 
+    # Publish animation templates into the per-video project. Copies each
+    # template's component.tsx + config/*.json + animation.md + preview/ +
+    # the shared _shared/ helpers, and writes a barrel index.ts. Templates
+    # with defaults.json that fail schema validation abort the scaffold.
+    # No-op (with warning) if repo has no animations/ directory yet.
+    publish_animations_script = REPO_ROOT / "scripts" / "publish_animations.py"
+    if publish_animations_script.exists():
+        anim_src_dir = REPO_ROOT / "animations"
+        if anim_src_dir.is_dir() and any(anim_src_dir.iterdir()):
+            print("\n--- Publishing animation templates ---")
+            run_cmd(
+                [sys.executable, str(publish_animations_script), str(vdir)],
+                cwd=REPO_ROOT,
+            )
+        else:
+            print("\n--- No animation templates to publish (animations/ is absent or empty) ---")
+    else:
+        print("\n--- publish_animations.py not found — skipping animation publishing ---")
+
     # Create pipeline_state.json
     state = {
         "video_title": title,
