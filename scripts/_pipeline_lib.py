@@ -53,6 +53,211 @@ AUTOMATED_STEPS = {
 
 CREATIVE_STEPS = set(STEP_KEYS) - AUTOMATED_STEPS
 
+# Steps whose EXPECTED_ARTIFACTS is [] — they produce in-context decisions/notes,
+# not files. `complete` for these runs only the schema gate, no artifact check.
+# `continue` and `_print_creative_brief` use this to print instruction text instead
+# of an artifact list.
+UNVALIDATED_CREATIVE_STEPS = {"1_topic_selection", "2_research"}
+
+# Canonical phase mapping — single source of truth.
+# Used by emit_trailer, _print_creative_brief, cmd_run, and SKILL.md anchors.
+# Anchor strings MUST match the lowercase-hyphenated form of the H2 headings in SKILL.md:
+#   "## Phase 1: Research & Script"     -> #phase-1-research--script     (ampersand drops, leaving --)
+#   "## Phase 2: Voiceover"             -> #phase-2-voiceover
+#   "## Phase 3: Visuals & Render"      -> #phase-3-visuals--render       (ampersand drops, leaving --)
+#   "## Phase 4: Metadata & Thumbnail" -> #phase-4-metadata--thumbnail
+PHASES = {
+    1: {"name": "Research & Script",
+        "anchor": "#phase-1-research--script",
+        "steps": (1, 2, 3)},
+    2: {"name": "Voiceover",
+        "anchor": "#phase-2-voiceover",
+        "steps": (4, 5, 6)},
+    3: {"name": "Visuals & Render",
+        "anchor": "#phase-3-visuals--render",
+        "steps": (7, 8, 9, 10)},
+    4: {"name": "Metadata & Thumbnail",
+        "anchor": "#phase-4-metadata--thumbnail",
+        "steps": (11, 12, 13)},
+}
+
+
+def _phase_for_step(step_key: str):
+    """Return (phase_num, anchor_string) for a step_key.
+
+    Returns (0, "") for terminal/empty/unknown step_keys.
+    """
+    if not step_key:
+        return 0, ""
+    try:
+        idx = STEP_KEYS.index(step_key) + 1
+    except ValueError:
+        return 0, ""
+    for pnum, info in PHASES.items():
+        if idx in info["steps"]:
+            return pnum, info["anchor"]
+    return 0, ""
+
+
+# ---------------------------------------------------------------------------
+# Skills-by-phase — derived from config (skills.sources[*].path + .phases)
+# ---------------------------------------------------------------------------
+
+# Default skill sources baked in for backward compatibility. Overridable via
+# pipeline_config.json `skills.sources`. Each entry matches the schema:
+#   {"name": str, "path": str (relative to repo root), "phases": {N: [relpaths]}}
+# The `path` becomes `{skills_dir}` in SKILL.md "Follow these instructions:"
+# blocks. The relative paths are joined onto `path` to form the full file path
+# the agent is told to load.
+_DEFAULT_SKILLS_SOURCES = [
+    {
+        "name": "claude-youtube",
+        "path": "skills/claude-youtube/skills/claude-youtube",
+        "phases": {
+            "1": ["sub-skills/script.md", "references/retention-scripting-guide.md"],
+            "4": ["sub-skills/metadata.md", "references/seo-playbook.md",
+                   "sub-skills/thumbnail.md", "references/thumbnail-ctr-guide.md"],
+        },
+    },
+    {
+        "name": "remotion-best-practices",
+        "path": "skills/remotion-best-practices/skills/remotion",
+        "phases": {
+            "3": ["SKILL.md",
+                  "rules/video-layout.md", "rules/calculate-metadata.md",
+                  "rules/transitions.md", "rules/sequencing.md",
+                  "rules/compositions.md", "rules/effects.md",
+                  "rules/voiceover.md"],
+        },
+    },
+]
+
+
+def _build_skills_by_phase(cfg=None):
+    """Return {phase_num: [absolute_or_relative_paths]} from config.skills.sources.
+
+    Falls back to _DEFAULT_SKILLS_SOURCES when cfg is None or lacks `skills.sources`.
+    Each output path is `os.path.join(source["path"], relpath)` — a relative path
+    from the repo root that the agent reads directly.
+    """
+    if cfg is None or not isinstance(cfg, dict):
+        sources = _DEFAULT_SKILLS_SOURCES
+    else:
+        sources = cfg.get("skills", {}).get("sources", _DEFAULT_SKILLS_SOURCES)
+
+    by_phase = {}
+    for src in sources:
+        base = src.get("path", "")
+        for phase_str, relpaths in (src.get("phases", {}) or {}).items():
+            try:
+                phase_num = int(phase_str)
+            except (ValueError, TypeError):
+                continue
+            by_phase.setdefault(phase_num, [])
+            for rel in relpaths:
+                # Use forward slashes regardless of OS for portability of trailers
+                full = f"{base}/{rel}" if base else rel
+                by_phase[phase_num].append(full)
+    return by_phase
+
+
+def _skill_paths_for_phase(phase_num, cfg=None):
+    """Return the list of skill file paths an agent should read for a phase.
+
+    Empty list for phases with no upstream skill dependency (Phase 2 — voiceover
+    is a pipeline-specific contract, not from external skills).
+    """
+    # Always (re)derive from the supplied or default config so per-video
+    # overrides can route skills elsewhere.
+    if cfg is None:
+        cfg = load_config()
+    by_phase = _build_skills_by_phase(cfg)
+    return list(by_phase.get(phase_num, []))
+
+
+# ---------------------------------------------------------------------------
+# Per-step command templates — plugin escape hatch via config
+# ---------------------------------------------------------------------------
+
+# Hardcoded default templates (current behavior). When pipeline_config.json
+# provides `steps.{step_key}.command_template`, it overrides these.
+_DEFAULT_STEP_COMMAND_TEMPLATES = {
+    "5_voiceover_generation":
+        "python3 scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}",
+    "6_duration_measurement":
+        "python3 scripts/measure_durations.py {video_dir}",
+    "9_scene_rendering":
+        "python3 scripts/render_scene.py {video_dir} {scene_id}",
+    "10_stitching":
+        "python3 scripts/assemble.py {video_dir}",
+    "13_thumbnail_rendering":
+        "python3 scripts/render_thumbnail.py {video_dir}",
+}
+
+
+def get_step_command_template(step_key, cfg=None):
+    """Return the command template for an automated step.
+
+    Reads `steps.{step_key}.command_template` from config if present,
+    else falls back to _DEFAULT_STEP_COMMAND_TEMPLATES.
+    Returns None for unknown step keys.
+    """
+    if cfg is None:
+        cfg = load_config()
+    steps_cfg = cfg.get("steps", {}) or {}
+    entry = steps_cfg.get(step_key, {}) or {}
+    tmpl = entry.get("command_template", None)
+    if tmpl:
+        return tmpl
+    return _DEFAULT_STEP_COMMAND_TEMPLATES.get(step_key)
+
+
+def render_step_command(template, video_dir, scene_id=None, cfg=None):
+    """Substitute {variables} in a step command template.
+
+    Available substitutions:
+      {video_dir}        — the videos/<title> path (string)
+      {scene_id}         — integer scene id (only for Step 9)
+      {voiceover.voice}  — any dotted config path under the loaded config
+      {voiceover.rate}, {voiceover.volume}, {voiceover.pitch}, {voiceover.concurrency}
+      {video.fps}, {video.width}, {video.height}, etc.
+      {render.crf}, {render.gl_backend}, etc.
+
+    Unknown {dotted.path} markers resolve by walking the loaded config dict;
+    missing leaves render as empty string (with a warning to stderr).
+    """
+    if cfg is None:
+        cfg = load_config(video_dir=video_dir)
+    # Always pass the most resolved video_dir string the orchestrator knows.
+    # Convert Path -> str to keep f-string-friendly template values.
+    vd_str = str(video_dir) if not isinstance(video_dir, str) else video_dir
+
+    # Build a flat substitution map. We support {video_dir}, {scene_id}, and
+    # arbitrary {section.key.key} references into the config dict.
+    subs = {"video_dir": vd_str}
+    if scene_id is not None:
+        subs["scene_id"] = str(scene_id)
+
+    # Walk the template — replace tokens of form {name.dotted.path} or {name}.
+    def _resolve(match):
+        token = match.group(1)
+        if token in subs:
+            return str(subs[token])
+        # Try walking the config dict: e.g. "voiceover.voice" -> cfg["voiceover"]["voice"]
+        parts = token.split(".")
+        cur = cfg
+        for p in parts:
+            if isinstance(cur, dict) and p in cur:
+                cur = cur[p]
+            else:
+                print(f"WARNING: render_step_command: unknown token {{{token}}}"
+                      f" — substituting empty string", file=sys.stderr)
+                return ""
+        return str(cur)
+
+    return re.sub(r"\{([a-zA-Z_][a-zA-Z0-9_.]*)\}", _resolve, template)
+
+
 EXPECTED_ARTIFACTS: dict = {
     "1_topic_selection": [],
     "2_research": [],
@@ -77,16 +282,97 @@ EXPECTED_ARTIFACTS: dict = {
 }
 
 # ---------------------------------------------------------------------------
-# Config
+# Config — three-layer merge with per-video auto-discovery
+# ---------------------------------------------------------------------------
+
+# Optional module-level override path. Set by pipeline.py when `--config <path>`
+# is passed on the CLI. Applied as layer 2 of the merge (after repo-root config,
+# before per-video config).
+_CONFIG_OVERRIDE_PATH: Path = None
+
+
+def set_config_override(path):
+    """Set the `--config` CLI override path (called once by pipeline.py main())."""
+    global _CONFIG_OVERRIDE_PATH
+    _CONFIG_OVERRIDE_PATH = Path(path).resolve() if path else None
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    """Recursively merge overlay onto base. Overlay wins key collisions.
+    Both dicts may contain nested dicts; non-dict values are overwritten.
+    Lists are replaced wholesale (not extended)."""
+    if not isinstance(base, dict):
+        return overlay
+    if not isinstance(overlay, dict):
+        return overlay
+    out = dict(base)
+    for k, v in overlay.items():
+        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_config(video_dir=None):
+    """Load pipeline config with three-layer merge.
+
+    Merge order (each layer wins over the previous):
+      1. Repo-root `pipeline_config.json` (defaults)
+      2. `--config <path>` CLI override (if set via set_config_override())
+      3. Per-video `pipeline_config.json` (if `video_dir` is passed and exists)
+
+    `video_dir` may be:
+      - None          — only layers 1-2 (used by scripts/* and pipeline.py pre-step)
+      - Path          — the per-video directory; probes `<video_dir>/pipeline_config.json`
+      - str (title)   — converted via `video_dir(title)`
+
+    Auto-discovery of per-video config (layer 3) is on by default. Disable via
+    `config_files.auto_discover_per_video: false` in the repo-root config.
+    """
+    # Layer 1: repo-root config
+    cfg = {}
+    if PIPELINE_CONFIG.exists():
+        with open(PIPELINE_CONFIG, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
+    # Layer 2: --config CLI override
+    if _CONFIG_OVERRIDE_PATH is not None and _CONFIG_OVERRIDE_PATH.exists():
+        with open(_CONFIG_OVERRIDE_PATH, "r", encoding="utf-8") as f:
+            override = json.load(f)
+        cfg = _deep_merge(cfg, override)
+
+    # Layer 3: per-video auto-discovery
+    auto_discover = cfg.get("config_files", {}).get("auto_discover_per_video", True)
+    if auto_discover and video_dir is not None:
+        # Accept str (title) OR Path (video_dir).
+        tvdir = None
+        if isinstance(video_dir, str):
+            tvdir = REPO_ROOT / "videos" / video_dir
+        elif isinstance(video_dir, Path):
+            tvdir = video_dir
+        if tvdir is not None and tvdir.exists():
+            per_video_cfg = tvdir / "pipeline_config.json"
+            if per_video_cfg.exists():
+                with open(per_video_cfg, "r", encoding="utf-8") as f:
+                    overlay = json.load(f)
+                cfg = _deep_merge(cfg, overlay)
+
+    return cfg
+
+
+# Alias for legacy callers — same semantics, but load_config is the new name.
+load_pipeline_config = load_config
+
+
+# ---------------------------------------------------------------------------
+# Paths & sanitization
 # ---------------------------------------------------------------------------
 
 
-def load_config():
-    """Load pipeline_config.json from the repo root."""
-    if not PIPELINE_CONFIG.exists():
-        return {}
-    with open(PIPELINE_CONFIG, "r", encoding="utf-8") as f:
-        return json.load(f)
+def video_dir_path(title):
+    """Return the absolute Path to a video project directory (alias of video_dir)."""
+    return REPO_ROOT / "videos" / title
 
 
 # ---------------------------------------------------------------------------
@@ -197,17 +483,47 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int):
-    """Print a machine-readable __PIPELINE_NEXT__ trailer line for the agent."""
+def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int,
+                 next_cmd: str = "", expected_artifacts=None):
+    """Print a machine-readable __PIPELINE_NEXT__ trailer line for the agent.
+
+    JSON fields:
+      step              — 1-13 (0 for terminal "all done")
+      name              — human step name (Step 0 name is "")
+      kind              — "creative" | "automated" | "done"
+                          ("done" replaces the misleading "automated" that the
+                          CREATIVE_STEPS membership check returned for empty step_key)
+      action            — "await_complete" | "run_continue" | "fix_and_continue"
+                          | "use_continue" | "noop" | "done"
+      exit              — process exit code (mirrors sys.exit if you act on it)
+      phase             — 1-4 (0 for terminal)
+      next_cmd          — exact command for the agent to run next ("" if terminal)
+      skills_section    — SKILL.md anchor for the current phase (e.g. "#phase-2-voiceover")
+      expected_artifacts — list of files the agent must produce (empty for Steps 1-2
+                          and for terminal; populated for Steps 3,4,7,8,11,12)
+
+    Backward compatible: the new params default to "" / None so existing callers
+    that pass only (step_num, step_key, action, exit_code) still work.
+    """
     import json
     name = STEP_NAMES.get(step_key, step_key)
-    kind = "creative" if step_key in CREATIVE_STEPS else "automated"
+    if step_key == "":
+        kind = "done"
+    else:
+        kind = "creative" if step_key in CREATIVE_STEPS else "automated"
+    phase, anchor = _phase_for_step(step_key)
+    skills_files = _skill_paths_for_phase(phase) if phase > 0 else []
     trailer = json.dumps({
         "step": step_num,
         "name": name,
         "kind": kind,
         "action": action,
         "exit": exit_code,
+        "phase": phase,
+        "next_cmd": next_cmd,
+        "skills_section": anchor,
+        "skills_files": skills_files,
+        "expected_artifacts": expected_artifacts or [],
     })
     print(f"__PIPELINE_NEXT__ {trailer}")
 

@@ -1,4 +1,60 @@
 {
+    "skills": {
+        "sources": [
+            {
+                "name": "claude-youtube",
+                "path": "skills/claude-youtube/skills/claude-youtube",
+                "phases": {
+                    "1": [
+                        "sub-skills/script.md",
+                        "references/retention-scripting-guide.md"
+                    ],
+                    "4": [
+                        "sub-skills/metadata.md",
+                        "references/seo-playbook.md",
+                        "sub-skills/thumbnail.md",
+                        "references/thumbnail-ctr-guide.md"
+                    ]
+                }
+            },
+            {
+                "name": "remotion-best-practices",
+                "path": "skills/remotion-best-practices/skills/remotion",
+                "phases": {
+                    "3": [
+                        "SKILL.md",
+                        "rules/video-layout.md",
+                        "rules/calculate-metadata.md",
+                        "rules/transitions.md",
+                        "rules/sequencing.md",
+                        "rules/compositions.md",
+                        "rules/effects.md",
+                        "rules/voiceover.md"
+                    ]
+                }
+            }
+        ]
+    },
+    "steps": {
+        "5_voiceover_generation": {
+            "command_template": "python3 scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}"
+        },
+        "6_duration_measurement": {
+            "command_template": "python3 scripts/measure_durations.py {video_dir}"
+        },
+        "9_scene_rendering": {
+            "command_template": "python3 scripts/render_scene.py {video_dir} {scene_id}"
+        },
+        "10_stitching": {
+            "command_template": "python3 scripts/assemble.py {video_dir}"
+        },
+        "13_thumbnail_rendering": {
+            "command_template": "python3 scripts/render_thumbnail.py {video_dir}"
+        }
+    },
+    "config_files": {
+        "auto_discover_per_video": true
+    },
     "video": {
         "fps": 30,
         "width": 1920,
@@ -13,39 +69,38 @@
         "pitch": "+0Hz",
         "concurrency": 3
     },
-  "render": {
-    "concurrency": 1,
-    "gl_backend": "swangle",
-    "image_format": "jpeg",
-    "jpeg_quality": 80,
-    "codec": "h264",
-    "x264_preset": "ultrafast",
-    "crf": 28,
-    "disallow_parallel_encoding": true,
-    "timeout_ms": 60000,
-    "node_max_old_space_size_mb": 384
-  },
-  "stitching": {
-    "final_codec": "libx264",
-    "final_audio_codec": "aac",
-    "final_crf": 23
-  },
-  "system": {
-    "min_available_ram_mb": 200,
-    "min_available_disk_mb": 500,
-    "chrome_kill_between_renders": true,
-    "post_render_settle_seconds": 5,
-    "temp_dir": "/home/ubuntu/tmp/remotion/{title}"
-  },
-  "retention": {
-    "keep_versions": 2,
-    "clean_voiceover_aligned_after_stitch": true,
-
-    "clean_remotion_node_modules_after_step_13": true,
-    "clean_preview_after_success": true,
-    "reap_remotion_tmpdir_after_render": true,
-    "max_log_size_mb": 0,
-    "keep_last_n_log_runs": 10,
-    "clean_scene_mp4s_after_stitch": false
-  }
+    "render": {
+        "concurrency": 1,
+        "gl_backend": "swangle",
+        "image_format": "jpeg",
+        "jpeg_quality": 80,
+        "codec": "h264",
+        "x264_preset": "ultrafast",
+        "crf": 28,
+        "disallow_parallel_encoding": true,
+        "timeout_ms": 60000,
+        "node_max_old_space_size_mb": 384
+    },
+    "stitching": {
+        "final_codec": "libx264",
+        "final_audio_codec": "aac",
+        "final_crf": 23
+    },
+    "system": {
+        "min_available_ram_mb": 200,
+        "min_available_disk_mb": 500,
+        "chrome_kill_between_renders": true,
+        "post_render_settle_seconds": 5,
+        "temp_dir": "/home/ubuntu/tmp/remotion/{title}"
+    },
+    "retention": {
+        "keep_versions": 2,
+        "clean_voiceover_aligned_after_stitch": true,
+        "clean_remotion_node_modules_after_step_13": true,
+        "clean_preview_after_success": true,
+        "reap_remotion_tmpdir_after_render": true,
+        "max_log_size_mb": 0,
+        "keep_last_n_log_runs": 10,
+        "clean_scene_mp4s_after_stitch": false
+    }
 }
