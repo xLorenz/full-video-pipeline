@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/count-up-stat.schema.json",
+  "title": "CountUpStat instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "enum": ["value", "label", "prefix", "suffix"]},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetValue"],
+      "properties": {
+        "targetValue": {"type": "number"},
+        "decimals": {"type": "integer", "minimum": 0, "maximum": 4, "default": 0},
+        "durationSeconds": {"type": "number", "minimum": 0.5, "maximum": 30, "default": 1.5},
+        "countUp": {"type": "boolean", "default": true},
+        "prefix": {"type": "string", "default": ""},
+        "suffix": {"type": "string", "default": ""},
+        "pop": {"type": "boolean", "default": true},
+        "popForce": {"type": "number", "minimum": 0, "maximum": 2, "default": 1},
+        "rowGapPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 24},
+        "maxFontPx": {"type": "number", "minimum": 8, "maximum": 1000, "default": 240},
+        "thousandSeparator": {"type": "string", "enum": [",", ".", ""], "default": ""}
+      }
+    }
+  }
+}

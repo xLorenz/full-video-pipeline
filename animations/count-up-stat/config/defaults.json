@@ -1,0 +1,24 @@
+{
+  "instanceId": "count-up-stat.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [
+    { "id": "value",  "text": "0", "delay": 6,  "duration": 20, "color": null, "hidden": false },
+    { "id": "label",  "text": "",  "delay": 22, "duration": 14, "color": null, "hidden": false },
+    { "id": "prefix", "text": "",  "hidden": false },
+    { "id": "suffix", "text": "",  "hidden": false }
+  ],
+  "extras": {
+    "targetValue": 100,
+    "decimals": 0,
+    "durationSeconds": 1.5,
+    "countUp": true,
+    "prefix": "",
+    "suffix": "%",
+    "pop": true,
+    "popForce": 1.0,
+    "rowGapPx": 24,
+    "maxFontPx": 240,
+    "thousandSeparator": ""
+  }
+}
