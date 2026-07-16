@@ -119,11 +119,33 @@ def check_captions(data: dict) -> list:
     return errors
 
 
+def validate_animations(video_dir: Path) -> list:
+    """Validate every animations/ template's defaults.json against its schema.
+
+    Pulled in from scripts/publish_animations.py — reuses the referencing
+    Registry wiring so local $id URIs resolve without network fetches.
+    Returns list of error strings (empty == all OK).
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import publish_animations as pa  # noqa: E402
+    errors = []
+    templates = pa.collect_templates()
+    if not templates:
+        return []  # no animations/ present — silently OK
+    for t in templates:
+        defaults_path = t / "config" / "defaults.json"
+        schema_path = t / "config" / "schema.json"
+        errors += pa.validate_defaults(defaults_path, schema_path)
+    return errors
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate scenes.json and pipeline_state.json")
     parser.add_argument("video_dir", help="Path to the video project directory")
     parser.add_argument("--step", type=int, default=0,
                         help="Step number for step-specific requirements (default: 0 = no step checks)")
+    parser.add_argument("--validate-animations", action="store_true",
+                        help="Also validate every template's defaults.json against its schema + the global animations schema")
     args = parser.parse_args()
 
     video_dir = Path(args.video_dir).resolve()
@@ -137,6 +159,14 @@ def main():
     all_errors += validate_file(video_dir / "scenes.json", SCHEMAS_DIR / "scenes.schema.json")
     all_errors += validate_file(video_dir / "pipeline_state.json",
                                 SCHEMAS_DIR / "pipeline_state.schema.json")
+
+    # Opt-in animation schema check (mirrors what publish_animations.py runs
+    # during the scaffold step). Useful for catching broken template defaults
+    # before creating a new video.
+    if args.validate_animations:
+        anim_errors = validate_animations(video_dir)
+        for e in anim_errors:
+            all_errors.append(f"(animations) {e}")
 
     exit_code = 1 if all_errors else 0
 
