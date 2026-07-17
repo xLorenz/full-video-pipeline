@@ -1,0 +1,18 @@
+{
+  "instanceId": "data-bars.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [],
+  "extras": {
+    "values": [42, 88, 56, 120, 35, 74, 91],
+    "labels": ["A", "B", "C", "D", "E", "F", "G"],
+    "countUp": true,
+    "topN": 8,
+    "barHeightPx": 48,
+    "barGapPx": 12,
+    "barColor": null,
+    "valueFormat": "int",
+    "showValueLabels": true,
+    "lanePaddingPx": 120
+  }
+}

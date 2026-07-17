@@ -138,6 +138,25 @@ def cmd_new(args):
     config_text = config_text.replace("{{HEIGHT}}", str(height))
     config_path.write_text(config_text, encoding="utf-8")
 
+    # Publish animation templates into the per-video project. Copies each
+    # template's component.tsx + config/*.json + animation.md + preview/ +
+    # the shared _shared/ helpers, and writes a barrel index.ts. Templates
+    # with defaults.json that fail schema validation abort the scaffold.
+    # No-op (with warning) if repo has no animations/ directory yet.
+    publish_animations_script = REPO_ROOT / "scripts" / "publish_animations.py"
+    if publish_animations_script.exists():
+        anim_src_dir = REPO_ROOT / "animations"
+        if anim_src_dir.is_dir() and any(anim_src_dir.iterdir()):
+            print("\n--- Publishing animation templates ---")
+            run_cmd(
+                [sys.executable, str(publish_animations_script), str(vdir)],
+                cwd=REPO_ROOT,
+            )
+        else:
+            print("\n--- No animation templates to publish (animations/ is absent or empty) ---")
+    else:
+        print("\n--- publish_animations.py not found — skipping animation publishing ---")
+
     # Create pipeline_state.json
     state = {
         "video_title": title,
@@ -547,7 +566,8 @@ def lint_gate(title, vdir):
     # Confirm compositions are registered
     r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
-    compositions_out = r3.stdout or ""
+    raw = r3.stdout
+    compositions_out = (raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw) or ""
     if r3.returncode != 0 or "MainVideo" not in compositions_out:
         return False, "MainVideo composition not found via `remotion compositions`"
     if "Thumbnail" not in compositions_out:
@@ -606,6 +626,31 @@ def run_step_9(title, vdir):
         print(f"  LINT GATE FAILED: {msg}")
         return False
     print(f"  Lint gate: {msg}")
+
+    # Optional on-demand animation preview step. Triggered when the agent sets
+    # `animations_preview_requested: true` in pipeline_state.json before running
+    # `complete` at Step 8. Renders a 3s stub of every published animation
+    # template into .animation-previews/. Failures are non-fatal (diagnostic
+    # only) — the regular scene render continues regardless.
+    state = load_state(title) or {}
+    if state.get("animations_preview_requested"):
+        print("\n  --- Running optional animation preview step ---")
+        preview_script = REPO_ROOT / "scripts" / "preview_animations.py"
+        if preview_script.exists():
+            anim_dir = rdir / "src" / "components" / "animations"
+            if anim_dir.is_dir() and any(anim_dir.iterdir()):
+                run_cmd(
+                    [sys.executable, str(preview_script), str(vdir)],
+                    cwd=REPO_ROOT,
+                    check=False,  # non-fatal — preview failures must not block scenes
+                )
+            else:
+                print("  No published animation templates — skipping previews.")
+        else:
+            print("  preview_animations.py not found — skipping previews.")
+        # Reset the flag so previews don't auto-rerun on every subsequent Step 9.
+        state.pop("animations_preview_requested", None)
+        save_state(title, state)
 
     cfg_step9 = load_pipeline_config(video_dir=vdir)
     tmpl_step9 = pl.get_step_command_template("9_scene_rendering", cfg_step9)

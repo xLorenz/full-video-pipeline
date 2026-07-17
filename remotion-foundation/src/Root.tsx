@@ -12,14 +12,15 @@ export const RemotionRoot: React.FC = () => {
         id="MainVideo"
         component={MainVideo as React.ComponentType<any>}
         calculateMetadata={async ({ props }) => {
-          const totalFrames = props.scenes.reduce(
-            (sum, s) => sum + s.durationInFrames, 0
+          const p = props as unknown as VideoProps;
+          const totalFrames = p.scenes.reduce(
+            (sum: number, s) => sum + s.durationInFrames, 0,
           );
           return {
             durationInFrames: totalFrames || 1,
-            fps: props.fps,
-            width: props.width,
-            height: props.height,
+            fps: p.fps,
+            width: p.width,
+            height: p.height,
           };
         }}
         defaultProps={{

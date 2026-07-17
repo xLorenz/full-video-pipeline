@@ -45,15 +45,17 @@ def find_next_thumbnail_version(versions_dir, safe_title):
 
 def get_last_frame(remotion_dir):
     """Return the last frame index for the Thumbnail composition (durationInFrames-1)."""
+    npx_path = shutil.which("npx") or "npx"
     result = subprocess.run(
-        ["npx", "remotion", "compositions", "src/Root.tsx", "--json"],
-        capture_output=True, text=True, timeout=60, cwd=remotion_dir,
+        [npx_path, "remotion", "compositions", "src/Root.tsx", "--json"],
+        capture_output=True, timeout=60, cwd=remotion_dir,
     )
     if result.returncode != 0:
         return 0
     try:
-        comps = json.loads(result.stdout)
-    except json.JSONDecodeError:
+        raw = result.stdout.decode("utf-8", errors="replace").strip()
+        comps = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, AttributeError):
         return 0
     for comp in comps if isinstance(comps, list) else []:
         if comp.get("id") == "Thumbnail":

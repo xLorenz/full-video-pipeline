@@ -101,12 +101,19 @@ full-video-pipeline/
 │   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
 │   ├── render_thumbnail.py        # Remotion still render for YouTube thumbnail
 │   ├── generate_captions.py      # SRT sidecar + per-scene caption cues
+│   ├── publish_animations.py     # Publish templates/animations/ into per-video projects
+│   ├── preview_animations.py     # Render on-demand 3s stubs of every published template
 │   └── requirements.txt          # Python deps
+├── animations/                # Animation template catalog (see animations/README.md)
+│   ├── README.md, CATALOG.md, SCHEMA.md      # Agent-facing manual + field reference
+│   ├── _shared/                             # Reusable TypeScript helpers (theme/timing/layout)
+│   └── <template>/component.tsx + config/    # One folder per template data-driven via DeepConfig
 ├── remotion-foundation/          # Template for new Remotion projects
 │   └── src/components/Captions.tsx  # Optional burned-in caption layer
 ├── schemas/
 │   ├── scenes.schema.json
-│   └── pipeline_state.schema.json
+│   ├── pipeline_state.schema.json
+│   └── animations.schema.json     # Global DeepConfig schema (per-template schemas layer on top)
 ├── skills/
 │   ├── claude-youtube/           # Script writing reference (submodule)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
