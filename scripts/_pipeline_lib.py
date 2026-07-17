@@ -642,11 +642,13 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
     try:
         result = subprocess.run(
             cmd, shell=True, cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
-        if result.stdout:
-            for line in result.stdout.rstrip().split("\n"):
-                print(f"  | {line}")
+        stdout_text = result.stdout.decode("utf-8", errors="replace")
+        if stdout_text:
+            for line in stdout_text.rstrip().split("\n"):
+                safe_line = line.encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding)
+                print(f"  | {safe_line}")
                 if log_f:
                     log_f.write(line + "\n")
         if check and result.returncode != 0:

@@ -132,7 +132,7 @@ def main():
     print(f"=== Assembling: {video_title} ===")
     print(f"  Scenes: {len(scenes)}")
 
-    cfg = pl.load_config()
+    cfg = pl.load_config(video_dir=video_dir)
     rcfg = cfg.get("render", {})
     scfg = cfg.get("stitching", {})
     crf = rcfg.get("crf", 28)

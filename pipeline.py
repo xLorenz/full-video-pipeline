@@ -566,7 +566,8 @@ def lint_gate(title, vdir):
     # Confirm compositions are registered
     r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
-    compositions_out = r3.stdout or ""
+    raw = r3.stdout
+    compositions_out = (raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw) or ""
     if r3.returncode != 0 or "MainVideo" not in compositions_out:
         return False, "MainVideo composition not found via `remotion compositions`"
     if "Thumbnail" not in compositions_out:
