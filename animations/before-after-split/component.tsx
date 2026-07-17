@@ -72,10 +72,6 @@ export const BeforeAfterSplit: React.FC<BeforeAfterSplitProps> = ({
       easing: resolveEasing(g.easing),
     },
   );
-  // In vertical mode: "before" is the left half (red), "after" is the right
-  // half (green); divider sweeps from left (0.05 coverage) to right (0.95).
-  // In horizontal mode: "before" is the top half, "after" is the bottom half.
-  const coverage = 0.05 + sweepProgress * 0.9;
 
   const findOv = (id: string): ElementOverride | undefined =>
     config.elements?.find((e) => e.id === id);
@@ -98,33 +94,37 @@ export const BeforeAfterSplit: React.FC<BeforeAfterSplitProps> = ({
   const labelFontPx = (fontSizes?.body ?? 56) * theme.sizeScale;
 
   const isHorizontal = direction === "h";
-  const beforeSize = isHorizontal
-    ? { width: "100%", height: `${coverage * 100}%` }
-    : { width: `${coverage * 100}%`, height: "100%" };
-  const afterSize = isHorizontal
-    ? { width: "100%", height: `${(1 - coverage) * 100}%` }
-    : { width: `${(1 - coverage) * 100}%`, height: "100%" };
 
-  const beforeTextStyle = isHorizontal
-    ? { justifyContent: "center", alignItems: "center" }
-    : { justifyContent: "center", alignItems: "center" };
+  // Sweep progress from 0 to 1. At 0: "before" panel fills the frame
+  // and "after" is hidden. At 1: "after" fills the frame and "before" is hidden.
+  // The divider position is exactly at sweepProgress * 100%.
+  // We achieve this by clipping each panel to the correct side of the divider.
+  const dividerPositionPct = sweepProgress * 100;
 
-  const dividerPositionStyle = isHorizontal
-    ? { top: `${coverage * 100}%`, left: 0, right: 0, height: dividerWidthPx, width: "auto" }
-    : { left: `${coverage * 100}%`, top: 0, bottom: 0, width: dividerWidthPx, height: "auto" };
+  // Clipping approach: both panels are full-screen AbsoluteFill, but each is
+  // clipped to its side of the moving divider. This guarantees perfect
+  // alignment between the visual split and the divider line.
+
+  const beforeClip = isHorizontal
+    ? `inset(0 0 ${100 - dividerPositionPct}% 0)`
+    : `inset(0 ${100 - dividerPositionPct}% 0 0)`;
+  const afterClip = isHorizontal
+    ? `inset(${dividerPositionPct}% 0 0 0)`
+    : `inset(0 0 0 ${dividerPositionPct}%)`;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      {/* BEFORE half (top or left) */}
+      {/* BEFORE panel — full frame, clipped to left/top side of divider */}
       <div style={{
         position: "absolute",
-        top: 0, left: 0,
-        ...beforeSize,
+        top: 0, left: 0, right: 0, bottom: 0,
         background: beforeColor,
         display: "flex",
         padding: panelPaddingPx,
         boxSizing: "border-box",
-        ...beforeTextStyle,
+        justifyContent: "center",
+        alignItems: "center",
+        clipPath: beforeClip,
       }}>
         <div style={{
           fontFamily: headingFont,
@@ -138,17 +138,18 @@ export const BeforeAfterSplit: React.FC<BeforeAfterSplitProps> = ({
           {beforeText}
         </div>
       </div>
-      {/* AFTER half (bottom or right) */}
+
+      {/* AFTER panel — full frame, clipped to right/bottom side of divider */}
       <div style={{
         position: "absolute",
-        bottom: 0, right: 0,
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: afterColor,
         display: "flex",
         padding: panelPaddingPx,
         boxSizing: "border-box",
-        background: afterColor,
-        ...afterSize,
-        justifyContent: isHorizontal ? "center" : "center",
+        justifyContent: "center",
         alignItems: "center",
+        clipPath: afterClip,
       }}>
         <div style={{
           fontFamily: headingFont,
@@ -162,10 +163,13 @@ export const BeforeAfterSplit: React.FC<BeforeAfterSplitProps> = ({
           {afterText}
         </div>
       </div>
-      {/* Divider */}
+
+      {/* Divider — sits exactly at the sweep position */}
       <div style={{
         position: "absolute",
-        ...dividerPositionStyle,
+        ...(isHorizontal
+          ? { top: `${dividerPositionPct}%`, left: 0, right: 0, height: dividerWidthPx, width: "auto" }
+          : { left: `${dividerPositionPct}%`, top: 0, bottom: 0, width: dividerWidthPx, height: "auto" }),
         background: dividerColor,
         boxShadow: dividerStyle === "gradient"
           ? `0 0 ${dividerWidthPx * 6}px ${dividerColor}, 0 0 ${dividerWidthPx * 3}px ${dividerColor}`

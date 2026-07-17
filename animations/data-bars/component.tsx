@@ -121,6 +121,10 @@ export const DataBars: React.FC<DataBarsProps> = ({ config, styles, fontSizes })
   const containerHeight = (n * barHeightPx) + ((n - 1) * barGapPx);
   const labelFontPx = (fontSizes?.body ?? 22) * theme.sizeScale;
 
+  // Reserve 18% of the available bar track width for the value label so bars
+  // never extend under it. This is a fixed visual cap — no new extras key.
+  const maxBarWidthPct = 82;
+
   return (
     <AbsoluteFill
       style={{
@@ -130,6 +134,7 @@ export const DataBars: React.FC<DataBarsProps> = ({ config, styles, fontSizes })
     >
       <div
         style={{
+          boxSizing: "border-box",
           width: `calc(100% - ${lanePaddingPx}px)`,
           maxWidth: 1400,
           position: "relative",
@@ -175,7 +180,7 @@ export const DataBars: React.FC<DataBarsProps> = ({ config, styles, fontSizes })
                 left: 280,
                 top: 0,
                 bottom: 0,
-                width: `${b.widthPct}%`,
+                width: `${Math.min(b.widthPct, maxBarWidthPct)}%`,
                 background: b.color,
                 borderRadius: 6,
                 boxShadow: `0 6px 18px ${b.color}30`,
@@ -185,13 +190,14 @@ export const DataBars: React.FC<DataBarsProps> = ({ config, styles, fontSizes })
               <div
                 style={{
                   position: "absolute",
-                  left: `calc(280px + ${b.widthPct}% + 14px)`,
+                  left: `calc(280px + ${Math.min(b.widthPct, maxBarWidthPct)}% + 14px)`,
                   fontFamily: headingFont,
                   fontWeight: 700,
                   fontSize: labelFontPx * 1.05,
                   color: textColor,
                   opacity: b.valueOpacity,
                   textShadow: "0 2px 8px rgba(0,0,0,0.5)",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {formatValue(b.currentVal, valueFormat)}

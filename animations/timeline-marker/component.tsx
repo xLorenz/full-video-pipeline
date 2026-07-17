@@ -210,36 +210,52 @@ export const TimelineMarker: React.FC<TimelineMarkerProps> = ({
                 {iconGlyph}
               </div>
             )}
-            {/* Label + caption — placed above or below alternatingly */}
-            <div
-              style={{
+            {/* Label + caption — single fixed gap from the dot edge.
+                Same gap (labelGapPx) above and below the track, so the
+                top-of-below-label and bottom-of-top-label sit equidistant
+                from the track line. Anchored to the dot wrapper via
+                `bottom:`/`top:` (px) so the layout is explicit, no
+                percentage-of-content translation that drifts with line count. */}
+            {(() => {
+              const labelGapPx = 18;
+              const labelStyle: React.CSSProperties = {
                 position: "absolute",
                 left: "50%",
-                transform: `translate(-50%, ${above ? "-100%" : "100%"}) translateY(${above ? -12 : 12}px)`,
+                transform: "translateX(-50%)",
                 textAlign: "center",
                 whiteSpace: "pre-wrap",
                 maxWidth: 260,
-              }}
-            >
-              <div style={{
-                fontFamily: headingFont, fontWeight: 700,
-                fontSize: labelFontPx, color: labelColor,
-                textShadow: "0 2px 10px rgba(0,0,0,0.6)",
-                display: "flex", flexDirection: "column", alignItems: "center",
-              }}>
-                {elementFor(i)?.text ?? ev.label}
-              </div>
-              {ev.caption && (
-                <div style={{
-                  fontFamily: bodyFont, fontSize: captionFontPx,
-                  color: mutedColor, marginTop: 4,
-                  opacity: interpolate(dropT, [0.4, 1], [0, 1],
-                    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-                }}>
-                  {ev.caption}
+                opacity: interpolate(dropT, [0.4, 1], [0, 1],
+                  { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+              };
+              if (above) {
+                // Anchor the box's BOTTOM edge labelGapPx above the dot's top.
+                labelStyle.bottom = dotRadiusPx + labelGapPx;
+              } else {
+                // Anchor the box's TOP edge labelGapPx below the dot's bottom.
+                labelStyle.top = dotRadiusPx + labelGapPx;
+              }
+              return (
+                <div style={labelStyle}>
+                  <div style={{
+                    fontFamily: headingFont, fontWeight: 700,
+                    fontSize: labelFontPx, color: labelColor,
+                    textShadow: "0 2px 10px rgba(0,0,0,0.6)",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                  }}>
+                    {elementFor(i)?.text ?? ev.label}
+                  </div>
+                  {ev.caption && (
+                    <div style={{
+                      fontFamily: bodyFont, fontSize: captionFontPx,
+                      color: mutedColor, marginTop: 4,
+                    }}>
+                      {ev.caption}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         );
       })}
