@@ -217,7 +217,9 @@ export const TimelineMarker: React.FC<TimelineMarkerProps> = ({
                 `bottom:`/`top:` (px) so the layout is explicit, no
                 percentage-of-content translation that drifts with line count. */}
             {(() => {
-              const labelGapPx = 18;
+              // Gap from dot edge scales with the label font size so
+              // labels don't crowd the dot even on large-scale themes.
+              const labelGapPx = Math.max(28, labelFontPx * 0.7);
               const labelStyle: React.CSSProperties = {
                 position: "absolute",
                 left: "50%",

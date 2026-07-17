@@ -104,13 +104,20 @@ export const BeforeAfterSplit: React.FC<BeforeAfterSplitProps> = ({
   // Clipping approach: both panels are full-screen AbsoluteFill, but each is
   // clipped to its side of the moving divider. This guarantees perfect
   // alignment between the visual split and the divider line.
-
+  //
+  // Vertical: divider sweeps left→right. "Before" is the area to the right of
+  //   the divider (shrinks as divider moves right). "After" is the area to the
+  //   left of the divider (grows as divider moves right).
+  // Horizontal: divider sweeps top→bottom. "Before" is the area below the
+  //   divider (shrinks). "After" is the area above the divider (grows).
+  //
+  // inset(top right bottom left)
   const beforeClip = isHorizontal
-    ? `inset(0 0 ${100 - dividerPositionPct}% 0)`
-    : `inset(0 ${100 - dividerPositionPct}% 0 0)`;
+    ? `inset(0 0 ${100 - dividerPositionPct}% 0)`   // clip bottom; before shrinks from bottom
+    : `inset(0 0 0 ${dividerPositionPct}%)`;        // clip left; before shrinks from left
   const afterClip = isHorizontal
-    ? `inset(${dividerPositionPct}% 0 0 0)`
-    : `inset(0 0 0 ${dividerPositionPct}%)`;
+    ? `inset(${dividerPositionPct}% 0 0 0)`         // clip top; after grows upward
+    : `inset(0 ${100 - dividerPositionPct}% 0 0)`;  // clip right; after grows from left
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
