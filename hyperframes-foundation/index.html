@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>{{VIDEO_TITLE}} — Main Video</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: {{WIDTH}}px;
+        height: {{HEIGHT}}px;
+        overflow: hidden;
+        background: var(--color-background, #0b0f1a);
+        font-family: var(--font-headline, "Inter"), sans-serif;
+        color: var(--color-text, #ffffff);
+      }
+      #main-composition {
+        position: relative;
+        width: {{WIDTH}}px;
+        height: {{HEIGHT}}px;
+        overflow: hidden;
+      }
+      .scene-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="main-composition"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="{{TOTAL_DURATION}}"
+      data-width="{{WIDTH}}"
+      data-height="{{HEIGHT}}"
+    >
+      <!--
+        Scene sub-compositions are layered here, one per scene.
+        Data attributes are substituted at scaffold time by the orchestrator
+        (see pipeline.py cmd_new). Each scene points at its own HTML file
+        under compositions/scene-NN.html.
+
+        Example for two scenes (the orchestrator writes these in
+        SceneMap.generated.html when scaffolding):
+
+        <div
+          class="scene-layer"
+          data-composition-id="scene-01"
+          data-composition-src="compositions/scene-01.html"
+          data-start="0"
+          data-duration="11.05"
+          data-track-index="1"
+        ></div>
+
+        <div
+          class="scene-layer"
+          data-composition-id="scene-02"
+          data-composition-src="compositions/scene-02.html"
+          data-start="11.05"
+          data-duration="14.20"
+          data-track-index="1"
+        ></div>
+      -->
+      {{SCENE_LAYERS}}
+    </div>
+
+    <script>
+      // The MainVideo root composition delegates animation entirely to
+      // its scene sub-compositions. Each scene registers its own paused
+      // GSAP timeline on window.__timelines under its composition-id.
+      // We only need a no-op root timeline so the renderer can seek the
+      // parent clock; sub-comp timelines are advanced automatically by the
+      // framework based on data-start / data-duration.
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

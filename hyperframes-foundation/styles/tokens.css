@@ -1,0 +1,49 @@
+/*
+ * styles/tokens.css — design tokens for every composition in this video.
+ *
+ * Mirror of the Remotion `lib/styles.ts` COLORS palette + FONTS, now expressed
+ * as CSS custom properties. This file is the single source of truth for theme
+ * (SKILL.md Phase 3 "STYLES.md format" maps directly onto these tokens).
+ *
+ * Per-video, the agent edits this file to override any palette/font declared
+ * in STYLES.md. Sub-compositions reference the tokens via var(--name)
+ * — never hard-code hex values in scene/ or thumbnail/ HTML.
+ */
+
+:root {
+  /* Color palette (defaults — override per video in STYLES.md) */
+  --color-primary: #00ffa3;
+  --color-secondary: #ff0050;
+  --color-accent: #ffd60a;
+  --color-background: #0b0f1a;
+  --color-text: #ffffff;
+  --color-muted: #9aa6c2;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface-strong: rgba(255, 255, 255, 0.12);
+
+  /* Typography */
+  --font-headline: "Inter";
+  --font-body: "Inter";
+  --font-mono: "JetBrains Mono";
+
+  /* Type scale (px @ 1× composition resolution) */
+  --font-headline-size: 120px;
+  --font-body-size: 44px;
+  --font-caption-size: 36px;
+}
+
+/* Application of theme at the composition root */
+html,
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body), sans-serif;
+}
+
+/* Each sub-composition scopes its own root styles via [data-composition-id] —
+ * see compositions/scene-NN.html.example and compositions/thumbnail.html.
+ */
+[data-composition-id] {
+  font-family: var(--font-body), sans-serif;
+  color: var(--color-text);
+}

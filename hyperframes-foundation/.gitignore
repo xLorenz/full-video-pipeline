@@ -1,0 +1,13 @@
+# HyperFrames render artifacts (per-video)
+renders/
+scenes/*.mp4
+.animation-previews/
+snapshots/
+beats/
+compositions/components/*/node_modules/
+dist/
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
