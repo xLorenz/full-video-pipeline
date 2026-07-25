@@ -25,7 +25,7 @@ STEP_KEYS = [
     "1_topic_selection", "2_research", "3_script_writing",
     "4_voiceover_writing", "5_voiceover_generation",
     "6_duration_measurement", "7_style_definition",
-    "8_remotion_coding", "9_scene_rendering", "10_stitching",
+    "8_composition_writing", "9_scene_rendering", "10_stitching",
     "11_metadata_generation", "12_thumbnail_generation",
     "13_thumbnail_rendering",
 ]
@@ -38,7 +38,7 @@ STEP_NAMES = {
     "5_voiceover_generation": "Voiceover Generation",
     "6_duration_measurement": "Duration Measurement",
     "7_style_definition": "Style Definition",
-    "8_remotion_coding": "Remotion Code Writing",
+    "8_composition_writing": "Composition Writing",
     "9_scene_rendering": "Scene Rendering",
     "10_stitching": "Stitching",
     "11_metadata_generation": "Metadata Generation",
@@ -266,18 +266,17 @@ EXPECTED_ARTIFACTS: dict = {
     "5_voiceover_generation": [],
     "6_duration_measurement": [],
     "7_style_definition": ["STYLES.md"],
-    "8_remotion_coding": [
-        "remotion/PLAN.md",
-        "remotion/src/Root.tsx",
-        "remotion/src/components/MainVideo.tsx",
-        "remotion/src/components/Thumbnail.tsx",
-        "remotion/src/lib/config.ts",
-        "remotion/src/lib/styles.ts",
+    "8_composition_writing": [
+        "hyperframes/PLAN.md",
+        "hyperframes/index.html",
+        "hyperframes/compositions/scene-01.html",
+        "hyperframes/compositions/thumbnail.html",
+        "hyperframes/styles/tokens.css",
     ],
     "9_scene_rendering": [],
     "10_stitching": [],
     "11_metadata_generation": ["TITLE.md", "DESCRIPTION.md", "TAGS.md"],
-    "12_thumbnail_generation": ["remotion/src/components/Thumbnail.tsx"],
+    "12_thumbnail_generation": ["hyperframes/compositions/thumbnail.html"],
     "13_thumbnail_rendering": [],
 }
 

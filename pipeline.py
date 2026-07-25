@@ -29,8 +29,22 @@ if os.name != "posix" and os.environ.get("PIPELINE_FORCE_NON_POSIX") != "1":
 
 REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
-FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
+FOUNDATION_DIR = REPO_ROOT / "hyperframes-foundation"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "pipeline_state.schema.json"
+
+# Default pinned HyperFrames CLI version. Overridable via
+# `pipeline_config.json` -> `hyperframes.cli_version`. Bumping this
+# rewrites the pinned scripts in every newly scaffolded per-video project
+# (videos/<title>/hyperframes/package.json). The same version is invoked by
+# scripts/render_scene.py + scripts/render_thumbnail.py at render time.
+DEFAULT_HF_CLI_VERSION = "0.7.61"
+
+
+def _hf_cli_version(cfg=None):
+    """Return the pinned HyperFrames CLI version (config override or default)."""
+    if cfg is None:
+        cfg = load_pipeline_config()
+    return (cfg.get("hyperframes", {}) or {}).get("cli_version", DEFAULT_HF_CLI_VERSION)
 
 # Re-export commonly used helpers from the shared lib so existing code reads cleanly
 video_dir = pl.video_dir
@@ -62,7 +76,7 @@ SKIP_STEPS = pl.CREATIVE_STEPS
 def cmd_new(args):
     title = sanitize_title(args.title)
     vdir = video_dir(title)
-    rdir = vdir / "remotion"
+    hdir = vdir / "hyperframes"
 
     if vdir.exists():
         print(f"ERROR: Video directory already exists: {vdir}")
@@ -72,90 +86,79 @@ def cmd_new(args):
     fps = config.get("video", {}).get("fps", 30)
     width = config.get("video", {}).get("width", 1920)
     height = config.get("video", {}).get("height", 1080)
+    hf_version = _hf_cli_version(config)
 
     print(f"=== Scaffolding video project: {title} ===")
     print(f"  Directory: {vdir}")
+    print(f"  HyperFrames CLI: {hf_version}")
 
     # Create directory structure
     for d in [
-        rdir / "src" / "lib",
-        rdir / "src" / "scenes",
-        rdir / "src" / "components",
-        rdir / "public",
+        hdir / "compositions",
+        hdir / "styles",
+        hdir / "assets",
         vdir / "voiceover",
         vdir / "scenes",
         vdir / "versions",
     ]:
         d.mkdir(parents=True, exist_ok=True)
 
-    # Copy foundation config files
-    for fname in ["tsconfig.json", "remotion.config.ts", "eslint.config.mjs",
-                   ".prettierrc", ".gitignore"]:
-        src = FOUNDATION_DIR / fname
-        if src.exists():
-            shutil.copy2(src, rdir / fname)
-
-    # Create package.json — mirror foundation deps for version consistency
-    foundation_pkg_path = FOUNDATION_DIR / "package.json"
-    if foundation_pkg_path.exists():
-        foundation_pkg = json.loads(foundation_pkg_path.read_text(encoding="utf-8"))
-        deps = dict(foundation_pkg.get("dependencies", {}))
-        dev_deps = dict(foundation_pkg.get("devDependencies", {}))
-    else:
-        deps = {"remotion-foundation": "*"}
-        dev_deps = {}
-    pkg = {
-        "name": f"remotion-{title}",
-        "version": "1.0.0",
-        "private": True,
-        "dependencies": deps,
-        "devDependencies": dev_deps,
-        "scripts": {
-            "dev": "remotion studio",
-            "build": "remotion bundle",
-            "lint": "npx eslint src && npx tsc --noEmit",
-        },
-        "sideEffects": ["*.css"],
+    # ---- Substitute and copy foundation template files into the per-video project
+    # The foundation uses {{VIDEO_ID}}, {{VIDEO_TITLE}}, {{SCAFFOLD_TIMESTAMP}},
+    # {{HYPERFRAMES_VERSION}}, {{WIDTH}}, {{HEIGHT}}, {{TOTAL_DURATION}}, and
+    # {{SCENE_LAYERS}} placeholders that we substitute here.
+    video_id = title  # sanitize_title already slugified it
+    scaffold_ts = now_iso()
+    subs = {
+        "{{VIDEO_ID}}": video_id,
+        "{{VIDEO_TITLE}}": title,
+        "{{SCAFFOLD_TIMESTAMP}}": scaffold_ts,
+        "{{HYPERFRAMES_VERSION}}": hf_version,
+        "{{WIDTH}}": str(width),
+        "{{HEIGHT}}": str(height),
+        # Placeholder until scenes.json is populated by Step 6 (duration
+        # measurement). 0 duration means `hyperframes compositions` reports
+        # `main`empty; the orchestrator rewrites index.html in run_step_9.
+        "{{TOTAL_DURATION}}": "0.0",
+        "{{SCENE_LAYERS}}": "    <!-- Scene layers are emitted by pipeline.py at scaffold + run_step_9 -->",
     }
-    with open(rdir / "package.json", "w") as f:
-        json.dump(pkg, f, indent=2)
 
-    # Copy foundation src/ as the per-video Remotion project source.
-    # This copies Root.tsx, MainVideo.tsx, Thumbnail.tsx, SceneMap.generated.ts,
-    # lib/config.ts (with placeholder values), lib/styles.ts, shared components
-    # (Background, TextReveal, StatReveal, Captions), and index.css.
-    def _ignore_for_scaffold(src_dir, names):
-        # Skip index.ts (remotion-foundation package entry — not needed per-video)
-        return {"index.ts"} if Path(src_dir).name == "src" else set()
-    shutil.copytree(FOUNDATION_DIR / "src", rdir / "src", dirs_exist_ok=True,
-                    ignore=_ignore_for_scaffold)
+    foundation_files = [
+        ("index.html", hdir / "index.html"),
+        ("meta.json", hdir / "meta.json"),
+        ("package.json", hdir / "package.json"),
+        ("hyperframes.json", hdir / "hyperframes.json"),
+        ("AGENTS.md", hdir / "AGENTS.md"),
+        (".gitignore", hdir / ".gitignore"),
+        ("styles/tokens.css", hdir / "styles" / "tokens.css"),
+        ("compositions/thumbnail.html", hdir / "compositions" / "thumbnail.html"),
+    ]
+    for src_rel, dst in foundation_files:
+        src = FOUNDATION_DIR / src_rel
+        if not src.exists():
+            continue
+        text = src.read_text(encoding="utf-8")
+        for needle, repl in subs.items():
+            text = text.replace(needle, repl)
+        dst.write_text(text, encoding="utf-8")
 
-    # Substitute dynamic values in config.ts (foundation uses {{}} markers)
-    config_path = rdir / "src" / "lib" / "config.ts"
-    config_text = config_path.read_text(encoding="utf-8")
-    config_text = config_text.replace("{{FPS}}", str(fps))
-    config_text = config_text.replace("{{WIDTH}}", str(width))
-    config_text = config_text.replace("{{HEIGHT}}", str(height))
-    config_path.write_text(config_text, encoding="utf-8")
+    # Copy scene authoring reference (with .example suffix — never linted/linted
+    # until the agent copies it to scene-NN.html for the first scene).
+    scene_example_src = FOUNDATION_DIR / "compositions" / "scene-NN.html.example"
+    if scene_example_src.exists():
+        # Pre-substitute the example's default duration placeholder? No — keep
+        # it as a reference with placeholder values so the agent has the
+        # canonical structure to study; they edit the copy per scene.
+        shutil.copy2(scene_example_src, hdir / "compositions" / "scene-NN.html.example")
 
-    # Publish animation templates into the per-video project. Copies each
-    # template's component.tsx + config/*.json + animation.md + preview/ +
-    # the shared _shared/ helpers, and writes a barrel index.ts. Templates
-    # with defaults.json that fail schema validation abort the scaffold.
-    # No-op (with warning) if repo has no animations/ directory yet.
-    publish_animations_script = REPO_ROOT / "scripts" / "publish_animations.py"
-    if publish_animations_script.exists():
-        anim_src_dir = REPO_ROOT / "animations"
-        if anim_src_dir.is_dir() and any(anim_src_dir.iterdir()):
-            print("\n--- Publishing animation templates ---")
-            run_cmd(
-                [sys.executable, str(publish_animations_script), str(vdir)],
-                cwd=REPO_ROOT,
-            )
-        else:
-            print("\n--- No animation templates to publish (animations/ is absent or empty) ---")
-    else:
-        print("\n--- publish_animations.py not found — skipping animation publishing ---")
+    # The foundation `assets/.gitkeep` is a placeholder so the directory survives
+    # git-copy. Copy it verbatim — the agent drops media files here at Phase 3.
+    gitkeep_src = FOUNDATION_DIR / "assets" / ".gitkeep"
+    if gitkeep_src.exists():
+        (hdir / "assets" / ".gitkeep").write_bytes(gitkeep_src.read_bytes())
+
+    # No npm install — HyperFrames projects are HTML + a pinned `npx` CLI; no
+    # repo-root workspaces, no node_modules.
 
     # Create pipeline_state.json
     state = {
@@ -181,10 +184,6 @@ def cmd_new(args):
     }
     with open(vdir / "scenes.json", "w") as f:
         json.dump(scenes_stub, f, indent=2)
-
-    # Install npm dependencies
-    print("\n--- Installing npm dependencies ---")
-    run_cmd("npm install", cwd=REPO_ROOT)
 
     print(f"\n=== Video project scaffolded: {vdir} ===")
     print("\nNext steps:")
