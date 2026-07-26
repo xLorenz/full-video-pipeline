@@ -2,9 +2,9 @@
 name: full-video-pipeline
 description: >
   End-to-end autonomous YouTube video production pipeline. Researches topics,
-  writes retention-optimized scripts, generates voiceover audio, builds Remotion
+  writes retention-optimized scripts, generates voiceover audio, builds HyperFrames
   video compositions, renders scenes, stitches the final video, generates YouTube
-  title/description/tags, and renders a Remotion-only thumbnail (no AI images).
+  title/description/tags, and renders a HyperFrames-only thumbnail (no AI images).
   Driven by `pipeline.py run` / `pipeline.py continue` per an explicit execution
   protocol — agent never manually advances state. Designed for resource-constrained
   environments (500MB RAM, no GPU).
@@ -30,7 +30,7 @@ tools:
 # Full Video Pipeline — Autonomous YouTube Video Production
 
 > 4 phases take a topic idea and produce a fully rendered YouTube video with
-> voiceover, visuals, audio, title/description/tags, and a Remotion-generated
+> voiceover, visuals, audio, title/description/tags, and a HyperFrames-generated
 > thumbnail. Each phase has one creative block (you do the work) followed by
 > automated steps (the orchestrator runs them).
 
@@ -45,7 +45,7 @@ pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
 
 If pre-flight fails, resolve issues before proceeding. Required tools:
 - Linux, macOS, or WSL (the pipeline runs on any POSIX system)
-- `node` + `npm` (for Remotion)
+- `node` + `npm` (for HyperFrames)
 - `python3` + `pip` (for edge-tts and helper scripts; `pip install -r scripts/requirements.txt`)
 - `ffmpeg` + `ffprobe` (for audio/video processing)
 - `git` (for cloning skill references)
@@ -67,8 +67,9 @@ The pipeline is driven by **one entry point** and **two commands**:
 2. READ the output. It prints a phase brief with phases like:
    (a) "All steps complete!"                            → STOP. You are done.
    (b) "Phase N: <name> — Step Nn: <name>" + rules      → Do the work (web search,
-                                                          write files, write Remotion
-                                                          code). Then run `complete`.
+                                                           write files, author
+                                                           HyperFrames compositions).
+                                                           Then run `complete`.
    (c) The orchestrator already auto-ran an automated   → Verify success, then GO TO 1.
        step after a creative `complete`.
    (d) "FAILED" / "VALIDATION FAILED"                   → READ the error, fix the named
@@ -104,7 +105,7 @@ brief (or "All steps complete!").
 
 Each creative phase prints a "Follow these instructions:" block listing the skill files you
 must read for that phase's rules. These files live under `skills/` and contain the detailed
-rules for script writing, Remotion coding, SEO metadata, and thumbnail design. The paths
+rules for script writing, HyperFrames composition authoring, SEO metadata, and thumbnail design. The paths
 are configured in `pipeline_config.json` under `skills.sources` and can be overridden per
 video via `videos/<title>/pipeline_config.json`.
 
@@ -114,25 +115,25 @@ video via `videos/<title>/pipeline_config.json`.
 |-------|-------|-------------|----------------------------|
 | Phase 1: Research & Script | 1-3 | `SCRIPT.md`, `scenes.json` | (none — Step 4 is creative) |
 | Phase 2: Voiceover | 4-6 | `VOICEOVER.md` | Steps 5, 6 |
-| Phase 3: Visuals & Render | 7-10 | `STYLES.md`, Remotion project (PLAN.md, Root.tsx, MainVideo.tsx, Thumbnail.tsx stub, lib/*, scenes/SceneXX.tsx) | Steps 9, 10 |
-| Phase 4: Metadata & Thumbnail | 11-13 | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md`, `Thumbnail.tsx` | Step 13 |
+| Phase 3: Visuals & Render | 7-10 | `STYLES.md`, HyperFrames project (`PLAN.md`, `index.html`, `compositions/scene-NN.html`, `styles/tokens.css`) | Steps 9, 10 |
+| Phase 4: Metadata & Thumbnail | 11-13 | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md`, `compositions/thumbnail.html` | Step 13 |
 
 > Steps 1 and 2 produce in-context decisions/notes (no files). `complete` for
 > those steps only runs the schema gate and advances state.
 
-## Audio Path (IMPORTANT — overrides Remotion skill rules)
+## Audio Path (IMPORTANT — overrides HyperFrames skill defaults)
 
-Voiceover is **NOT** baked into scene MP4s. Scene components render **silent**
-video only — do NOT use `<Audio>` in `SceneXX.tsx`. At stitch time,
-`scripts/assemble.py` concatenates the per-scene MP3s into one
+Voiceover is **NOT** baked into scene MP4s. Scene compositions render **silent**
+video only — do NOT add `<audio src=".../voiceover/...mp3">` to a scene's HTML.
+At stitch time, `scripts/assemble.py` concatenates the per-scene MP3s into one
 `voiceover_aligned.mp3` and muxes it onto the concatenated scene MP4s in a
 single ffmpeg pass. This:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps exactly one audio encode pass total (fastest path for low-RAM boxes)
-- Relies on `actual_duration_frames` matching voiceover durations (enforced by Step 6)
+- Relies on `actual_duration_seconds` matching voiceover durations (enforced by Step 6)
 
-The remotion-best-practices submodule may document `<Audio>` / voiceover patterns.
+The HyperFrames skills bundle may document `<audio>` / voiceover patterns.
 Those are **superseded for this pipeline** — render silent, mux at stitch.
 
 ## Optional: Captions
@@ -146,9 +147,9 @@ python3 pipeline.py captions <title>
 This produces `videos/<title>/<title>.srt` (YouTube sidecar) and populates
 per-scene `captions` cues in `scenes.json`. To burn captions into the video,
 set `video.burn_captions: true` in `pipeline_config.json` — the scaffolded
-`MainVideo.tsx` will then render a `<Captions>` component from `remotion-foundation`
-when a scene has captions and `showCaptions` is true. Off by default to preserve
-render performance.
+`compositions/scene-NN.html.example` ships a gated `#scene-captions` layer
+that the agent wires up per scene when `showCaptions` is true. Off by default
+to preserve render performance.
 
 ## Configuration
 
@@ -322,7 +323,7 @@ python3 pipeline.py complete <title>
 - **Step 6 (Duration Measurement)**: Runs `measure_durations.py` — uses ffprobe
   on each MP3, computes `actual_duration_frames = ceil(duration * fps)`, updates
   `scenes.json` with real values. **Do NOT proceed to Phase 3 until Step 6
-  succeeds — all Remotion compositions depend on exact frame counts.**
+  succeeds — all HyperFrames compositions depend on exact durations.**
 
 The chain stops at the Phase 3 brief (Step 7 is creative). If Step 5 or 6 fails,
 `complete` emits `fix_and_continue` and exits 1 — fix the issue and re-run
@@ -332,83 +333,83 @@ The chain stops at the Phase 3 brief (Step 7 is creative). If Step 5 or 6 fails,
 
 ## Phase 3: Visuals & Render (Steps 7-10)
 
-**Goal**: Define a consistent visual style, write the Remotion project code for
-all scenes. Steps 9-10 (scene rendering and stitching) auto-run after `complete`.
+**Goal**: Define a consistent visual style, write the HyperFrames composition
+HTML for all scenes. Steps 9-10 (scene rendering and stitching) auto-run after
+`complete`.
 
 ### Action
 
-#### 3a. Verify the Remotion project is scaffolded
+#### 3a. Verify the HyperFrames project is scaffolded
 
-The Remotion project is scaffolded by `pipeline.py run`/`new`. Verify it exists:
+The HyperFrames project is scaffolded by `pipeline.py run`/`new`. Verify it
+exists:
 
 ```bash
-ls videos/{video-title}/remotion/src/Root.tsx
+ls videos/{video-title}/hyperframes/index.html
+ls videos/{video-title}/hyperframes/compositions/scene-NN.html.example
+ls videos/{video-title}/hyperframes/styles/tokens.css
+ls videos/{video-title}/hyperframes/compositions/thumbnail.html
 ```
 
-It should contain **two** compositions — `MainVideo` and `Thumbnail` — along
-with `MainVideo.tsx`, `Thumbnail.tsx` stub, `SceneMap.generated.ts`,
-`lib/config.ts`, `lib/styles.ts`, shared components (`Background`, `TextReveal`,
-`StatReveal`, `Captions`), and installed npm dependencies. If missing, re-run
-`pipeline.py new "{video-title}"` once.
+The scaffold contains:
 
-The scaffold also publishes animation templates (if any exist in
-`animations/`) into `remotion/src/components/animations/`. Templates are
-data-driven reusable animations; see the next section.
+- `index.html` — root composition (the "MainVideo" equivalent). Aggregates
+  per-scene sub-compositions via `data-composition-src` mounting divs injected
+  by `run_step_9` at render time.
+- `compositions/scene-NN.html.example` — **template** for per-scene
+  sub-compositions. Copy to `compositions/scene-01.html`,
+  `compositions/scene-02.html`, … for each scene in `scenes.json`.
+- `compositions/thumbnail.html` — Phase 4 thumbnail composition (scaffolded as
+  a stub; agent fills it in Phase 4).
+- `styles/tokens.css` — palette + font tokens (single source of truth, mirrors
+  STYLES.md).
+- `package.json`, `hyperframes.json`, `meta.json`, `assets/.gitkeep`,
+  `AGENTS.md`.
 
-#### 3a-anim. Animation templates (when to use one)
+If missing, re-run `pipeline.py new "{video-title}"` once.
 
-The repo ships an `animations/` directory with a catalog of **hard-to-hand-code**
-animation templates (judge-style right/wrong cards, racing data bars, count-up
-stats, before/after splits, timelines, comparison grids). Each is a Remotion
-component you customize via **JSON config — never by editing the `.tsx`**.
+#### 3a-anim. Animation blocks (when to install one from the registry)
 
-**Use a template when a scene's `visual_notes` describes a complex,
+The repo no longer ships a curated `animations/` directory. Instead, install
+animation blocks **on demand** from the HyperFrames registry when a scene
+calls for a hard-to-hand-code effect (kinetic transition, chart, social
+overlay, count-up stat, comparison grid, before/after split, etc.).
+
+**Install a block when a scene's `visual_notes` describes a complex,
 multi-element, multi-property animation that you couldn't trivially one-shot
-by composing `Background`/`TextReveal`/`StatReveal` yourself**. Trivial hooks,
-title cards, and single-text reveals are faster to hand-author — leave
-templates for the gap in between.
+by composing HTML + CSS + a GSAP `fromTo` yourself.** Trivial hooks, title
+cards, single-text reveals, and one-shot transitions are faster to hand-author
+— leave registry blocks for the gap in between.
 
 To use one:
 
-1. Read `animations/README.md` (the master catalog) and pick from the table.
-2. Open that template's `animation.md` — it lists every recognized element
-   id, the `extras.*` keys, copy-paste snippets, and customization recipes.
-3. Drop a per-scene config at `videos/<title>/remotion/src/scene-assets/scene-NN-<template>.json` (or inline an
-   object literal if it's short).
-4. Use the one-line import in your `SceneXX.tsx`:
-   ```tsx
-   import { RightWrongCard } from "../components/animations";
-   import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
-   import config from "../scene-assets/scene-04-rightwrong.json";
-
-   export const Scene04: React.FC<{ scene: SceneTiming }> = () => (
-     <AbsoluteFill>
-       <Background backgroundColor={COLORS.background} />
-       <RightWrongCard config={config}
-                       styles={{colors: COLORS, fonts: FONTS}}
-                       fontSizes={FONT_SIZES} />
-     </AbsoluteFill>
-   );
+1. Browse the catalog (machine-readable):
+   ```bash
+   cd videos/{video-title}/hyperframes
+   npx hyperframes catalog --json
    ```
-5. **Never edit any file under `remotion/src/components/animations/` per video.**
-   If a template's behavior doesn't fit, copy the template folder from the
-   repo-root `animations/` directory into a new folder and customize that.
-   (Re-publishing on next scaffold reverts any per-video edits.)
+   Or browse the live catalog at https://hyperframes.heygen.com/catalog/blocks/
+2. Install the block:
+   ```bash
+   npx hyperframes add <block-name> --no-clipboard
+   ```
+   The block lands under `compositions/` or `compositions/components/`. The
+   CLI prints a paste-snippet you include in your `scene-NN.html`.
+3. Paste the snippet into the appropriate scene file, override its declared
+   variables as needed (per the block's `data-composition-variables`), and
+   wire any GSAP timeline registration onto `window.__timelines["scene-NN"]`.
+4. **Never edit an installed block's source.** If it doesn't fit, install a
+   different block or hand-author the effect. (Editing an installed block
+   breaks upgrades and diverges your project from the catalog.)
 
-**Previewing**: when you've added or customized templates that you want to
-visually verify, write `"animations_preview_requested": true` into
-`pipeline_state.json` before running `complete` for Step 8. Step 9 will then
-render a 3-second stub of every published template into
-`videos/<title>/.animation-previews/` before the scene render loop. Failures
-are non-fatal — preview render errors are diagnostics.
+**Theme**: `styles/tokens.css` is the single source of truth for palette and
+fonts. Read tokens via CSS custom properties (`var(--color-primary)` etc.) in
+your scene HTML — do NOT hardcode hex values in `scene-NN.html` files except
+where you intentionally want to override the token for one scene.
 
-**Theme**: `lib/styles.ts` stays the single source of truth for palette/fonts.
-Templates read it via the shared helper; per-instance `theme.palette` /
-`theme.fonts` overrides win per-key, but you keep the styles.ts defaults
-canonical.
-
-**Full reference**: `animations/README.md`, `animations/CATALOG.md`,
-`animations/SCHEMA.md`, and each template's `animation.md`.
+**Full reference**: the Phase-3 skills bundle (planned under `skills/hyperframes/`,
+Step 10) documents every block-discovery and wiring pattern. The on-disk
+`AGENTS.md` in each scaffolded project also summarizes the rules.
 
 #### 3b. Write `STYLES.md` (Step 7)
 
@@ -461,9 +462,16 @@ Then update `scenes.json` with `visual_notes` for each scene based on the style.
 Each scene's `visual_notes` should specify colors (from palette), animations,
 layout, and element positions — detailed enough for Step 8 to implement directly.
 
-#### 3c. Write `remotion/PLAN.md` (start of Step 8)
+**Also** mirror the palette and font choices into
+`hyperframes/styles/tokens.css` — set the CSS custom properties
+(`--color-primary`, `--color-secondary`, `--color-accent`, `--color-background`,
+`--color-text`, `--color-muted`, `--font-headline`, `--font-body`, etc.) so every
+`scene-NN.html` file can `var(--…)` them. STYLES.md is the human-readable
+contract; `tokens.css` is the machine-readable one. They MUST agree.
 
-Before any code, write the per-video Remotion rebuild plan:
+#### 3c. Write `hyperframes/PLAN.md` (start of Step 8)
+
+Before any code, write the per-video HyperFrames authoring plan:
 
 ```markdown
 # Implementation Plan
@@ -471,14 +479,14 @@ Before any code, write the per-video Remotion rebuild plan:
 ## Configuration
 - FPS: {from scenes.json}
 - Resolution: {width}x{height}
-- Total duration: {total_actual_seconds}s = {total_frames} frames
+- Total duration: {total_actual_seconds}s
 
-## Shared Components
-- [List reusable components to create]
+## Shared elements
+- [List reusable tokens / blocks you'll install from the registry]
 
 ## Scenes
 ### Scene 1: {title}
-- Duration: {actual_duration_frames} frames
+- Duration: {actual_duration_seconds}s
 - Visual: {visual_notes from scenes.json}
 - Audio: voiceover/scene-01.mp3 (muted — muxed at stitch)
 - Key elements: [what needs to animate]
@@ -491,74 +499,96 @@ Before any code, write the per-video Remotion rebuild plan:
 {Key points from STYLES.md}
 ```
 
-#### 3d. Write the Remotion code (Step 8)
+#### 3d. Author the HyperFrames compositions (Step 8)
+
+For each scene in `scenes.json`, copy
+`compositions/scene-NN.html.example` to `compositions/scene-NN.html` and
+customize it. The template uses these 8 placeholders that the orchestrator
+already substituted at scaffold time (`pipeline.py new`): `{{VIDEO_ID}}`,
+`{{VIDEO_TITLE}}`, `{{SCAFFOLD_TIMESTAMP}}`, `{{HYPERFRAMES_VERSION}}`,
+`{{WIDTH}}`, `{{HEIGHT}}`, `{{TOTAL_DURATION}}`, `{{SCENE_LAYERS}}` — your job
+in Step 8 is purely to author scene content, not to re-substitute scaffolding
+placeholders.
 
 #### Follow these instructions:
 
-Follow skills/remotion-best-practices/skills/remotion/SKILL.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/video-layout.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/calculate-metadata.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/transitions.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/sequencing.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/compositions.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/effects.md instructions
-Follow skills/remotion-best-practices/skills/remotion/rules/voiceover.md instructions
+Follow skills/hyperframes/skills/hyperframes-core/SKILL.md instructions
+Follow skills/hyperframes/skills/hyperframes-animation/SKILL.md instructions
+Follow skills/hyperframes/skills/hyperframes-keyframes/SKILL.md instructions
+Follow skills/hyperframes/skills/hyperframes-registry/SKILL.md instructions
+Follow the on-disk `hyperframes/AGENTS.md` instructions
 
 **Use these contracts (Phase 3-internal MUSTs):**
 
-- **`MainVideo.tsx` MUST import `SCENE_MAP` from `src/scenes/SceneMap.generated.ts`.**
-  The orchestrator **auto-generates** `SceneMap.generated.ts` in Step 9 from
-  `scenes.json`. You only write the individual `src/scenes/SceneXX.tsx` files.
-  Do NOT edit `SceneMap.generated.ts`.
-- **Both `MainVideo` AND `Thumbnail` compositions MUST register in `Root.tsx`**
-  via `<Composition>`. `lint_gate` verifies via `remotion compositions` — missing
-  either fails the gate before rendering.
-- Each `SceneXX.tsx` MUST:
-  - Match its `actual_duration_frames` exactly
-  - Render **SILENT video only** — do NOT use `<Audio>` for the voiceover.
-    Background music/SFX, if any, are still allowed via `<Audio>`.
-  - Implement the visual treatment from `visual_notes` in `scenes.json`
-  - Follow the style system from STYLES.md
+- Each scene's `data-duration` on the `data-composition-id` root MUST equal the
+  scene's `actual_duration_seconds` from `scenes.json` (within ±0.05s).
+- Each scene composition root MUST declare `data-composition-id="scene-NN"`,
+  `data-width`, `data-height`, `data-start="0"`, and `data-duration`.
+- Every timed element (background, headline, subtitle, captions, etc.) MUST have:
+  - `class="clip"`
+  - `data-start`, `data-duration`, `data-track-index` (unique per parallel track)
+- Animation MUST use a GSAP timeline registered as
+  `window.__timelines["scene-NN"] = tl` with `paused: true`. The orchestrator's
+  render loop seeks this timeline deterministically — no `Date.now()`,
+  `Math.random()`, network fetch, or other non-deterministic logic.
+- Each scene MUST render **SILENT video only** — do NOT add
+  `<audio src=".../voiceover/...mp3">` for the voiceover. The pipeline muxes
+  voiceover post-render via `assemble.py`. SFX/BGM that you genuinely want
+  baked in are still allowed via `<audio>` (rare).
+- Implement the visual treatment from `visual_notes` in `scenes.json`.
+- Follow the style system from STYLES.md / `tokens.css` — use
+  `var(--color-primary)` and friends; do NOT hardcode hex codes.
 
-**Optional:** Render `<Captions cues={scene.captions} fps={fps} />` from
-`remotion-foundation` when `scene.showCaptions` is true — only active if
-`video.burn_captions: true` in `pipeline_config.json`.
+**Optional captions layer**: the template ships a `#scene-captions` div gated
+by the `showCaptions` variable. Render it only when `scene.showCaptions: true`
+in `scenes.json` AND `video.burn_captions: true` in `pipeline_config.json`.
+Feed it cues from the scene's `captions` array via GSAP — one `tl.add()` per
+cue, hiding/showing `#caption-text` and setting its `textContent`.
 
-**Output**: `STYLES.md` + complete Remotion project (`remotion/PLAN.md`, `Root.tsx`
-kept from scaffold, `MainVideo.tsx` kept from scaffold, `Thumbnail.tsx` kept as stub
-until Phase 4, `lib/config.ts`, `lib/styles.ts`, `scenes/SceneXX.tsx`).
+**Output**: `STYLES.md` + `hyperframes/PLAN.md` + one
+`compositions/scene-NN.html` per scene + updated `styles/tokens.css` mirroring
+the STYLES.md palette. `index.html` and `compositions/thumbnail.html` stay as
+scaffolded until Step 9 (which injects `data-composition-src` mounting divs)
+and Phase 4 (which fills in `thumbnail.html`).
 
 ### Pre-render self-check (run yourself before `complete`)
 
 ```bash
-cd videos/{video-title}/remotion
-npm run lint && npx tsc --noEmit && npx remotion compositions src/Root.tsx
+cd videos/{video-title}/hyperframes
+npm run lint         # structural HTML lint
+npx hyperframes compositions --json   # list compositions — every scene-NN must appear
+npm run check        # optional: stricter runtime + layout + motion + contrast gate
 ```
 
-You should see both `MainVideo` and `Thumbnail` in the compositions output. Fix
-any errors before continuing — the orchestrator will run this gate before Step 9
-renders and will fail the entire run if anything is broken.
+You should see every `compositions/scene-NN.html` listed in the compositions
+output. Fix any errors before continuing — the orchestrator will re-run the
+lint gate before Step 9 renders and will fail the entire run if anything is
+broken.
 
-> Note about MainVideo.tsx import contract: if Step 9 fails with a
-> "MainVideo.tsx must import SceneMap.generated.ts" error, your scaffold is
-> out of date — copy a fresh `MainVideo.tsx` from `remotion-foundation/src/components/MainVideo.tsx`.
+> NOTE: HyperFrames v0.7.61 has no `--frames=N-M` flag. Per-scene rendering
+> always renders the full composition. This is why each scene is its own
+> sub-composition rather than a `<Sequence>` in a single root.
 
 ### Validation (Phase 3)
 
-- `src/Root.tsx` exists and exports `RemotionRoot` with the `MainVideo` AND
-  `Thumbnail` compositions (both scaffolded; do not remove either).
-- `src/components/MainVideo.tsx` exists, imports `SceneMap` from
-  `SceneMap.generated.ts`, and uses Sequence-based scene loading.
-- `src/components/Thumbnail.tsx` exists (scaffolded stub — agent fills it in
-  Phase 4).
-- Each scene has a corresponding `SceneXX.tsx` file. Scene count matches
-  `scenes.json` scene count.
-- Frame durations match `actual_duration_frames` from `scenes.json`.
-- No CSS transitions or animations used. All animations use `interpolate()` or
-  `spring()`.
-- Every scene in `scenes.json` has non-empty `visual_notes` referencing specific
-  palette colors from STYLES.md.
-- `npm run lint`, `tsc --noEmit`, and `remotion compositions` all pass.
+- `hyperframes/PLAN.md` exists.
+- `styles/tokens.css` exists and declares every palette/font token referenced
+  by STYLES.md.
+- `index.html` exists (scaffolded root).
+- For each scene in `scenes.json`, `compositions/scene-NN.html` exists.
+- Each `compositions/scene-NN.html` has:
+  - A `data-composition-id="scene-NN"` root with `data-width`, `data-height`,
+    `data-start`, `data-duration` matching `actual_duration_seconds` (±0.05s)
+  - Every timed child has `class="clip"`, `data-start`, `data-duration`,
+    `data-track-index`
+  - A GSAP timeline registered on `window.__timelines["scene-NN"]` with
+    `paused: true`
+  - No `<audio>` reference to `voiceover/*.mp3`
+  - No `Date.now()`, `Math.random()`, `fetch()`, or external network URLs
+- Every scene in `scenes.json` has non-empty `visual_notes` referencing
+  specific palette colors from STYLES.md.
+- `npm run lint` and `npx hyperframes compositions --json` pass; every
+  scene composition appears in the compositions output.
 
 ### When done
 
@@ -566,18 +596,22 @@ renders and will fail the entire run if anything is broken.
 python3 pipeline.py complete <title>
 ```
 
-`complete` validates the expected artifacts exist (`remotion/PLAN.md`,
-`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx`, `lib/config.ts`, `lib/styles.ts`),
+`complete` validates the expected artifacts exist (`hyperframes/PLAN.md`,
+`index.html`, `compositions/scene-NN.html` for each scene, `styles/tokens.css`),
 marks Steps 7-8 done, then **auto-runs**:
 
-- **Step 9 (Scene Rendering)**: Regenerates `SceneMap.generated.ts` from
-  `scenes.json`, runs the lint/typecheck/compositions gate, then renders each
-  scene one at a time via `render_scene.py` with hardware guardrails via
-  `psutil` (RAM/disk checks, orphaned-Chrome cleanup). A failed scene records
-  `render_attempts += 1` and `last_render_error`, **does NOT abort the batch**
-  — the orchestrator records the failure and continues. Re-running `complete`
-  skips already-rendered scenes and retries only failures. Per-scene logs in
-  `videos/<title>/logs/step-9-scene-{id}.log`.
+- **Step 9 (Scene Rendering)**: Injects per-scene `data-composition-src`
+  mounting divs into `index.html` (so the root can preview the assembled
+  video), runs the lint gate (`npx hyperframes lint --json` +
+  `npx hyperframes compositions --json`), then renders each scene composition
+  independently via `scripts/render_scene.py`:
+  `npx hyperframes render -c compositions/scene-NN.html --output scenes/scene-NN.mp4
+  --variables-file props.json`. Hardware guardrails via `psutil` (RAM/disk
+  checks, orphaned-Chrome cleanup). A failed scene records
+  `render_attempts += 1` and `last_render_error`, **does NOT abort the
+  batch** — the orchestrator records the failure and continues. Re-running
+  `complete` skips already-rendered scenes and retries only failures.
+  Per-scene logs in `videos/<title>/logs/step-9-scene-{id}.log`.
 - **Step 10 (Stitching)**: Runs `assemble.py` — concatenates per-scene MP3s
   into `voiceover_aligned.mp3`, concatenates scene MP4 video streams (copy, no
   re-encode), muxes audio on video (single ffmpeg pass, `-c:v copy -c:a aac`),
@@ -587,15 +621,15 @@ The chain stops at the Phase 4 brief (Step 11 is creative). If Step 9 partial-fa
 (some scenes fail), `complete` exits 1 with `fix_and_continue`. To retry just the
 failed scenes: `pkill -f chrome`, wait 30s, re-run `pipeline.py continue <title>`
 (Step 9 is resumable per-scene via `render_status: "rendered"`). For persistent
-OOM, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`.
+OOM, reduce `render.workers` or video resolution in `pipeline_config.json`.
 
 ---
 
 ## Phase 4: Metadata & Thumbnail (Steps 11-13)
 
-**Goal**: Generate YouTube metadata (title, description, tags) and write a
-Remotion `Thumbnail.tsx` composition. Step 13 (thumbnail PNG render) auto-runs
-after `complete`.
+**Goal**: Generate YouTube metadata (title, description, tags) and fill in the
+`compositions/thumbnail.html` HyperFrames composition. Step 13 (thumbnail PNG
+render) auto-runs after `complete`.
 
 ### Action
 
@@ -644,10 +678,11 @@ Follow skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md in
 exact keyword, variation 1, variation 2, long-tail 1, broad term 1, channel name
 ```
 
-#### 4b. Write `Thumbnail.tsx` (Step 12)
+#### 4b. Fill in `compositions/thumbnail.html` (Step 12)
 
-Compose the thumbnail entirely of Remotion primitives — shapes, text,
-gradients. **NO AI image generation** (no NanoBanana, Midjourney, DALL-E, etc.).
+Compose the thumbnail entirely of HyperFrames primitives — HTML elements, CSS
+gradients, GSAP timelines. **NO AI image generation** (no NanoBanana,
+Midjourney, DALL-E, etc.).
 
 #### Follow these instructions:
 
@@ -662,33 +697,49 @@ Follow skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guid
 
 - **MUST**: design for 1920×1080 even though 1280×720 is the YouTube minimum.
 - **MUST**: thumbnail adds NEW info — never duplicates the title text.
-- **MUST NOT**: use `fetch()` or external URLs. `<Img>` only for local assets.
-- Use only the `ThumbnailProps` interface from `remotion-foundation`:
-  `{ title: string, subtitle: string, palette: { primary, secondary, accent, background, text } }`.
-- The `Thumbnail` composition is already registered in `Root.tsx` — do NOT
-  duplicate it. Just write the component body in `Thumbnail.tsx`.
+- **MUST NOT**: use `fetch()` or external URLs. `<img>` / `<picture>` only for
+  local assets in `hyperframes/assets/`.
+- Compose `compositions/thumbnail.html` as a single standalone composition. Its
+  root needs `data-composition-id="thumbnail"`, `data-width="1920"`,
+  `data-height="1080"`, `data-start="0"`, `data-duration="1"` (arbitrary short
+  duration — the orchestrator renders exactly one frame).
+- Read the title/subtitle/palette via the same variable mechanism the scene
+  templates use (`data-composition-variables` + `--variables-file`), or simply
+  hardcode the per-video copy directly in the HTML (Phase 4 authoring is
+  content-bound by design).
+- Follow the same `class="clip"` / `data-start` / `data-duration` /
+  `data-track-index` rules and the GSAP-on-`window.__timelines["thumbnail"]`
+  contract as scene compositions.
 
-```tsx
-import React from "react";
-import { AbsoluteFill } from "remotion";
-import type { ThumbnailProps } from "remotion-foundation";
-
-export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {
-  return (
-    <AbsoluteFill style={{ backgroundColor: palette.background }}>
-      {/* ... your composition ... */}
-    </AbsoluteFill>
-  );
-};
+```html
+<template id="thumbnail-template">
+  <div data-composition-id="thumbnail"
+       data-width="1920" data-height="1080"
+       data-start="0" data-duration="1">
+    <div id="thumb-background" class="clip" data-start="0" data-duration="1"
+         data-track-index="0"
+         style="position: absolute; inset: 0;
+                background: var(--color-background, #0b0f1a);"></div>
+    <!-- ...your overlay composition... -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        const tl = gsap.timeline({ paused: true });
+        /* optional one-shot reveal — the renderer captures frame 0 only */
+        window.__timelines = window.__timelines || {};
+        window.__timelines["thumbnail"] = tl;
+      })();
+    </script>
+  </div>
+</template>
 ```
 
 **Verify before `complete`:**
 
 ```bash
-cd videos/{video-title}/remotion
+cd videos/{video-title}/hyperframes
 npm run lint
-npx tsc --noEmit
-npx remotion compositions src/Root.tsx   # must list both MainVideo and Thumbnail
+npx hyperframes compositions --json   # must list every scene-NN AND thumbnail
 ```
 
 ### Validation (Phase 4)
@@ -698,11 +749,13 @@ npx remotion compositions src/Root.tsx   # must list both MainVideo and Thumbnai
   start at 0:00 with ≥3 entries.
 - Tags under 500 chars total. Hashtags in description body (not in title).
 - First 2 description lines work as standalone ad copy.
-- No AI-generated image assets in `Thumbnail.tsx`. No `fetch()` / external URLs.
-- `Thumbnail.tsx` uses only `ThumbnailProps`. Text overlay ≤3 words. Palette
-  colors from STYLES.md.
-- `npm run lint`, `tsc --noEmit` pass. `Thumbnail` composition appears in
-  `remotion compositions` output.
+- No AI-generated image assets in `compositions/thumbnail.html`. No `fetch()` /
+  external URLs.
+- `compositions/thumbnail.html` root declares `data-composition-id="thumbnail"`,
+  `data-width="1920"`, `data-height="1080"`. Text overlay ≤3 words. Palette
+  colors reused from STYLES.md / `tokens.css`.
+- `npm run lint` passes. The `thumbnail` composition appears in
+  `npx hyperframes compositions --json` output.
 
 ### When done
 
@@ -713,17 +766,20 @@ python3 pipeline.py complete <title>
 `complete` validates `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` exist,
 marks Steps 11-12 done, then **auto-runs**:
 
-- **Step 13 (Thumbnail Rendering)**: Runs `lint_gate` then `render_thumbnail.py`.
-  Reads `TITLE.md` (or falls back to `scenes.json video_title`) for the title
-  text, reads `STYLES.md` for the color palette, builds `ThumbnailProps` JSON,
-  runs `npx remotion still src/Root.tsx Thumbnail <out.png> --frame=0`
-  with `--quality=100`. Writes `versions/{title}-thumbnail-v{N}.png` (auto-incremented).
-  Per the `retention.clean_remotion_node_modules_after_step_13` config flag
-  (default `true`), `remotion/node_modules/` is cleaned after Step 13 success.
+- **Step 13 (Thumbnail Rendering)**: Runs `lint_gate` then
+  `render_thumbnail.py`. Reads `TITLE.md` (or falls back to `scenes.json
+  video_title`) for the title text, reads `STYLES.md` for the color palette,
+  builds a variables JSON, renders a 1-frame 1920×1080 MP4 via
+  `npx hyperframes render -c index.html --fps 1 --quality 100`, then extracts
+  the PNG via `ffmpeg -i thumb.mp4 -frames:v 1 thumb.png`. Writes
+  `versions/{title}-thumbnail-v{N}.png` (auto-incremented). Per the
+  `retention.clean_remotion_node_modules_after_step_13` config flag (default
+  `true`), `hyperframes/node_modules/` (if present) is cleaned after Step 13
+  success.
 
-If Step 13 fails, check `videos/<title>/logs/step-13.log`. Ensure `Thumbnail`
-composition is registered in `Root.tsx` and `Thumbnail.tsx` passes the lint gate.
-Re-run `complete` to retry.
+If Step 13 fails, check `videos/<title>/logs/step-13.log`. Ensure
+`compositions/thumbnail.html` exists, declares `data-composition-id="thumbnail"`,
+and passes the lint gate. Re-run `complete` to retry.
 
 If all steps complete, `complete` prints:
 `All steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.`
@@ -739,9 +795,9 @@ The pipeline accumulates files across runs. Retention is controlled by the
 |------|---------|--------|
 | `keep_versions` | `2` | Keep only the N most recent MP4 + thumbnail PNG versions |
 | `clean_voiceover_aligned_after_stitch` | `true` | Delete `voiceover_aligned.mp3` after stitch succeeds |
-| `clean_remotion_node_modules_after_step_13` | `true` | Delete `remotion/node_modules/` after the final step completes |
+| `clean_remotion_node_modules_after_step_13` | `true` | Delete `hyperframes/node_modules/` (if present) after the final step completes. Key name retained for backward-compat. |
 | `clean_preview_after_success` | `true` | Delete `.preview/` after a successful smoke preview |
-| `reap_remotion_tmpdir_after_render` | `true` | Delete Remotion TMPDIR after each render (saves disk, forfeits bundle-cache speed) |
+| `reap_remotion_tmpdir_after_render` | `true` | Delete the per-video temp dir after each render (saves disk, forfeits bundle-cache speed). Key name retained for backward-compat. |
 | `clean_scene_mp4s_after_stitch` | `false` | Delete `scenes/*.mp4` after stitch — **re-stitch requires re-render** |
 | `max_log_size_mb` | `0` | Rotate logs when they exceed this size (0 = unlimited, no rotation) |
 | `keep_last_n_log_runs` | `10` | Keep at most this many rotated log archives |
@@ -758,15 +814,15 @@ python3 pipeline.py clean <title>
 | Error | Recovery |
 |-------|----------|
 | `edge-tts` network failure | Step 5 retries each scene once after 5s backoff. Re-run `complete` — unchanged scenes skipped (idempotent). |
-| Remotion render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
-| Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
+| HyperFrames render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `render.workers` or video resolution in `pipeline_config.json`. |
+| HyperFrames render timeout | Increase `render.timeout_ms` in config, or simplify the scene's visual complexity. |
 | ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `complete`. |
-| Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or `python3 pipeline.py clean <title>`. |
+| Disk full | Run `rm -rf videos/{title}/hyperframes/node_modules` to free space, or `python3 pipeline.py clean <title>`. |
 | Schema validation fails | `complete` refuses to advance. Run `python3 pipeline.py validate <title>` to see violations and fix the offending JSON. |
-| Lint gate fails before render | Fix TypeScript/lint errors in the Remotion project (`cd videos/<title>/remotion && npm run lint`). `tsc --noEmit` errors must also be resolved. |
+| Lint gate fails before render | Fix HTML/lint errors in the HyperFrames project (`cd videos/<title>/hyperframes && npm run lint`). The `npx hyperframes compositions --json` gate must also pass — every `scene-NN.html` must appear in its output. |
 | Metadata step fails | `complete` re-runs the creative Step 11. Check `TITLE.md`, `DESCRIPTION.md`, `TAGS.md` are present and valid. |
-| Thumbnail composition fails lint | Fix `Thumbnail.tsx` TypeScript/lint errors. Remove any AI image references. |
-| Thumbnail still render fails | Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions`. |
+| Thumbnail composition fails lint | Fix `compositions/thumbnail.html`. Remove any AI image references and external URL fetches. Verify `data-composition-id="thumbnail"`. |
+| Thumbnail render fails | Check logs in `videos/<title>/logs/step-13.log`. Ensure `compositions/thumbnail.html` exists and passes `npx hyperframes compositions --json`. |
 | `complete --step N` refused | Earlier steps incomplete — pass `--force` only if you understand the gap will be flagged by `audit`/`doctor`. |
 
 State forensics: each step's `pipeline_state.json` entry carries `attempts`,
@@ -791,10 +847,10 @@ calls `continue`) or `python3 pipeline.py continue <title>` to resume:
 Each video tracks progress in `pipeline_state.json`:
 - Steps 1-4: creative input required (topic, research, script, voiceover text)
 - Steps 5-6: automated (TTS generation [idempotent], duration measurement)
-- Steps 7-8: creative input required (style definition, Remotion coding)
+- Steps 7-8: creative input required (style definition, HyperFrames composition authoring)
 - Steps 9-10: automated (resumable scene rendering, atomic stitching)
 - Steps 11-12: creative input required (metadata, thumbnail composition)
-- Step 13: automated (thumbnail still render, idempotent via versioning)
+- Step 13: automated (thumbnail render, idempotent via versioning)
 
 ## Directory Structure
 
@@ -809,21 +865,22 @@ videos/{video-title}/
 ├── scenes.json          # Structured scene data (durations, status, files, hashes, visual_notes)
 ├── pipeline_state.json  # Pipeline progress (per-step attempts + last_error)
 ├── voiceover_aligned.mp3  # Concatenated voiceover (created by assemble.py)
-├── remotion/            # Remotion project (scaffolded per video)
-│   ├── PLAN.md          # Rebuild plan before coding (Step 8)
-│   ├── src/
-│   │   ├── Root.tsx     # Compositions: MainVideo + Thumbnail
-│   │   ├── components/
-│   │   │   ├── MainVideo.tsx    # Sequence-based scene loader (imports SCENE_MAP)
-│   │   │   └── Thumbnail.tsx    # Thumbnail composition (written in Phase 4)
-│   │   ├── lib/
-│   │   │   ├── types.ts
-│   │   │   ├── config.ts
-│   │   │   └── styles.ts
-│   │   └── scenes/
-│   │       ├── SceneMap.generated.ts   # auto-generated in Step 9 — do NOT edit
-│   │       └── SceneXX.tsx
-│   └── public/
+├── hyperframes/         # HyperFrames project (scaffolded per video)
+│   ├── index.html       # Root composition (aggregates per-scene sub-comps via data-composition-src)
+│   ├── PLAN.md          # Authoring plan before writing scenes (Step 8)
+│   ├── compositions/
+│   │   ├── scene-01.html          # One per scene (agent authors in Step 8)
+│   │   ├── scene-02.html
+│   │   ├── ...
+│   │   ├── scene-NN.html.example  # Scaffold template (do NOT render — copy to scene-NN.html first)
+│   │   ├── thumbnail.html         # Phase 4 thumbnail composition (filled in Step 12)
+│   │   └── components/            # Optional: blocks installed via `npx hyperframes add`
+│   ├── styles/
+│   │   └── tokens.css             # palette + font tokens (mirrors STYLES.md)
+│   ├── assets/                    # local images / b-roll / non-voiceover audio
+│   ├── hyperframes.json           # registry config for `npx hyperframes add`
+│   ├── package.json               # pinned hyperframes CLI scripts (lint, check, render, dev)
+│   └── meta.json                  # project id + scaffold timestamp
 ├── voiceover/           # Generated .mp3 files
 ├── scenes/              # Rendered .mp4 scene files (silent video)
 ├── logs/                # Per-step + per-scene append-only logs
