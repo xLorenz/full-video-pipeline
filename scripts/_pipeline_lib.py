@@ -221,7 +221,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
       {voiceover.voice}  — any dotted config path under the loaded config
       {voiceover.rate}, {voiceover.volume}, {voiceover.pitch}, {voiceover.concurrency}
       {video.fps}, {video.width}, {video.height}, etc.
-      {render.crf}, {render.gl_backend}, etc.
+      {render.crf}, {render.quality}, {render.workers}, {render.timeout_ms}, etc.
 
     Unknown {dotted.path} markers resolve by walking the loaded config dict;
     missing leaves render as empty string (with a warning to stderr).
