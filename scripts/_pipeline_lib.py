@@ -120,14 +120,13 @@ _DEFAULT_SKILLS_SOURCES = [
         },
     },
     {
-        "name": "remotion-best-practices",
-        "path": "skills/remotion-best-practices/skills/remotion",
+        "name": "hyperframes",
+        "path": "skills/hyperframes/skills",
         "phases": {
-            "3": ["SKILL.md",
-                  "rules/video-layout.md", "rules/calculate-metadata.md",
-                  "rules/transitions.md", "rules/sequencing.md",
-                  "rules/compositions.md", "rules/effects.md",
-                  "rules/voiceover.md"],
+            "3": ["hyperframes-core/SKILL.md",
+                  "hyperframes-animation/SKILL.md",
+                  "hyperframes-keyframes/SKILL.md",
+                  "hyperframes-registry/SKILL.md"],
         },
     },
 ]
