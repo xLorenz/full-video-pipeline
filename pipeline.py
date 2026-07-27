@@ -794,7 +794,7 @@ def run_step_13(title, vdir):
     """Thumbnail rendering via render_thumbnail.py. Idempotent — skips if already rendered."""
     print("--- Running Step 13: Thumbnail Rendering ---")
 
-    # Run lint gate to ensure Thumbnail.tsx compiles + composition is registered
+    # Run lint gate to ensure thumbnail.html compiles + composition is registered
     ok, msg = lint_gate(title, vdir)
     if not ok:
         print(f"  LINT GATE FAILED: {msg}")

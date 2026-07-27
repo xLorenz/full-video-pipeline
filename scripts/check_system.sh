@@ -130,14 +130,14 @@ fi
 
 echo ""
 
-# 5. Check Chrome/Chromium (needed by Remotion)
+# 5. Check Chrome/Chromium (needed by HyperFrames for headless render)
 echo "--- Browser ---"
 if command -v chromium-browser &> /dev/null || command -v chromium &> /dev/null || command -v google-chrome &> /dev/null; then
     echo "OK: Chrome/Chromium found"
-elif npx remotion browser ensure 2>/dev/null; then
-    echo "OK: Remotion browser available"
+elif command -v chrome-headless-shell &> /dev/null; then
+    echo "OK: chrome-headless-shell found"
 else
-    echo "WARN: No browser found. Remotion will download one on first render."
+    echo "WARN: No browser found. HyperFrames will download chrome-headless-shell on first render."
 fi
 
 echo ""

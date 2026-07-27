@@ -4,16 +4,16 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 
 ## What It Does
 
-4 phases (13 internal steps) take a topic idea and produce a fully rendered YouTube video with voiceover, visuals, audio, title/description/tags, and a Remotion-rendered thumbnail.
+4 phases (13 internal steps) take a topic idea and produce a fully rendered YouTube video with voiceover, visuals, audio, title/description/tags, and a HyperFrames-rendered thumbnail.
 
 | Phase | Steps | Agent produces | Auto-runs after `complete` |
 |-------|-------|----------------|-----------------------------|
 | **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
 | **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel), Step 6 (ffprobe duration measurement) |
-| **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
-| **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
+| **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + HyperFrames project (`PLAN.md`, `index.html`, `compositions/scene-NN.html`, `styles/tokens.css`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
+| **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `compositions/thumbnail.html` (pure HTML/CSS/GSAP, no AI images) | Step 13 (`npx hyperframes render` + ffmpeg PNG extract → versioned PNG) |
 
-The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, Remotion coding, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
+The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, HyperFrames composition authoring, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
 
 ## Optional: Captions
 
@@ -21,7 +21,7 @@ The orchestrator advances state one step at a time internally; the SKILL.md pres
 python3 pipeline.py captions <title>
 ```
 
-Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene `captions` cues in `scenes.json`. To burn captions into the video, set `video.burn_captions: true` in `pipeline_config.json` — the scaffolded Remotion project will then render a `<Captions>` layer from the scene cues. Off by default (preserves render performance).
+Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene `captions` cues in `scenes.json`. To burn captions into the video, set `video.burn_captions: true` in `pipeline_config.json` — the scaffolded `compositions/scene-NN.html.example` ships a gated `#scene-captions` div that you wire up per scene. Off by default (preserves render performance).
 
 ## Requirements
 
@@ -54,8 +54,8 @@ python3 pipeline.py --config /path/to/custom.json run "my-video-topic"
 # RECOMMENDED: one-shot scaffold + advance (resume-safe — re-run to continue)
 python3 pipeline.py run "my-video-topic"
 
-# After each creative phase (producing SCRIPT.md, VOICEOVER.md, STYLES.md+remotion/,
-# TITLE/DESCRIPTION/TAGS+Thumbnail.tsx), validate + auto-run the next automated steps:
+# After each creative phase (producing SCRIPT.md, VOICEOVER.md, STYLES.md+hyperframes/,
+# TITLE/DESCRIPTION/TAGS+compositions/thumbnail.html), validate + auto-run the next automated steps:
 python3 pipeline.py complete "my-video-topic"
 
 # Continue without auto-chain (runs one step at a time, prints creative briefs):
@@ -97,26 +97,26 @@ full-video-pipeline/
 │   ├── check_system.sh           # Pre-flight resource check
 │   ├── generate_voiceover.py     # edge-tts audio generation (idempotent + parallel)
 │   ├── measure_durations.py      # ffprobe duration measurement
-│   ├── render_scene.py           # Remotion renderer with psutil-based guardrails (Linux)
+│   ├── render_scene.py           # HyperFrames renderer with psutil-based guardrails (Linux)
 │   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
-│   ├── render_thumbnail.py        # Remotion still render for YouTube thumbnail
+│   ├── render_thumbnail.py        # HyperFrames render + ffmpeg PNG extract for YouTube thumbnail
 │   ├── generate_captions.py      # SRT sidecar + per-scene caption cues
-│   ├── publish_animations.py     # Publish templates/animations/ into per-video projects
-│   ├── preview_animations.py     # Render on-demand 3s stubs of every published template
 │   └── requirements.txt          # Python deps
-├── animations/                # Animation template catalog (see animations/README.md)
-│   ├── README.md, CATALOG.md, SCHEMA.md      # Agent-facing manual + field reference
-│   ├── _shared/                             # Reusable TypeScript helpers (theme/timing/layout)
-│   └── <template>/component.tsx + config/    # One folder per template data-driven via DeepConfig
-├── remotion-foundation/          # Template for new Remotion projects
-│   └── src/components/Captions.tsx  # Optional burned-in caption layer
+├── hyperframes-foundation/         # Template for new HyperFrames projects
+│   ├── index.html                  # Root composition (aggregates per-scene sub-comps)
+│   ├── compositions/
+│   │   ├── scene-NN.html.example   # Per-scene sub-composition template
+│   │   └── thumbnail.html         # Phase 4 thumbnail composition stub
+│   ├── styles/tokens.css           # palette + font tokens (single source of truth)
+│   ├── package.json                # pinned hyperframes CLI scripts (dev/lint/check/render)
+│   ├── hyperframes.json            # registry config for `npx hyperframes add`
+│   ├── meta.json, AGENTS.md, .gitignore, assets/.gitkeep
 ├── schemas/
 │   ├── scenes.schema.json
-│   ├── pipeline_state.schema.json
-│   └── animations.schema.json     # Global DeepConfig schema (per-template schemas layer on top)
+│   └── pipeline_state.schema.json
 ├── skills/
 │   ├── claude-youtube/           # Script writing reference (submodule)
-│   └── remotion-best-practices/  # Remotion coding rules (submodule)
+│   └── hyperframes/              # Reserved for HyperFrames skills bundle (not yet populated)
 └── videos/
     └── {video-title}/
         ├── SCRIPT.md             # Full script
@@ -130,15 +130,18 @@ full-video-pipeline/
         ├── logs/                 # Per-step + per-scene append-only logs
         ├── voiceover_aligned.mp3 # Concatenated voiceover (created by assemble.py)
         ├── {title}.srt           # Optional caption sidecar
-        ├── remotion/             # Remotion project (scaffolded per video)
+        ├── hyperframes/                # HyperFrames project (scaffolded per video)
         │   ├── PLAN.md
-        │   ├── src/
-        │   │   ├── Root.tsx
-        │   │   ├── components/MainVideo.tsx
-        │   │   ├── components/Thumbnail.tsx  # Thumbnail composition (Step 12)
-        │   │   ├── lib/{types,config,styles}.ts
-        │   │   └── scenes/
-        │   └── public/
+        │   ├── index.html               # Root composition
+        │   ├── compositions/
+        │   │   ├── scene-01.html        # One per scene (agent authors in Step 8)
+        │   │   ├── ...
+        │   │   ├── scene-NN.html.example
+        │   │   ├── thumbnail.html        # Phase 4 thumbnail (Step 12)
+        │   │   └── components/           # Blocks installed via `npx hyperframes add`
+        │   ├── styles/tokens.css
+        │   ├── assets/
+        │   ├── hyperframes.json, package.json, meta.json
         ├── voiceover/            # Generated .mp3 files
         ├── scenes/               # Rendered .mp4 scene files (silent video)
         └── versions/             # Final stitched .mp4 videos + thumbnail .png
@@ -211,17 +214,15 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "pitch": "+0Hz",
     "concurrency": 3
   },
+  "hyperframes": {
+    "cli_version": "0.7.61"
+  },
   "render": {
     "concurrency": 1,
-    "gl_backend": "swangle",
-    "image_format": "jpeg",
-    "jpeg_quality": 80,
-    "codec": "h264",
-    "x264_preset": "ultrafast",
-    "crf": 28,
-    "disallow_parallel_encoding": true,
     "timeout_ms": 60000,
-    "node_max_old_space_size_mb": 384
+    "quality": "standard",
+    "crf": 28,
+    "workers": 1
   },
   "stitching": {
     "final_codec": "libx264",
@@ -233,7 +234,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "min_available_disk_mb": 500,
     "chrome_kill_between_renders": true,
     "post_render_settle_seconds": 5,
-    "temp_dir": "/tmp/remotion/{title}"
+    "temp_dir": "/tmp/hyperframes/{title}"
   },
   "retention": {
     "keep_versions": 2,
@@ -289,15 +290,15 @@ and calls `continue`) or `python3 pipeline.py continue <title>` to resume:
 The dramatically faster path is `python3 pipeline.py complete <title>` after
 each creative phase — this validates your artifacts, advances state, and
 **auto-runs all consecutive automated steps in a single invocation**
-(Steps 5-6 after Phase 2's voiceover text; Steps 9-10 after Phase 3's Remotion
-code; Step 13 after Phase 4's Thumbnail.tsx), stopping at the next creative
+(Steps 5-6 after Phase 2's voiceover text; Steps 9-10 after Phase 3's HyperFrames
+compositions; Step 13 after Phase 4's thumbnail.html), stopping at the next creative
 phase brief or "All steps complete!". This collapses 8 creative round trips
 into 4.
 
 Each video tracks progress in `pipeline_state.json`:
 - Steps 1-4: creative input required (topic, research, script, voiceover text)
 - Steps 5-6: automated (TTS generation [idempotent], duration measurement)
-- Steps 7-8: creative input required (style definition, Remotion coding)
+- Steps 7-8: creative input required (style definition, HyperFrames composition authoring)
 - Steps 9-10: automated (resumable scene rendering, atomic stitching)
 - Steps 11-12: creative input required (metadata, thumbnail composition)
 - Step 13: automated (thumbnail still render, idempotent via versioning)
