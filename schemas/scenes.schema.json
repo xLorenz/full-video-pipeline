@@ -99,7 +99,7 @@
           },
           "captions": {
             "type": "array",
-            "description": "Per-scene caption cues for the burned-in Remotion layer or for SRT generation.",
+            "description": "Per-scene caption cues for the burned-in HyperFrames #scene-captions layer or for SRT generation.",
             "items": {
               "type": "object",
               "required": ["start", "end", "text"],
