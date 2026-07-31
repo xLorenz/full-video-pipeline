@@ -58,7 +58,7 @@
     "fps": 30,
     "width": 1920,
     "height": 1080,
-    "target_scene_duration_seconds": 5,
+    "target_scene_duration_seconds": 10,
     "burn_captions": false
   },
   "voiceover": {

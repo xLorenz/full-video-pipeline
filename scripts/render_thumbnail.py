@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 """
-render_thumbnail.py — Renders the thumbnail composition (HyperFrames).
+render_thumbnail.py — Render a YouTube thumbnail PNG via HyperFrames render + ffmpeg.
 
-Architecture:
-- HyperFrames v0.7+ renders a composition directly to MP4.
-- The thumbnail is its own standalone composition at compositions/thumbnail.html
-  (agent-authored at Phase 4 Step 12).
-- We render it at 1fps for 1 frame (duration=1s), then extract the first frame as PNG.
+HyperFrames v0.7.61 has no equivalent of `npx remotion still`.  The `snapshot`
+command captures a full-resolution PNG but requires the composition to be mounted
+in `index.html`.  We therefore render a single-frame MP4 of the thumbnail
+composition at `--fps 1` then extract the first PNG via ffmpeg.
 
-Usage:
-    python3 scripts/render_thumbnail.py <video_dir>
+The Remotion equivalent (`npx remotion still src/Root.tsx Thumbnail --frame=N`)
+is replaced by:
+    npx --yes hyperframes@X render
+        --composition compositions/thumbnail.html
+        --output thumb.mp4 --fps 1 --gif-loop 1
+        --variables '{"title":"...","palette":{...}}'
+    ffmpeg -i thumb.mp4 -frames:v 1 thumb.png
+
+Because HyperFrames requires that any --composition file be mounted from
+`index.html` via `data-composition-src`, `run_step_9` already injected a
+`thumbnail` composition mount into `index.html` at scaffold time.  This script
+reads the title from TITLE.md + palette from STYLES.md, passes them as
+render-time variables, and then uses ffmpeg to extract one PNG from the
+1-frame MP4.
 
 Exit codes:
     0  thumbnail rendered successfully
@@ -21,13 +32,14 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _pipeline_lib as pl  # noqa: E402
+import _pipeline_lib as pl
 
 try:
     import psutil
@@ -37,86 +49,98 @@ except ImportError:
     sys.exit(2)
 
 
-# HyperFrames CLI version. Defaults to the pipeline's pinned version; can be
-# overridden via pipeline_config.json -> `hyperframes.cli_version`.
 def _hf_version(cfg):
+    """Read the pinned HyperFrames CLI version from config (or default)."""
     return (cfg.get("hyperframes", {}) or {}).get(
         "cli_version", "0.7.61"
     )
 
 
-def build_thumbnail_variables(video_dir, scenes_json):
-    """Build the variable context for the thumbnail composition.
+def find_next_thumbnail_version(versions_dir, safe_title):
+    max_version = 0
+    pattern = re.compile(rf"^{re.escape(safe_title)}-thumbnail-v(\d+)\.png$")
+    if versions_dir.exists():
+        for f in versions_dir.iterdir():
+            m = pattern.match(f.name)
+            if m and int(m.group(1)) > max_version:
+                max_version = int(m.group(1))
+    return max_version + 1
 
-    Reads TITLE.md (recommended title) and STYLES.md (palette) and returns a
-    dict that's serialized to JSON and passed to HyperFrames via
-    --variables-file.  The composition reads it at runtime via
-    window.__hyperframes.getVariables().
-    """
-    title_text = ""
-    title_md = video_dir / "TITLE.md"
-    if title_md.exists():
-        content = title_md.read_text(encoding="utf-8")
-        for line in content.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("1.") or line.startswith("2.") or line.startswith("3."):
-                m = re.search(r"\*\*(.+?)\*\*", line)
-                if m:
-                    title_text = m.group(1).strip()
-                    break
-                stripped = line.lstrip("0123456789. ").strip()
-                if stripped:
-                    title_text = stripped
-                    break
-            else:
-                title_text = line
-                break
-    if not title_text:
-        with open(scenes_json, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        title_text = data.get("video_title", "Untitled Video")
 
-    # Read palette via regex so we don't raise IndexError on missing '#'.
+def read_title_md(video_dir):
+    """Read TITLE.md and extract the recommended/hybrid title."""
+    title_md = Path(video_dir) / "TITLE.md"
+    if not title_md.exists():
+        return None
+    text = title_md.read_text(encoding="utf-8")
+    for line in text.split("\n"):
+        if "Hybrid" in line and "|" in line:
+            parts = [p.strip() for p in line.split("|") if p.strip()]
+            if len(parts) >= 2:
+                return parts[1]
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped and not stripped.startswith("|") and not stripped.startswith("#") and len(stripped) > 10:
+            return stripped
+    return None
+
+
+def read_styles_md(video_dir):
+    """Read STYLES.md and extract palette colors as a dict."""
+    styles_md = Path(video_dir) / "STYLES.md"
     palette = {}
-    styles_md = video_dir / "STYLES.md"
-    if styles_md.exists():
-        content = styles_md.read_text(encoding="utf-8")
-        for key in ("primary", "secondary", "accent", "background", "text"):
-            m = re.search(
-                rf"{key}:\s*#?([0-9A-Fa-f]{{6}})\b",
-                content,
-                flags=re.IGNORECASE,
-            )
+    if not styles_md.exists():
+        return palette
+    text = styles_md.read_text(encoding="utf-8")
+    color_map = {
+        "primary": ["Primary", "primary"],
+        "secondary": ["Secondary", "secondary"],
+        "accent": ["Accent", "accent"],
+        "background": ["Background", "background"],
+        "text": ["Text", "text"],
+    }
+    for key, labels in color_map.items():
+        for label in labels:
+            m = re.search(rf"{re.escape(label)}:\s*#([0-9A-Fa-f]{{6}})", text)
             if m:
                 palette[key] = f"#{m.group(1)}"
+                break
+    return palette
+
+
+def build_thumbnail_variables(video_dir, scenes_json):
+    """Build variables dict for `--variables` passed to render.
+
+    The thumbnail composition reads these at runtime via
+    `window.__hyperframes.getVariables()`. Variables come from the same
+    TITLE.md + STYLES.md + scenes.json sources the Remotion version used.
+    """
+    with open(scenes_json, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    title = read_title_md(video_dir)
+    if not title:
+        title = data.get("video_title", "Video Title")
+
+    palette = read_styles_md(video_dir)
+    if not palette:
+        palette = {
+            "primary": "#0F1B2D",
+            "secondary": "#00BFA6",
+            "accent": "#FFB300",
+            "background": "#0A1220",
+            "text": "#FFFFFF",
+        }
 
     return {
-        "title": title_text[:60],
+        "title": title,
         "subtitle": "",
         "palette": palette,
     }
 
 
-def find_next_thumbnail_version(versions_dir, safe_title):
-    """Find the next version number for thumbnail output."""
-    existing = list(versions_dir.glob(f"{safe_title}-thumbnail-v*.png"))
-    if not existing:
-        return 1
-    max_v = 0
-    for f in existing:
-        try:
-            v = int(f.stem.split("-v")[-1])
-            if v > max_v:
-                max_v = v
-        except ValueError:
-            pass
-    return max_v + 1
-
-
 def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print("Usage: python3 scripts/render_thumbnail.py <video_dir>", file=sys.stderr)
         sys.exit(2)
 
@@ -207,11 +231,14 @@ def main():
     print(f"Title: {title}...")
     print(f"FPS: 1 (single-frame MP4)")
 
-    # Render the THUMBNAIL COMPOSITION directly (not index.html).
-    # This avoids rendering the full 131s video just to grab frame 0.
+    # Render a single-frame MP4 for the thumbnail composition.
+    # HyperFrames requires sub-compositions to be mounted in index.html
+    # via data-composition-src.  The scaffold's index.html always mounts
+    # the thumbnail composition at `data-track-index="0"`.
+    # We render the root and the 1-frame render isolates the thumb comp.
     render_cmd = (
         f"npx --yes hyperframes@{hf_version} render"
-        f" --composition \"{thumbnail_composition.relative_to(hyperframes_dir)}\""
+        " --composition index.html"
         f" --output \"{tmp_mp4}\""
         f" --variables-file \"{vars_path}\""
         " --fps 1"
@@ -233,11 +260,12 @@ def main():
         sys.exit(1)
 
     # Extract the first frame as a PNG via ffmpeg
-    extract_cmd = f"ffmpeg -i \"{tmp_mp4}\" -frames:v 1 -update 1 \"{output_file}\""
+    extract_cmd = f"ffmpeg -i \"{tmp_mp4}\" -frames:v 1 \"{output_file}\""
     with open(log_file, "a", encoding="utf-8") as logf:
         logf.write(f"$ {extract_cmd}\n")
 
     extract_result = pl.run_cmd(extract_cmd, check=False, logpath=log_file)
+    # Clean up the temp MP4
     tmp_mp4.unlink(missing_ok=True)
 
     if extract_result.returncode != 0 or not output_file.exists():
@@ -258,7 +286,7 @@ def main():
     keep_v = ren.get("keep_versions", 2)
     to_prune = pl.find_versions_to_prune(
         versions_dir, safe_title,
-        rf'{safe_title}-thumbnail-v(\d+)\.png', keep_v)
+        r'{title}-thumbnail-v(\d+)\.png', keep_v)
     for old in to_prune:
         old.unlink(missing_ok=True)
         print(f"  Pruned old thumbnail version: {old.name}")
