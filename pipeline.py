@@ -833,15 +833,14 @@ def validate_project(title):
 
 
 def _clean_after_step_13(vdir):
-    """Remove hyperframes/node_modules after final step completes."""
+    """Remove remotion/node_modules after final step completes."""
     cfg = load_pipeline_config()
     ren = cfg.get("retention", {})
     if ren.get("clean_remotion_node_modules_after_step_13", True):
-        nm_dir = vdir / "hyperframes" / "node_modules"
+        nm_dir = vdir / "remotion" / "node_modules"
         if nm_dir.exists():
-            sz = sum(f.stat().st_size for f in nm_dir.rglob("*") if f.is_file())
             shutil.rmtree(nm_dir, ignore_errors=True)
-            print(f"  Cleaned: hyperframes/node_modules/ ({sz/1024/1024:.1f} MB)")
+            print(f"  Cleaned: remotion/node_modules/")
 
 
 def _clean_after_assemble(vdir):
@@ -1159,7 +1158,7 @@ def cmd_audit(args):
 def cmd_doctor(args):
     title = sanitize_title(args.title)
     vdir = video_dir(title)
-    hdir = vdir / "hyperframes"
+    rdir = vdir / "remotion"
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
@@ -1186,35 +1185,25 @@ def cmd_doctor(args):
         print("  SKIP: scripts/check_system.sh not found")
         print("  RECOMMENDED: run on Linux or WSL for full system diagnostics.")
 
-    # 2. HyperFrames CLI version + environment diagnostics
-    print("\n=== 2. HyperFrames diagnostics ===")
-    if hdir.is_dir():
-        # Use hyperframes doctor --json to get structured diagnostics.
-        # This reports CLI version + Node.js + ffmpeg + Chrome + Docker availability.
+    # 2. Remotion version drift
+    print("\n=== 2. Remotion version check ===")
+    if (rdir / "package.json").exists():
         r = subprocess.run(
-            "npx hyperframes doctor --json",
-            capture_output=True, text=True, timeout=60, cwd=hdir, shell=True,
+            "npx remotion versions",
+            capture_output=True, text=True, timeout=60, cwd=rdir, shell=True,
         )
         if r.returncode == 0 and r.stdout:
-            try:
-                import json as _json
-                diag = _json.loads(r.stdout)
-                ok = diag.get("ok", False)
-                for k in ("version", "node", "ffmpeg", "chrome", "docker"):
-                    v = diag.get(k)
-                    if v is not None:
-                        print(f"  {k}: {v}")
-                if not ok:
-                    all_ok = False
-                    print("  FAIL: HyperFrames environment not OK."
-                          "  Run npx hyperframes doctor for details.")
-            except Exception:
-                print(r.stdout)
+            print(r.stdout)
+            if "ERROR" in r.stdout or "warning" in r.stdout.lower():
+                all_ok = False
+                print("  RECOMMENDED: run npx remotion versions to identify drift,"
+                      " then align versions in remotion-foundation/package.json")
         else:
             all_ok = False
-            print(f"  FAIL: npx hyperframes doctor failed (exit {r.returncode})")
+            print(f"  FAIL: npx remotion versions failed (exit {r.returncode})")
+            print("  RECOMMENDED: ensure npm install has been run in the repo root")
     else:
-        print("  SKIP: no hyperframes/ project yet (step 8 not complete)")
+        print("  SKIP: no remotion project yet (step 8 not complete)")
 
     # 3. Schema validation via validate.py
     print("\n=== 3. Schema validation ===")
@@ -1226,6 +1215,48 @@ def cmd_doctor(args):
     if p.returncode != 0:
         all_ok = False
         print("  RECOMMENDED: fix schema violations shown above.")
+
+    # 4. Bug-pattern checks against the source scripts
+    print("\n=== 4. Source bug-pattern checks ===")
+
+    assemble_path = REPO_ROOT / "scripts" / "assemble.py"
+    thumbnail_path = REPO_ROOT / "scripts" / "render_thumbnail.py"
+
+    if assemble_path.exists():
+        assemble_text = assemble_path.read_text(encoding="utf-8")
+        # 4a. -map flags present in final mux
+        if "-map 0:v:0 -map 1:a:0" in assemble_text:
+            print("  [OK] assemble.py: -map flags present in final mux")
+        else:
+            all_ok = False
+            print("  [FAIL] assemble.py: missing -map 0:v:0 -map 1:a:0 in final mux")
+            print("  RECOMMENDED: add '-map 0:v:0 -map 1:a:0' to the final ffmpeg command"
+                  " after the two -i flags and before -c:v copy")
+        # 4b. atomic_replace_temp -f injection
+        if "-f {fmt}" in assemble_text or "'-f {fmt}'" in assemble_text:
+            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
+        elif "-f mp4" in assemble_text and "-f mp3" in assemble_text:
+            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
+        else:
+            all_ok = False
+            print("  [FAIL] assemble.py: atomic_replace_temp missing -f <ext> injection")
+            print("  RECOMMENDED: rewrite atomic_replace_temp to inject"
+                  " -f {fmt} before the temp output path regardless of codec flags")
+    else:
+        print("  SKIP: scripts/assemble.py not found")
+
+    if thumbnail_path.exists():
+        thumb_text = thumbnail_path.read_text(encoding="utf-8")
+        # 4c. Non-zero frame
+        if "--frame=0" not in thumb_text:
+            print("  [OK] render_thumbnail.py: does not use --frame=0")
+        else:
+            all_ok = False
+            print("  [FAIL] render_thumbnail.py: uses --frame=0")
+            print("  RECOMMENDED: query composition metadata with"
+                  " npx remotion compositions --json and render at durationInFrames-1 instead")
+    else:
+        print("  SKIP: scripts/render_thumbnail.py not found")
 
     # Summary
     print(f"\n=== Doctor summary ===")
@@ -1295,14 +1326,13 @@ def cmd_clean(args):
         freed += sz
         print(f"  Pruned: {old.name} ({sz/1024/1024:.1f} MB)")
 
-    # 5. hyperframes/node_modules/ (if present — HyperFrames projects rarely
-    #    have a node_modules tree, but `npm install` may create one for IDE)
-    nm_dir = vdir / "hyperframes" / "node_modules"
+    # 5. remotion/node_modules/
+    nm_dir = vdir / "remotion" / "node_modules"
     if nm_dir.exists():
         sz = sum(f.stat().st_size for f in nm_dir.rglob("*") if f.is_file())
         shutil.rmtree(nm_dir, ignore_errors=True)
         freed += sz
-        print(f"  Removed: hyperframes/node_modules/ ({sz/1024/1024:.1f} MB)")
+        print(f"  Removed: remotion/node_modules/ ({sz/1024/1024:.1f} MB)")
 
     # 6. .preview/
     preview_dir = vdir / ".preview"
@@ -1322,14 +1352,14 @@ def cmd_clean(args):
                 freed += sz
                 print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
 
-    # 8. Reap HyperFrames temp dir (per-video — title substitution)
-    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/hyperframes/{title}")
+    # 8. Reap Remotion TMPDIR (per-video — title substitution)
+    tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion/{title}")
     tdir = Path(tmpdir.replace("{title}", title))
     if tdir.exists():
         sz = sum(f.stat().st_size for f in tdir.rglob("*") if f.is_file())
         shutil.rmtree(tdir, ignore_errors=True)
         freed += sz
-        print(f"  Reaped: temp dir ({sz/1024/1024:.1f} MB)")
+        print(f"  Reaped: Remotion TMPDIR ({sz/1024/1024:.1f} MB)")
 
     # 9. Rotate logs
     log_dir = vdir / "logs"
@@ -1355,9 +1385,9 @@ def cmd_preview(args):
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
-    hdir = vdir / "hyperframes"
-    if not hdir.is_dir():
-        print(f"ERROR: {hdir} not found (run steps 7-8 first)")
+    rdir = vdir / "remotion"
+    if not (rdir / "package.json").exists():
+        print(f"ERROR: {rdir}/package.json not found (run step 8 first)")
         sys.exit(2)
 
     # Lint gate before previewing
@@ -1368,30 +1398,41 @@ def cmd_preview(args):
 
     cfg = load_pipeline_config()
     r = cfg.get("render", {})
+    node_max_old = r.get("node_max_old_space_size_mb", 384)
+    gl_backend = r.get("gl_backend", "swangle")
     timeout_ms = r.get("timeout_ms", 60000)
-    q = "draft"  # low quality for a smoke render
+
+    import os as _os
+    _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     out_dir = vdir / ".preview"
     out_dir.mkdir(exist_ok=True)
     out_file = out_dir / "preview-scene-01.mp4"
 
-    # Render the first scene composition at draft quality.
-    # HyperFrames v0.7.61 has no `--frames=N-M` flag, so the entire
-    # composition is rendered.  draft quality keeps it fast.
-    scene_comp = hdir / "compositions" / "scene-01.html"
-    if not scene_comp.exists():
-        print("ERROR: compositions/scene-01.html not found (run step 8 first)")
+    # Render only the first 20 frames (≤ ~0.7s) at low quality as a smoke render.
+    scenes = load_scenes(title)
+    if not scenes:
+        print("ERROR: no scenes in scenes.json")
         sys.exit(2)
+    first = scenes[0]
+    if not first.get("actual_duration_frames"):
+        print("ERROR: scene 1 missing actual_duration_frames (run step 6 first)")
+        sys.exit(2)
+    frame_end = min(20, first["actual_duration_frames"])
 
-    print(f"Previewing scene 1 (draft quality) -> {out_file}")
+    print(f"Previewing scene 1, frames 0-{frame_end} -> {out_file}")
     cmd = (
-        f"npx hyperframes render"
-        f" --composition compositions/scene-01.html"
-        f" --output \"{out_file}\""
-        f" --quality {q}"
-        f" --workers 1"
+        f"npx remotion render src/Root.tsx MainVideo \"{out_file}\" "
+        f"--frames=0-{frame_end} "
+        f"--concurrency 1 "
+        f"--gl={gl_backend} "
+        f"--image-format jpeg --jpeg-quality 60 "
+        f"--codec h264 --x264-preset ultrafast --crf 35 "
+        f"--disallow-parallel-encoding "
+        f"--timeout {timeout_ms} "
+        f"--overwrite --log=warn"
     )
-    r1 = run_cmd(cmd, cwd=hdir, check=False,
+    r1 = run_cmd(cmd, cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id="preview"))
     if r1.returncode != 0 or not out_file.exists():
         print("PREVIEW FAILED")
@@ -1400,6 +1441,7 @@ def cmd_preview(args):
     print("  Copy/SCP out and play locally to verify visual correctness.")
 
     # Clean preview dir after successful render
+    cfg = load_pipeline_config()
     ren = cfg.get("retention", {})
     if ren.get("clean_preview_after_success", True):
         shutil.rmtree(out_dir, ignore_errors=True)
