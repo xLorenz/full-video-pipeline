@@ -1,31 +1,12 @@
 #!/usr/bin/env python3
 """
-render_scene.py — Renders a single HyperFrames scene with hardware guardrails.
+render_scene.py — Renders a single Remotion scene with hardware guardrails.
 
-Linux-first. Uses psutil for RAM/disk checks. Same resumable + non-fatal
-contract as the prior Remotion version: on per-scene failure, records
-render_status="failed", render_attempts += 1, last_render_error=<msg>, then
-continues (does NOT abort the whole batch — the orchestrator run_step_9
-catches this).
+Replaces render_scene.sh. Linux-only. Uses psutil for RAM/disk checks.
 
-Architecture change vs Remotion version:
-- The Remotion codepath rendered `src/Root.tsx MainVideo` with
-  `--frames=<start>-<end>` to slice a single composition per scene.
-- HyperFrames has no per-frame-range render flag — every composition is
-  rendered whole. So each scene has its own composition HTML file
-  (`compositions/scene-NN.html`) and is rendered independently:
-    npx --yes hyperframes@X render \
-        -c compositions/scene-NN.html \
-        --output scenes/scene-NN.mp4 \
-        --fps <fps> --crf <crf> --workers <concurrency> \
-        --protocol-timeout <ms>
-- Per-scene variables (title, subtitle, palette, captions, showCaptions,
-  durationInFrames) are passed via `--variables-file` and read inside the
-  composition via `window.__hyperframes.getVariables()`.
-- Voiceover is NOT baked into the rendered scene MP4. Compositions must not
-  include `<audio src=".../voiceover/...">` for the voiceover track —
-  `scripts/assemble.py` muxes `voiceover_aligned.mp3` onto the concatenated
-  scene MP4s in a single ffmpeg pass (unchanged audio path).
+Resumable & non-fatal: on per-scene failure, records render_status="failed",
+render_attempts += 1, last_render_error=<msg>, then continues (does NOT abort
+the whole batch — the orchestrator run_step_9 catches this).
 
 Usage:
     python3 scripts/render_scene.py <video_dir> <scene_id>
@@ -41,7 +22,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -56,31 +36,18 @@ except ImportError:
     sys.exit(2)
 
 
-# HyperFrames CLI version. Defaults to the pipeline's pinned version; can be
-# overridden via pipeline_config.json -> `hyperframes.cli_version`.
-def _hf_version(cfg):
-    return (cfg.get("hyperframes", {}) or {}).get(
-        "cli_version", "0.7.61"
-    )
-
-
 def kill_orphaned_chrome():
-    """Kill chrome-headless-shell / chrome processes whose parent is no longer
-    alive, regardless of which renderer (Remotion or HyperFrames or anything
-    else) spawned them.
+    """Kill chrome-headless-shell processes whose parent is no longer alive.
 
-    Mirrors the smart orphan logic from the previous render_scene.sh / .py:
-    avoids killing Chrome whose parent node process is still running.
+    Mirrors the smart orphan logic from the previous render_scene.sh — avoids
+    killing Chrome whose parent node/remotion process is still running.
     """
     orphans = []
     for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline"]):
         try:
             info = proc.info
             cmdline = " ".join(info.get("cmdline") or [])
-            # HyperFrames uses the same chrome-headless-shell binary as Remotion
-            # did (both bundle Puppeteer's recommended headless build). We also
-            # catch a generic "headless" name to be safe across versions.
-            if "chrome-headless-shell" not in cmdline and "headless" not in (info.get("name") or ""):
+            if "chrome-headless-shell" not in cmdline:
                 continue
             ppid = info.get("ppid")
             parent_alive = False
@@ -88,10 +55,7 @@ def kill_orphaned_chrome():
                 try:
                     parent = psutil.Process(ppid)
                     parent_cmd = " ".join(parent.cmdline() or [])
-                    # Parent of an active render is typically node (npx) or
-                    # bun (HyperFrames can run under either). Don't kill if
-                    # the parent looks like a live renderer host.
-                    parent_alive = "node" in parent_cmd or "bun" in parent_cmd or "hyperframes" in parent_cmd
+                    parent_alive = "node" in parent_cmd or "remotion" in parent_cmd
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     parent_alive = False
             if not parent_alive:
@@ -132,17 +96,9 @@ def check_disk(path, min_mb=500):
     return True
 
 
-def build_variables_file(scenes_json_path: Path, target_id: int,
-                          props_path: Path, burn_captions: bool,
-                          palette: dict):
-    """Write a JSON variables file for `hyperframes render --variables-file`.
-
-    The composition reads these via `window.__hyperframes.getVariables()`.
-    Returns the scene's actual_duration_seconds — used to override
-    `data-duration` on the composition root automatically (we don't write
-    the duration back to the HTML, but the renderer uses it as a fallback if
-    the body's `data-duration` placeholder hasn't been updated by the agent).
-    """
+def build_props_json(scenes_json_path: Path, target_id: int, props_path: Path,
+                     burn_captions: bool):
+    """Build the props JSON for Remotion and return (frame_start, frame_end)."""
     with open(scenes_json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     scenes = data.get("scenes", [])
@@ -152,46 +108,41 @@ def build_variables_file(scenes_json_path: Path, target_id: int,
         print(f"ERROR: Scene {target_id} not found in scenes.json", file=sys.stderr)
         sys.exit(2)
 
-    target = matches[0]
-    # Use seconds (HyperFrames data-duration is in seconds — float OK).
-    # The Remotion version required actual_duration_frames; we keep that as
-    # an optional fallback but prefer actual_duration_seconds if present.
-    duration_sec = target.get("actual_duration_seconds")
-    if duration_sec is None:
-        duration_frames = target.get("actual_duration_frames")
-        if duration_frames is None:
-            print(f"ERROR: Scene {target_id} missing actual_duration_seconds "
-                  f"and actual_duration_frames (run step 6 first)",
-                  file=sys.stderr)
-            sys.exit(2)
-        fps = data.get("fps", 30)
-        duration_sec = duration_frames / fps
+    missing = [s["id"] for s in scenes if s.get("actual_duration_frames") is None]
+    if missing:
+        print(f"ERROR: Scenes {missing} missing actual_duration_frames (run step 6 first)",
+              file=sys.stderr)
+        sys.exit(2)
 
-    captions = target.get("captions") or []
-
-    variables = {
-        # Identity
-        "title": target.get("title", ""),
-        "subtitle": target.get("subtitle", ""),
-        # Timing override (float seconds). The composition's data-duration
-        # placeholder is updated by the agent at Phase 3 — but if they forget,
-        # the variable is the authoritative source.
-        "duration": float(duration_sec),
-        # Per-scene captions layer
-        "captions": captions,
-        "showCaptions": bool(burn_captions and captions),
-        # Palette + fps pass-through (compositions read via getVariables())
+    props_scenes = []
+    for s in scenes:
+        captions = s.get("captions") or []
+        props_scenes.append({
+            "id": s["id"],
+            "title": s.get("title", ""),
+            "durationInFrames": s["actual_duration_frames"],
+            # NOTE: audioFile intentionally NOT used by Remotion for playback.
+            # Audio is muxed at stitch time. Strip the file reference here to
+            # discourage scene components from using it; keep an empty string
+            # for backward compatibility with old SceneXX.tsx that reads props.
+            "audioFile": "",
+            "captions": captions,
+            "showCaptions": burn_captions and bool(captions),
+        })
+    props = {
+        "scenes": props_scenes,
         "fps": data.get("fps", 30),
         "width": data.get("width", 1920),
         "height": data.get("height", 1080),
-        "palette": palette,
-        # The whole scene's neighbour ids/etc could be added here if a future
-        # composition needs cross-scene context (transitions, durations,
-        # overlap detection). For now, scope is just this scene.
+        "burnCaptions": burn_captions,
     }
     with open(props_path, "w", encoding="utf-8") as f:
-        json.dump(variables, f)
-    return float(duration_sec)
+        json.dump(props, f)
+
+    offset = sum(s["actual_duration_frames"]
+                for s in scenes if s["id"] < target_id)
+    duration = matches[0]["actual_duration_frames"]
+    return offset, offset + duration - 1
 
 
 def update_scene_status(video_dir_path: Path, scene_id: int,
@@ -215,15 +166,13 @@ def update_scene_status(video_dir_path: Path, scene_id: int,
 
 
 def _reap_tmpdir(cfg, tmpdir):
-    """Remove the HyperFrames temp dir if retention config allows."""
+    """Remove the Remotion TMPDIR if retention config allows."""
     ren = cfg.get("retention", {})
-    # Backward-compat key name; new config uses reap_hyperframes_tmpdir_after_render.
-    if ren.get("reap_hyperframes_tmpdir_after_render",
-               ren.get("reap_remotion_tmpdir_after_render", True)):
+    if ren.get("reap_remotion_tmpdir_after_render", True):
         tdir = Path(tmpdir)
         if tdir.exists():
             shutil.rmtree(tdir, ignore_errors=True)
-            print(f"  Reaped temp dir: {tmpdir}")
+            print(f"  Reaped Remotion TMPDIR: {tmpdir}")
 
 
 def main():
@@ -235,11 +184,8 @@ def main():
     scene_id = int(sys.argv[2])
     scene_padded = f"{scene_id:02d}"
     scenes_json = video_dir / "scenes.json"
-    hyperframes_dir = video_dir / "hyperframes"
-    scene_composition = hyperframes_dir / "compositions" / f"scene-{scene_padded}.html"
-    scene_composition_rel = Path("compositions") / f"scene-{scene_padded}.html"
+    remotion_dir = video_dir / "remotion"
     output_file = video_dir / "scenes" / f"scene-{scene_padded}.mp4"
-    output_rel = Path("scenes") / f"scene-{scene_padded}.mp4"
 
     if not video_dir.is_dir():
         print(f"ERROR: video directory not found: {video_dir}", file=sys.stderr)
@@ -247,55 +193,36 @@ def main():
     if not scenes_json.exists():
         print(f"ERROR: scenes.json not found: {scenes_json}", file=sys.stderr)
         sys.exit(2)
-    if not hyperframes_dir.is_dir():
-        print(f"ERROR: hyperframes directory not found: {hyperframes_dir}",
-              file=sys.stderr)
-        sys.exit(2)
-    if not scene_composition.exists():
-        print(f"ERROR: scene composition not found: {scene_composition}\n"
-              f"       The agent must author compositions/scene-{scene_padded}.html "
-              f"at Step 8 before this step can render.", file=sys.stderr)
-        update_scene_status(video_dir, scene_id, "failed",
-                            f"Missing scene composition: {scene_composition.name}")
+    if not remotion_dir.is_dir():
+        print(f"ERROR: remotion directory not found: {remotion_dir}", file=sys.stderr)
         sys.exit(2)
 
-    cfg = pl.load_config(video_dir=str(video_dir))
+    cfg = pl.load_config()
     r = cfg.get("render", {})
     s = cfg.get("system", {})
     v = cfg.get("video", {})
-    pal = v.get("palette", {}) or {}
 
-    concurrency       = r.get("concurrency", 1)
-    crf               = r.get("crf", 28)
-    timeout_ms        = r.get("timeout_ms", 60000)
-    # Low-memory mode helps on the constrained box HyperFrames auto-detects
-    # RAM via host memory, not cgroup — on container/cloud boxes we explicitly
-    # pass --low-memory-mode if render.low_memory_mode is true (default auto).
-    low_memory        = r.get("low_memory_mode")  # None = auto-detect
-    # An optional quality preset (draft|standard|high) — kept from the
-    # Remotion codepath: render_scene uses standard by default; `preview`
-    # uses draft. The CLI auto-picks CRF from quality if --crf is omitted;
-    # if both are set, --crf wins.
-    quality_preset    = r.get("quality", "standard")
-
+    concurrency     = r.get("concurrency", 1)
+    gl_backend      = r.get("gl_backend", "swangle")
+    image_format    = r.get("image_format", "jpeg")
+    jpeg_quality    = r.get("jpeg_quality", 80)
+    codec           = r.get("codec", "h264")
+    x264_preset     = r.get("x264_preset", "ultrafast")
+    crf             = r.get("crf", 28)
+    timeout_ms      = r.get("timeout_ms", 60000)
+    node_max_old    = r.get("node_max_old_space_size_mb", 384)
     min_ram_mb      = s.get("min_available_ram_mb", 200)
     min_disk_mb     = s.get("min_available_disk_mb", 500)
-    # Default temp_dir is per-platform; old config uses /tmp/remotion/{title},
-    # new recommended is /tmp/hyperframes/{title} — either is accepted.
-    tmpdir          = s.get("temp_dir", "/tmp/hyperframes/{title}").replace("{title}", video_dir.name)
+    tmpdir          = s.get("temp_dir", "/tmp/remotion/{title}").replace("{title}", video_dir.name)
     post_settle     = s.get("post_render_settle_seconds", 5)
     burn_captions   = v.get("burn_captions", False)
-
-    hf_version = _hf_version(cfg)
 
     log_file = pl.log_path(video_dir.name, 9, scene_id)
 
     print(f"=== Rendering Scene {scene_id} ===")
     print(f"Video dir: {video_dir}")
-    print(f"Composition: {scene_composition_rel}")
     print(f"Output: {output_file}")
     print(f"Temp dir: {tmpdir}")
-    print(f"HyperFrames CLI: {hf_version}")
     print(f"Log: {log_file}")
 
     with open(log_file, "a", encoding="utf-8") as logf:
@@ -310,78 +237,59 @@ def main():
         update_scene_status(video_dir, scene_id, "failed", "Pre-flight disk check failed")
         sys.exit(1)
 
-    # Temp dir setup — HyperFrames reads HYPERFRAMES_EXTRACT_CACHE_DIR for
-    # its content-addressed frame extraction cache (long renders can grow to
-    # multi-GB). TMPDIR is also nice to have so any sub-Chrome processes use
-    # it. We point both at the same per-video scratch directory.
+    # TMPDIR setup
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
     os.environ["TMPDIR"] = tmpdir
-    os.environ["HYPERFRAMES_EXTRACT_CACHE_DIR"] = tmpdir
-    # Disable passive update checks during render — keep logs clean & avoid
-    # network calls during a long batch render.
-    os.environ.setdefault("HYPERFRAMES_NO_UPDATE_CHECK", "1")
-    os.environ.setdefault("HYPERFRAMES_SKIP_SKILLS", "1")
+    os.environ["REMOTION_TMPDIR"] = tmpdir
+    os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Orphan cleanup
     print("\n--- Cleaning up orphaned Chrome processes ---")
     kill_orphaned_chrome()
     time.sleep(2)
 
-    # Build variables file
-    props_fd, props_path = tempfile.mkstemp(
-        suffix=".json", prefix=f"hyperframes-scene{scene_padded}-vars-"
-    )
+    # Build props
+    import tempfile
+    props_fd, props_path = tempfile.mkstemp(suffix=".json", prefix="remotion-props-")
     os.close(props_fd)
     try:
-        duration_sec = build_variables_file(
-            scenes_json, scene_id, Path(props_path), burn_captions, pal
-        )
+        frame_start, frame_end = build_props_json(scenes_json, scene_id,
+                                                  Path(props_path), burn_captions)
     except SystemExit:
-        update_scene_status(video_dir, scene_id, "failed", "Variables build failed")
+        update_scene_status(video_dir, scene_id, "failed", "Props build failed")
         raise
 
-    print(f"\n--- Starting HyperFrames render ---")
-    print(f"Flags: workers={concurrency} crf={crf} quality={quality_preset} "
-          f"protocol_timeout={timeout_ms}ms")
-    print(f"Scene duration: {duration_sec:.3f}s")
+    print(f"\n--- Starting Remotion render ---")
+    print(f"Flags: concurrency={concurrency} gl={gl_backend} codec={codec} "
+          f"crf={crf} preset={x264_preset}")
+    print(f"Frames: {frame_start}-{frame_end}")
 
-    # Honors the failing-on-warning mode of HyperFrames lint: the orchestrator
-    # has already run lint_gate before invoking render_scene.py, so compositions
-    # that reach this point are structurally clean.
-    # HyperFrames v0.7.61 has no --overwrite flag — the CLI overwrites the
-    # output file implicitly if it exists at the destination path. The
-    # --composition value is resolved by the CLI relative to the project dist,
-    # so we pass a relative composition path. --output accepts absolute paths.
     cmd = (
-        f"npx --yes hyperframes@{hf_version} render"
-        f" --composition \"{scene_composition_rel}\""
-        f" --output \"{output_file}\""
-        f" --variables-file \"{props_path}\""
-        f" --crf {crf}"
-        f" --quality {quality_preset}"
-        f" --workers {concurrency}"
-        f" --protocol-timeout {timeout_ms}"
+        f"npx remotion render src/Root.tsx MainVideo \"{output_file}\" "
+        f"--props=\"{props_path}\" "
+        f"--frames={frame_start}-{frame_end} "
+        f"--concurrency {concurrency} "
+        f"--gl={gl_backend} "
+        f"--image-format {image_format} "
+        f"--jpeg-quality {jpeg_quality} "
+        f"--codec {codec} "
+        f"--x264-preset {x264_preset} "
+        f"--crf {crf} "
+        f"--disallow-parallel-encoding "
+        f"--timeout {timeout_ms} "
+        f"--overwrite "
+        f"--bundle-cache "
+        f"--log=warn"
     )
-    if low_memory is True:
-        cmd += " --low-memory-mode"
-    elif low_memory is False:
-        cmd += " --no-low-memory-mode"
-
-    with open(log_file, "a", encoding="utf-8") as logf:
-        logf.write(f"$ {cmd}\n")
 
     start_time = time.time()
-    # subprocess.run captures stderr+stdout to the log file via pl.run_cmd's
-    # logpath argument — same pattern as the Remotion version.
-    result = pl.run_cmd(cmd, cwd=hyperframes_dir, check=False, logpath=log_file)
+    result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
     elapsed = int(time.time() - start_time)
 
-    if props_path and os.path.exists(props_path):
-        os.unlink(props_path)
+    os.unlink(props_path)
 
     if result.returncode != 0:
-        msg = (f"HyperFrames render failed with exit code {result.returncode} "
-               f"after {elapsed}s")
+        msg = f"Remotion render failed with exit code {result.returncode} after {elapsed}s"
         print(f"\nERROR: {msg}")
         update_scene_status(video_dir, scene_id, "failed", msg)
         # Post-render cleanup even on failure
