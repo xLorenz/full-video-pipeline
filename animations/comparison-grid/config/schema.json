@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/comparison-grid.schema.json",
+  "title": "ComparisonGrid instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^cell-[0-5]-[0-5]$"},
+          "text": {"type": ["string", "null"]},
+          "color": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "cols"],
+      "properties": {
+        "rows": {"type": "integer", "minimum": 1, "maximum": 6},
+        "cols": {"type": "integer", "minimum": 1, "maximum": 6},
+        "cells": {
+          "type": "array", "minItems": 0, "maxItems": 36,
+          "items": {"type": "array", "items": {"type": "string"}}
+        },
+        "sequenceOrder": {"type": "string", "enum": ["rowMajor", "diagonal", "spiral"], "default": "rowMajor"},
+        "flipDurationSeconds": {"type": "number", "minimum": 0.2, "maximum": 2, "default": 0.4},
+        "staggerSeconds": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.08},
+        "cellGapPx": {"type": "number", "minimum": 0, "maximum": 80, "default": 16},
+        "cellBackground": {"type": ["string", "null"], "default": null},
+        "cellBorder": {"type": ["string", "null"], "default": null},
+        "cellRadiusPx": {"type": "number", "minimum": 0, "maximum": 60, "default": 16},
+        "cellPaddingPx": {"type": "number", "minimum": 0, "maximum": 200, "default": 28},
+        "flipEasing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+        "headerRow": {"type": "boolean", "default": false}
+      }
+    }
+  }
+}

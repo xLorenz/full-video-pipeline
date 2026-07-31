@@ -1,0 +1,20 @@
+{
+  "instanceId": "before-after-split.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [
+    { "id": "before-label", "text": "Before", "hidden": false },
+    { "id": "after-label",  "text": "After",  "hidden": false }
+  ],
+  "extras": {
+    "direction": "vertical",
+    "sweepDurationSeconds": 1.2,
+    "dividerStyle": "line",
+    "dividerColor": null,
+    "beforeColor": null,
+    "afterColor": null,
+    "dividerWidthPx": 4,
+    "panelPaddingPx": 96,
+    "labelOpacityDuringSweep": 0.6
+  }
+}

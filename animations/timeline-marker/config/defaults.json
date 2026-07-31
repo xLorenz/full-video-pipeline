@@ -1,0 +1,24 @@
+{
+  "instanceId": "timeline-marker.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [],
+  "extras": {
+    "events": [
+      { "label": "1950", "caption": "Start" },
+      { "label": "1975", "caption": "Mid" },
+      { "label": "2000", "caption": "Boom" },
+      { "label": "2025", "caption": "Now" }
+    ],
+    "trackColor": null,
+    "trackHeightPx": 4,
+    "dotColor": null,
+    "dotRadiusPx": 18,
+    "labelColor": null,
+    "markerDropDurationSeconds": 0.6,
+    "staggerSeconds": 0.4,
+    "iconGlyph": "",
+    "foregroundLabel": "",
+    "foregroundLabelColor": null
+  }
+}

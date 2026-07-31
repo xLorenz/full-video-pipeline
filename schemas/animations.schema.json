@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/schemas/animations.schema.json",
+  "title": "Animation Template Instance (DeepConfig)",
+  "description": "Data shape for any animation template instance. Per-template extensions (extras, elements[].custom) are layered on by each template's config/schema.json via $ref to this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "instanceId": { "type": "string" },
+    "theme": { "$ref": "#/definitions/theme" },
+    "global": { "$ref": "#/definitions/global" },
+    "elements": { "type": "array", "items": { "$ref": "#/definitions/element" } },
+    "extras": { "type": "object" }
+  },
+  "definitions": {
+    "hexColor": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+    "easingName": { "type": "string", "enum": ["linear", "ease-in", "ease-out", "ease-in-out", "ease-in-cubic", "ease-out-cubic", "ease-out-quint", "ease-out-expo", "ease-out-back", "ease-in-back"] },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "palette": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "primary": { "$ref": "#/definitions/hexColor" },
+            "secondary": { "$ref": "#/definitions/hexColor" },
+            "accent": { "$ref": "#/definitions/hexColor" },
+            "background": { "$ref": "#/definitions/hexColor" },
+            "text": { "$ref": "#/definitions/hexColor" },
+            "muted": { "$ref": "#/definitions/hexColor" },
+            "danger": { "$ref": "#/definitions/hexColor" },
+            "success": { "$ref": "#/definitions/hexColor" },
+            "gridLine": { "$ref": "#/definitions/hexColor" }
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "heading": { "type": "string" },
+            "body": { "type": "string" },
+            "mono": { "type": "string" }
+          }
+        },
+        "sizes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scale": { "type": "number", "minimum": 0.05, "maximum": 10, "default": 1 }
+          }
+        }
+      }
+    },
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "speed": { "type": "number", "minimum": 0.05, "maximum": 10, "default": 1 },
+        "delayOffset": { "type": "integer", "minimum": -1000, "maximum": 10000, "default": 0 },
+        "easing": { "$ref": "#/definitions/easingName", "default": "ease-out-cubic" }
+      }
+    },
+    "element": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": ["string", "null"] },
+        "delay": { "type": ["number", "null"], "minimum": 0, "maximum": 60000 },
+        "duration": { "type": ["number", "null"], "minimum": 1, "maximum": 60000 },
+        "easing": { "$ref": "#/definitions/easingName" },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": ["number", "null"] },
+            "y": { "type": ["number", "null"] }
+          }
+        },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fontSize": { "type": ["number", "null"], "minimum": 4, "maximum": 1000 },
+            "scale": { "type": ["number", "null"], "minimum": 0.05, "maximum": 20 }
+          }
+        },
+        "color": { "type": ["string", "null"] },
+        "hidden": { "type": "boolean", "default": false },
+        "custom": { "type": "object" }
+      }
+    }
+  }
+}

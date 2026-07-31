@@ -1,0 +1,29 @@
+{
+  "instanceId": "right-wrong-card.defaults",
+  "theme": {},
+  "global": {
+    "speed": 1.0,
+    "delayOffset": 0,
+    "easing": "ease-out-cubic"
+  },
+  "elements": [
+    { "id": "left-label",  "text": "Wrong way",                "delay": 6,  "duration": 14, "color": null, "hidden": false },
+    { "id": "left-body",   "text": "What you've been doing",    "delay": 14, "duration": 12, "color": null, "hidden": false },
+    { "id": "right-label", "text": "Right way",                "delay": 12, "duration": 14, "color": null, "hidden": false },
+    { "id": "right-body",  "text": "What actually works",       "delay": 20, "duration": 12, "color": null, "hidden": false },
+    { "id": "verdict-stamp", "text": "",                        "delay": 48, "duration": 18, "color": null, "hidden": false }
+  ],
+  "extras": {
+    "leftIsWinner": false,
+    "stampStyle": "stamp",
+    "stampGlyph": "",
+    "stampForce": 1.0,
+    "cardPaddingPx": 48,
+    "cardGapPx": 64,
+    "cornerRadiusPx": 24,
+    "bgRgbaAlpha": 0.55,
+    "loserDesaturate": true,
+    "loserShrink": 0.92,
+    "winnerGlowWidthPx": 24
+  }
+}

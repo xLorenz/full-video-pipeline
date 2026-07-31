@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/data-bars.schema.json",
+  "title": "DataBars instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^bar-[0-9]+$"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "color": {"type": ["string", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "labels"],
+      "properties": {
+        "values": {"type": "array", "items": {"type": "number"}, "minItems": 1, "maxItems": 9},
+        "labels": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 9},
+        "countUp": {"type": "boolean", "default": true},
+        "topN": {"type": "integer", "minimum": 1, "maximum": 9, "default": 8},
+        "barHeightPx": {"type": "number", "minimum": 8, "maximum": 200, "default": 48},
+        "barGapPx": {"type": "number", "minimum": 0, "maximum": 80, "default": 12},
+        "barColor": {"type": ["string", "null"], "default": null},
+        "valueFormat": {"type": "string", "enum": ["int", "decimals1", "decimals2", "percent"], "default": "int"},
+        "showValueLabels": {"type": "boolean", "default": true},
+        "lanePaddingPx": {"type": "number", "minimum": 0, "maximum": 800, "default": 120}
+      }
+    }
+  }
+}

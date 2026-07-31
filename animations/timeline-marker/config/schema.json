@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/timeline-marker.schema.json",
+  "title": "TimelineMarker instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^event-[0-9]+$"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events"],
+      "properties": {
+        "events": {
+          "type": "array",
+          "minItems": 1, "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label"],
+            "properties": {
+              "label": {"type": "string", "minLength": 1},
+              "time": {"type": "number"},
+              "icon": {"type": "string", "default": ""},
+              "caption": {"type": "string", "default": ""}
+            }
+          }
+        },
+        "trackColor": {"type": ["string", "null"], "default": null},
+        "trackHeightPx": {"type": "number", "minimum": 1, "maximum": 32, "default": 4},
+        "dotColor": {"type": ["string", "null"], "default": null},
+        "dotRadiusPx": {"type": "number", "minimum": 4, "maximum": 80, "default": 18},
+        "labelColor": {"type": ["string", "null"], "default": null},
+        "markerDropDurationSeconds": {"type": "number", "minimum": 0.2, "maximum": 4, "default": 0.6},
+        "staggerSeconds": {"type": "number", "minimum": 0, "maximum": 6, "default": 0.4},
+        "iconGlyph": {"type": "string", "default": ""},
+        "foregroundLabel": {"type": "string", "default": ""},
+        "foregroundLabelColor": {"type": ["string", "null"], "default": null}
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "instanceId": "comparison-grid.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [],
+  "extras": {
+    "rows": 3,
+    "cols": 3,
+    "cells": [
+      ["Option", "Speed", "Cost"],
+      ["A",      "Fast",  "$$$"],
+      ["B",      "Slow",  "$"]
+    ],
+    "sequenceOrder": "rowMajor",
+    "flipDurationSeconds": 0.4,
+    "staggerSeconds": 0.08,
+    "cellGapPx": 16,
+    "cellBackground": null,
+    "cellBorder": null,
+    "cellRadiusPx": 16,
+    "cellPaddingPx": 28,
+    "flipEasing": "ease-out-back",
+    "headerRow": true
+  }
+}

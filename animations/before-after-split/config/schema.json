@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/before-after-split.schema.json",
+  "title": "BeforeAfterSplit instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "enum": ["before-label", "after-label"]},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": {"type": "string", "enum": ["horizontal", "vertical"], "default": "vertical"},
+        "sweepDurationSeconds": {"type": "number", "minimum": 0.3, "maximum": 8, "default": 1.2},
+        "dividerStyle": {"type": "string", "enum": ["line", "gradient"], "default": "line"},
+        "dividerColor": {"type": ["string", "null"], "default": null},
+        "beforeColor": {"type": ["string", "null"], "default": null},
+        "afterColor": {"type": ["string", "null"], "default": null},
+        "dividerWidthPx": {"type": "number", "minimum": 1, "maximum": 32, "default": 4},
+        "panelPaddingPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 96},
+        "labelOpacityDuringSweep": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.6}
+      }
+    }
+  }
+}
