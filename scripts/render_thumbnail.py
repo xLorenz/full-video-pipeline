@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
 """
-render_thumbnail.py — Render a YouTube thumbnail PNG via HyperFrames render + ffmpeg.
+render_thumbnail.py — Render a YouTube thumbnail PNG via Remotion still.
 
-HyperFrames v0.7.61 has no equivalent of `npx remotion still`.  The `snapshot`
-command captures a full-resolution PNG but requires the composition to be mounted
-in `index.html`.  We therefore render a single-frame MP4 of the thumbnail
-composition at `--fps 1` then extract the first PNG via ffmpeg.
-
-The Remotion equivalent (`npx remotion still src/Root.tsx Thumbnail --frame=N`)
-is replaced by:
-    npx --yes hyperframes@X render
-        --composition compositions/thumbnail.html
-        --output thumb.mp4 --fps 1 --gif-loop 1
-        --variables '{"title":"...","palette":{...}}'
-    ffmpeg -i thumb.mp4 -frames:v 1 thumb.png
-
-Because HyperFrames requires that any --composition file be mounted from
-`index.html` via `data-composition-src`, `run_step_9` already injected a
-`thumbnail` composition mount into `index.html` at scaffold time.  This script
-reads the title from TITLE.md + palette from STYLES.md, passes them as
-render-time variables, and then uses ffmpeg to extract one PNG from the
-1-frame MP4.
+Invokes `npx remotion still src/Root.tsx Thumbnail <output.png>` with props
+derived from the video's title, palette, and style context. Uses versioned
+output (v1, v2, ...) like assemble.py.
 
 Exit codes:
     0  thumbnail rendered successfully
@@ -34,7 +18,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -49,13 +32,6 @@ except ImportError:
     sys.exit(2)
 
 
-def _hf_version(cfg):
-    """Read the pinned HyperFrames CLI version from config (or default)."""
-    return (cfg.get("hyperframes", {}) or {}).get(
-        "cli_version", "0.7.61"
-    )
-
-
 def find_next_thumbnail_version(versions_dir, safe_title):
     max_version = 0
     pattern = re.compile(rf"^{re.escape(safe_title)}-thumbnail-v(\d+)\.png$")
@@ -67,17 +43,40 @@ def find_next_thumbnail_version(versions_dir, safe_title):
     return max_version + 1
 
 
+def get_last_frame(remotion_dir):
+    """Return the last frame index for the Thumbnail composition (durationInFrames-1)."""
+    npx_path = shutil.which("npx") or "npx"
+    result = subprocess.run(
+        [npx_path, "remotion", "compositions", "src/Root.tsx", "--json"],
+        capture_output=True, timeout=60, cwd=remotion_dir,
+    )
+    if result.returncode != 0:
+        return 0
+    try:
+        raw = result.stdout.decode("utf-8", errors="replace").strip()
+        comps = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return 0
+    for comp in comps if isinstance(comps, list) else []:
+        if comp.get("id") == "Thumbnail":
+            dur = comp.get("durationInFrames", 1)
+            return max(0, dur - 1)
+    return 0
+
+
 def read_title_md(video_dir):
     """Read TITLE.md and extract the recommended/hybrid title."""
     title_md = Path(video_dir) / "TITLE.md"
     if not title_md.exists():
         return None
     text = title_md.read_text(encoding="utf-8")
+    # Try to find the hybrid/recommended title first
     for line in text.split("\n"):
         if "Hybrid" in line and "|" in line:
             parts = [p.strip() for p in line.split("|") if p.strip()]
             if len(parts) >= 2:
                 return parts[1]
+    # Fallback: any non-empty line that looks like a title
     for line in text.split("\n"):
         stripped = line.strip()
         if stripped and not stripped.startswith("|") and not stripped.startswith("#") and len(stripped) > 10:
@@ -108,20 +107,17 @@ def read_styles_md(video_dir):
     return palette
 
 
-def build_thumbnail_variables(video_dir, scenes_json):
-    """Build variables dict for `--variables` passed to render.
-
-    The thumbnail composition reads these at runtime via
-    `window.__hyperframes.getVariables()`. Variables come from the same
-    TITLE.md + STYLES.md + scenes.json sources the Remotion version used.
-    """
+def build_thumbnail_props(video_dir, scenes_json):
+    """Build props JSON for the Thumbnail composition."""
     with open(scenes_json, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    # Try TITLE.md for the title, fallback to video_title from scenes.json
     title = read_title_md(video_dir)
     if not title:
         title = data.get("video_title", "Video Title")
 
+    # Try STYLES.md for palette, fallback to defaults
     palette = read_styles_md(video_dir)
     if not palette:
         palette = {
@@ -132,11 +128,12 @@ def build_thumbnail_variables(video_dir, scenes_json):
             "text": "#FFFFFF",
         }
 
-    return {
+    props = {
         "title": title,
         "subtitle": "",
         "palette": palette,
     }
+    return props
 
 
 def main():
@@ -146,8 +143,7 @@ def main():
 
     video_dir = Path(sys.argv[1]).resolve()
     scenes_json = video_dir / "scenes.json"
-    hyperframes_dir = video_dir / "hyperframes"
-    thumbnail_composition = hyperframes_dir / "compositions" / "thumbnail.html"
+    remotion_dir = video_dir / "remotion"
     versions_dir = video_dir / "versions"
 
     if not video_dir.is_dir():
@@ -156,38 +152,33 @@ def main():
     if not scenes_json.exists():
         print(f"ERROR: scenes.json not found: {scenes_json}", file=sys.stderr)
         sys.exit(2)
-    if not hyperframes_dir.is_dir():
-        print(f"ERROR: hyperframes directory not found: {hyperframes_dir}", file=sys.stderr)
-        sys.exit(2)
-    if not thumbnail_composition.exists():
-        print(f"ERROR: thumbnail composition not found: {thumbnail_composition}\n"
-              f"       The agent must customize hyperframes/compositions/thumbnail.html "
-              f"at Phase 4 (Step 12) before this step can render.", file=sys.stderr)
+    if not remotion_dir.is_dir():
+        print(f"ERROR: remotion directory not found: {remotion_dir}", file=sys.stderr)
         sys.exit(2)
 
     cfg = pl.load_config()
     r = cfg.get("render", {})
     s = cfg.get("system", {})
 
+    gl_backend = r.get("gl_backend", "swangle")
     timeout_ms = r.get("timeout_ms", 60000)
+    node_max_old = r.get("node_max_old_space_size_mb", 384)
     min_ram_mb = s.get("min_available_ram_mb", 200)
     min_disk_mb = s.get("min_available_disk_mb", 500)
-    tmpdir = s.get("temp_dir", "/tmp/hyperframes/{title}").replace("{title}", video_dir.name)
+    tmpdir = s.get("temp_dir", "/tmp/remotion/{title}").replace("{title}", video_dir.name)
     post_settle = s.get("post_render_settle_seconds", 5)
 
-    hf_version = _hf_version(cfg)
     log_file = pl.log_path(video_dir.name, 13)
     safe_title = pl.sanitize_title(video_dir.name)
 
     print(f"=== Rendering Thumbnail ===")
-    print(f"Video title: {video_dir.name}")
-    print(f"HyperFrames CLI: {hf_version}")
+    print(f"Video dir: {video_dir}")
     print(f"Log: {log_file}")
 
     with open(log_file, "a", encoding="utf-8") as logf:
         logf.write(f"\n=== render_thumbnail.py run {pl.now_iso()} ===\n")
 
-    # Pre-flight
+    # Pre-flight checks
     avail = psutil.virtual_memory().available / (1024 * 1024)
     print(f"Available RAM: {int(avail)}MB")
     if avail < min_ram_mb:
@@ -200,76 +191,55 @@ def main():
 
     free = psutil.disk_usage(str(video_dir)).free / (1024 * 1024)
     if free < min_disk_mb:
-        print(f"ERROR: low disk space ({int(free)}MB < {min_disk_mb}MB). Aborting.")
+        print(f"ERROR: Low disk space ({int(free)}MB < {min_disk_mb}MB). Aborting.")
         sys.exit(1)
 
-    # TEMPDIR setup — HyperFrames reads HYPERFRAMES_EXTRACT_CACHE_DIR
+    # TMPDIR setup
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
     os.environ["TMPDIR"] = tmpdir
-    os.environ["HYPERFRAMES_EXTRACT_CACHE_DIR"] = tmpdir
-    os.environ.setdefault("HYPERFRAMES_NO_UPDATE_CHECK", "1")
-    os.environ.setdefault("HYPERFRAMES_SKIP_SKILLS", "1")
+    os.environ["REMOTION_TMPDIR"] = tmpdir
+    os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
-    # Build variable context for the render
-    variables = build_thumbnail_variables(video_dir, scenes_json)
-    vars_fd, vars_path = tempfile.mkstemp(
-        suffix=".json", prefix="hyperframes-thumb-vars-"
-    )
-    os.close(vars_fd)
-    with open(vars_path, "w", encoding="utf-8") as f:
-        json.dump(variables, f)
+    # Build props
+    import tempfile
+    props = build_thumbnail_props(video_dir, scenes_json)
+    props_fd, props_path = tempfile.mkstemp(suffix=".json", prefix="remotion-thumb-props-")
+    os.close(props_fd)
+    with open(props_path, "w", encoding="utf-8") as f:
+        json.dump(props, f)
 
-    # Versioned output
+    # Determine output path (versioned)
     versions_dir.mkdir(exist_ok=True)
     next_version = find_next_thumbnail_version(versions_dir, safe_title)
-    tmp_mp4 = versions_dir / f".thumb-{next_version}.mp4"
     output_file = versions_dir / f"{safe_title}-thumbnail-v{next_version}.png"
 
-    title = variables.get("title", "")[:60]
-    print(f"\n--- Starting HyperFrames render (thumbnail) ---")
+    frame = get_last_frame(remotion_dir)
+    print(f"\n--- Starting Remotion still render ---")
     print(f"Output: {output_file}")
-    print(f"Title: {title}...")
-    print(f"FPS: 1 (single-frame MP4)")
+    print(f"Props: {props_path}")
+    print(f"Title: {props.get('title', '')[:60]}...")
+    print(f"Frame: {frame}")
 
-    # Render a single-frame MP4 for the thumbnail composition.
-    # HyperFrames requires sub-compositions to be mounted in index.html
-    # via data-composition-src.  The scaffold's index.html always mounts
-    # the thumbnail composition at `data-track-index="0"`.
-    # We render the root and the 1-frame render isolates the thumb comp.
-    render_cmd = (
-        f"npx --yes hyperframes@{hf_version} render"
-        " --composition index.html"
-        f" --output \"{tmp_mp4}\""
-        f" --variables-file \"{vars_path}\""
-        " --fps 1"
-        " --quality standard"
+    cmd = (
+        f"npx remotion still src/Root.tsx Thumbnail \"{output_file}\" "
+        f"--props=\"{props_path}\" "
+        f"--frame={frame} "
+        f"--overwrite "
+        f"--log=warn "
+        f"--gl={gl_backend} "
+        f"--timeout {timeout_ms} "
+        f"--quality=100"
     )
 
-    with open(log_file, "a", encoding="utf-8") as logf:
-        logf.write(f"$ {render_cmd}\n")
-
     start_time = time.time()
-    result = pl.run_cmd(render_cmd, cwd=hyperframes_dir, check=False, logpath=log_file)
+    result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
     elapsed = int(time.time() - start_time)
 
-    os.unlink(vars_path)
+    os.unlink(props_path)
 
-    if result.returncode != 0 or not tmp_mp4.exists():
-        msg = f"Thumbnail render failed (exit {result.returncode}) after {elapsed}s"
+    if result.returncode != 0 or not output_file.exists():
+        msg = f"Thumbnail still render failed (exit {result.returncode}) after {elapsed}s"
         print(f"\nERROR: {msg}")
-        sys.exit(1)
-
-    # Extract the first frame as a PNG via ffmpeg
-    extract_cmd = f"ffmpeg -i \"{tmp_mp4}\" -frames:v 1 \"{output_file}\""
-    with open(log_file, "a", encoding="utf-8") as logf:
-        logf.write(f"$ {extract_cmd}\n")
-
-    extract_result = pl.run_cmd(extract_cmd, check=False, logpath=log_file)
-    # Clean up the temp MP4
-    tmp_mp4.unlink(missing_ok=True)
-
-    if extract_result.returncode != 0 or not output_file.exists():
-        print(f"\nERROR: ffmpeg frame extraction failed (exit {extract_result.returncode})")
         sys.exit(1)
 
     # Wait for file to settle
@@ -292,12 +262,11 @@ def main():
         print(f"  Pruned old thumbnail version: {old.name}")
 
     # Reap TMPDIR
-    if ren.get("reap_hyperframes_tmpdir_after_render",
-               ren.get("reap_remotion_tmpdir_after_render", True)):
+    if ren.get("reap_remotion_tmpdir_after_render", True):
         tdir = Path(tmpdir)
         if tdir.exists():
             shutil.rmtree(tdir, ignore_errors=True)
-            print(f"  Reaped temp dir: {tmpdir}")
+            print(f"  Reaped Remotion TMPDIR: {tmpdir}")
 
     sys.exit(0)
 
