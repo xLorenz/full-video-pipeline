@@ -549,57 +549,29 @@ def run_step_6(title, vdir):
 
 
 def lint_gate(title, vdir):
-    """Run HyperFrames lint + compositions check before rendering. Returns (ok, error).
-
-    Replaces the Remotion lint stack (npm run lint + tsc --noEmit +
-    npx remotion compositions) with HyperFrames's HTML lint + compositions
-    listing gate.  (The earlier `check` command — full browser-verified layout
-    + motion + contrast — can be enabled for stricter pre-render gating.)
-    """
-    hdir = vdir / "hyperframes"
-    if not hdir.is_dir():
-        return False, "hyperframes/ directory not found"
-    print("--- Pre-render lint/compositions gate ---")
-
-    # 1. Structural HTML lint (data-* attributes, class="clip", timeline reg)
-    r1 = run_cmd("npx hyperframes lint --json", cwd=hdir, check=False,
+    """Run Remotion lint + typecheck before rendering. Returns (ok, error)."""
+    rdir = vdir / "remotion"
+    if not (rdir / "package.json").exists():
+        return False, "remotion/package.json not found"
+    print("--- Pre-render lint/typecheck gate ---")
+    r1 = run_cmd("npm run lint", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
     if r1.returncode != 0:
-        # Try to pull error messages from the JSON output if available
-        log_lines = ""
-        try:
-            raw = r1.stdout
-            if isinstance(raw, bytes):
-                raw = raw.decode("utf-8", errors="replace")
-            if raw and raw.startswith("{"):
-                import json as _json
-                findings = _json.loads(raw)
-                errors = findings.get("errorCount", 0)
-                if errors > 0:
-                    error_msgs = [
-                        (f.get("message") or f.get("code", ""))[:120]
-                        for f in findings.get("findings", [])
-                        if f.get("severity") == "error"
-                    ]
-                    log_lines = "; ".join(error_msgs[:3])
-                    return False, f"HyperFrames lint error(s): {log_lines}"
-        except Exception:
-            pass
-        return False, "HyperFrames lint failed"
-
-    # 2. Verify the root composition is parseable.
-    r2 = run_cmd("npx hyperframes compositions --json", cwd=hdir, check=False,
+        return False, "npm run lint failed"
+    r2 = run_cmd("npx tsc --noEmit", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
     if r2.returncode != 0:
-        return False, "hyperframes compositions failed"
-
-    # 3. Optional: `npx hyperframes check` — lint + runtime + layout + motion
-    #    + contrast in one browser pass. Uncomment for a stricter gate:
-    #    r3 = run_cmd("npx hyperframes check --json", cwd=hdir, check=False)
-    #    if r3.returncode !=0rows:
-    #        return False, "hyperframes check failed"
-
-    return True, "HyperFrames lint/compositions OK"
+        return False, "tsc --noEmit failed"
+    # Confirm compositions are registered
+    r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
+                 logpath=pl.log_path(title, 9, scene_id=0))
+    raw = r3.stdout
+    compositions_out = (raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw) or ""
+    if r3.returncode != 0 or "MainVideo" not in compositions_out:
+        return False, "MainVideo composition not found via `remotion compositions`"
+    if "Thumbnail" not in compositions_out:
+        return False, "Thumbnail composition not found via `remotion compositions`"
+    return True, "lint/typecheck/compositions OK"
 
 
 def run_step_9(title, vdir):
