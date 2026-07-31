@@ -654,14 +654,7 @@ def run_step_9(title, vdir):
         comp_id = f"scene-{padded}"
         comp_src = f"compositions/scene-{padded}.html"
         layer_lines.append(
-            f'      <div\n'
-            f'        class="scene-layer"\n'
-            f'        data-composition-id="{comp_id}"\n'
-            f'        data-composition-src="{comp_src}"\n'
-            f'        data-start="{cumulative:.3f}"\n'
-            f'        data-duration="{dur:.3f}"\n'
-            f'        data-track-index="1"\n'
-            f'      ></div>'
+            f'      <div class="scene-layer" data-composition-id="mount-{comp_id}" data-composition-src="{comp_src}" data-start="{cumulative:.3f}" data-duration="{dur:.3f}" data-track-index="1"></div>'
         )
         cumulative += dur
 
@@ -698,7 +691,7 @@ def run_step_9(title, vdir):
             # Look for the `<div id="main-composition"...>...</div>` block and inject
             # the layer divs right before its closing tag.
             main_close_re = _re.compile(
-                r'(<div[^>]*id="main-composition"[^>]*>)(.*?)(</div>)',
+                r'(<div[^>]*id="main-composition"[^>]*>)(.*)(</div>)\s*<script',
                 flags=_re.DOTALL | _re.IGNORECASE,
             )
             m = main_close_re.search(index_text)
@@ -711,6 +704,7 @@ def run_step_9(title, vdir):
                     r'\s*<div[^>]*data-composition-[^>]*scene-\d+\.html"[^>]*></div>\s*',
                     '\n',
                     inner,
+                    flags=_re.DOTALL,
                 )
                 inner = inner.rstrip() + "\n      " + layers_block + "\n    "
                 index_text = index_text[:m.start(2)] + inner + index_text[m.end(2):]

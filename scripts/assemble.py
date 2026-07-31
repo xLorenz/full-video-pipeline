@@ -234,7 +234,7 @@ def main():
         mean_volume = None
         vd_result = subprocess.run(
             ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=120,
         )
         m = re.search(
             r"mean_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB",
