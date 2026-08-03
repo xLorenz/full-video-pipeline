@@ -944,12 +944,12 @@ def cmd_continue(args):
 def cmd_status(args):
     if args.title:
         title = sanitize_title(args.title)
-        show_status_for_title(title)
+        show_status_for_title(title, show_scenes=getattr(args, "scenes", False))
     else:
         show_all_statuses()
 
 
-def show_status_for_title(title):
+def show_status_for_title(title, show_scenes=False):
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -968,6 +968,38 @@ def show_status_for_title(title):
         col = step.get("completed_at") or (step.get("last_error") or "")[:50]
         icon = {"complete": "[OK]", "in_progress": "[>>]", "failed": "[!!]", "pending": "[--]"}.get(status, "[??]")
         print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status:<10} {attempts:<10} {col}")
+
+    if show_scenes:
+        scenes_path = vdir / "scenes.json"
+        if not scenes_path.exists():
+            print("\n  (no scenes.json — run Step 3 first)")
+            return
+        try:
+            with open(scenes_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"\n  (scenes.json invalid: {e})")
+            return
+        scenes = data.get("scenes", [])
+        if not scenes:
+            print("\n  (scenes.json has no scenes)")
+            return
+        print()
+        print(f"  {'ID':<4} {'Title':<32} {'Tgt(s)':<8} {'Frames':<8} {'Status':<10} {'OnDisk'}")
+        print(f"  {'----':<4} {'--------------------------------':<32} {'------':<8} {'------':<8} {'----------':<10} {'------'}")
+        for s in scenes:
+            sid = s.get("id", "?")
+            title = str(s.get("title", ""))[:32]
+            tgt = s.get("target_duration_seconds")
+            tgt_s = f"{tgt}" if tgt is not None else "-"
+            frames = s.get("actual_duration_frames")
+            frames_s = f"{frames}" if frames is not None else "-"
+            rstatus = s.get("render_status", "pending")
+            sf = s.get("scene_file")
+            on_disk = "-"
+            if sf:
+                on_disk = "yes" if (vdir / sf).exists() else "NO"
+            print(f"  {sid:<4} {title:<32} {tgt_s:<8} {frames_s:<8} {rstatus:<10} {on_disk}")
 
 
 def show_all_statuses():
@@ -1524,6 +1556,8 @@ def main():
 
     status_p = sub.add_parser("status", help="Show pipeline state")
     status_p.add_argument("title", nargs="?", help="Video title (omit to show all)")
+    status_p.add_argument("--scenes", action="store_true",
+                          help="With a title, also print a per-scene render table from scenes.json")
 
     validate_p = sub.add_parser("validate", help="Validate scenes.json + pipeline_state.json against schemas")
     validate_p.add_argument("title", help="Video title")
