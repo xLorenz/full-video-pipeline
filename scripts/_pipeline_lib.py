@@ -183,15 +183,15 @@ def _skill_paths_for_phase(phase_num, cfg=None):
 # provides `steps.{step_key}.command_template`, it overrides these.
 _DEFAULT_STEP_COMMAND_TEMPLATES = {
     "5_voiceover_generation":
-        "python3 scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}",
+        "{python} scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}",
     "6_duration_measurement":
-        "python3 scripts/measure_durations.py {video_dir}",
+        "{python} scripts/measure_durations.py {video_dir}",
     "9_scene_rendering":
-        "python3 scripts/render_scene.py {video_dir} {scene_id}",
+        "{python} scripts/render_scene.py {video_dir} {scene_id}",
     "10_stitching":
-        "python3 scripts/assemble.py {video_dir}",
+        "{python} scripts/assemble.py {video_dir}",
     "13_thumbnail_rendering":
-        "python3 scripts/render_thumbnail.py {video_dir}",
+        "{python} scripts/render_thumbnail.py {video_dir}",
 }
 
 
@@ -217,6 +217,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
 
     Available substitutions:
       {video_dir}        — the videos/<title> path (string)
+      {python}           — sys.executable of the current interpreter (cross-platform)
       {scene_id}         — integer scene id (only for Step 9)
       {voiceover.voice}  — any dotted config path under the loaded config
       {voiceover.rate}, {voiceover.volume}, {voiceover.pitch}, {voiceover.concurrency}
@@ -232,9 +233,9 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
     # Convert Path -> str to keep f-string-friendly template values.
     vd_str = str(video_dir) if not isinstance(video_dir, str) else video_dir
 
-    # Build a flat substitution map. We support {video_dir}, {scene_id}, and
-    # arbitrary {section.key.key} references into the config dict.
-    subs = {"video_dir": vd_str}
+    # Build a flat substitution map. We support {video_dir}, {python},
+    # {scene_id}, and arbitrary {section.key.key} references into the config dict.
+    subs = {"video_dir": vd_str, "python": f'"{sys.executable}"'}
     if scene_id is not None:
         subs["scene_id"] = str(scene_id)
 
