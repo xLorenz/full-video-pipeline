@@ -1329,9 +1329,23 @@ def cmd_preview(args):
         sys.exit(2)
     frame_end = min(20, first["actual_duration_frames"])
 
+    # Build scene props so the preview renders real content, not the fallback.
+    import tempfile as _tempfile
+    import render_scene as _render_scene
+    props_fd, props_path = _tempfile.mkstemp(suffix=".json", prefix="remotion-props-")
+    os.close(props_fd)
+    try:
+        _render_scene.build_props_json(scenes_json_path(title), 1,
+                                       Path(props_path), burn_captions=False)
+    except SystemExit:
+        os.unlink(props_path)
+        print("PREVIEW FAILED (props build)")
+        sys.exit(1)
+
     print(f"Previewing scene 1, frames 0-{frame_end} -> {out_file}")
     cmd = (
         f"npx remotion render src/Root.tsx MainVideo \"{out_file}\" "
+        f"--props=\"{props_path}\" "
         f"--frames=0-{frame_end} "
         f"--concurrency 1 "
         f"--gl={gl_backend} "
@@ -1341,11 +1355,15 @@ def cmd_preview(args):
         f"--timeout {timeout_ms} "
         f"--overwrite --log=warn"
     )
-    r1 = run_cmd(cmd, cwd=rdir, check=False,
-                 logpath=pl.log_path(title, 9, scene_id="preview"))
-    if r1.returncode != 0 or not out_file.exists():
-        print("PREVIEW FAILED")
-        sys.exit(1)
+    try:
+        r1 = run_cmd(cmd, cwd=rdir, check=False,
+                     logpath=pl.log_path(title, 9, scene_id="preview"))
+        if r1.returncode != 0 or not out_file.exists():
+            print("PREVIEW FAILED")
+            sys.exit(1)
+    finally:
+        if os.path.exists(props_path):
+            os.unlink(props_path)
     print(f"\nPreview rendered: {out_file}")
     print("  Copy/SCP out and play locally to verify visual correctness.")
 
