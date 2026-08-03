@@ -437,6 +437,15 @@ Define a single visual style that fits the content AND is CTR-compatible.
 - Background: #HEXCODE — [usage]
 - Text: #HEXCODE — [usage]
 
+## Palette (machine-readable)
+<!-- render_thumbnail.py reads this block first; falls back to ## Color Palette above. -->
+<!-- Recognised labels: Primary, Secondary, Accent, Background, Text, Surface, Alert, Cool. -->
+Primary: #HEXCODE
+Secondary: #HEXCODE
+Accent: #HEXCODE
+Background: #HEXCODE
+Text: #HEXCODE
+
 ## Typography
 - Headlines: [Font Name], [size]px, [weight]
 - Body: [Font Name], [size]px, [weight]
@@ -615,6 +624,12 @@ Follow skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md in
 1. **Search-optimized:** [keyword-forward title]
 2. **Browse-optimized:** [curiosity/emotional title]
 3. **Hybrid:** [balanced title]
+
+## Recommended Title
+<!-- render_thumbnail.py reads this block first; falls back to the "3. **Hybrid** |" line above. -->
+Title: [the title the thumbnail will render]
+
+3. **Hybrid** | [balanced title]
 ```
 
 ```markdown
