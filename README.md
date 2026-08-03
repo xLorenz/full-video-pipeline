@@ -27,12 +27,16 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 
 - Linux
 - Node.js 18+
-- Python 3.9+
+- Python 3.9+ (Python 3.10+ if using the pocket-tts engine)
 - ffmpeg / ffprobe
 - Git
 
 ```bash
 pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
+
+# Optional: pocket-tts CPU neural TTS engine (adds PyTorch wheel, ~1 GB)
+# Only required if you set voiceover.engine to "pocket" (see below).
+pip install -r scripts/requirements-pocket.txt
 ```
 
 ## Quick Start
@@ -95,7 +99,8 @@ full-video-pipeline/
 │   ├── _pipeline_lib.py          # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
 │   ├── validate.py               # JSON-schema validation for scenes.json + pipeline_state.json
 │   ├── check_system.sh           # Pre-flight resource check
-│   ├── generate_voiceover.py     # edge-tts audio generation (idempotent + parallel)
+│   ├── generate_voiceover.py     # edge-tts audio generation (idempotent + parallel) [default engine]
+│   ├── generate_voiceover_pocket.py  # Optional pocket-tts engine (CPU neural, OOM-hardened)
 │   ├── measure_durations.py      # ffprobe duration measurement
 │   ├── render_scene.py           # Remotion renderer with psutil-based guardrails (Linux)
 │   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
@@ -206,11 +211,14 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "burn_captions": false
   },
   "voiceover": {
+    "engine": "edge",
     "voice": "en-GB-RyanNeural",
     "rate": "+0%",
     "volume": "+0%",
     "pitch": "+0Hz",
-    "concurrency": 3
+    "concurrency": 3,
+    "language": "english",
+    "no_quantize": false
   },
   "render": {
     "concurrency": 1,
@@ -261,6 +269,69 @@ The `steps.{key}.command_template` strings support `{variable}` substitution:
 binary or plugin without touching the orchestrator code.
 
 List available voices: `edge-tts --list-voices`
+
+### Voiceover Engines
+
+The pipeline supports two TTS engines, selected via `voiceover.engine` in
+`pipeline_config.json`:
+
+| Engine | Install | Footprint | Offline | Pros | Cons |
+|--------|---------|-----------|---------|------|------|
+| `edge` (default) | `scripts/requirements.txt` | <1 MB | no | 400+ Azure voices, SSML/rate/pitch, fast, light | network-dependent, less-polished legal posture (reverse-engineered Azure endpoint) |
+| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic, voice cloning potential | CPU-bound on tiny boxes, small voice catalog, no SSML/rate/pitch |
+
+Edge-tts remains the zero-config default. Opt into pocket-tts by swapping
+two config keys (per-video auto-discovery makes this a per-project choice):
+
+```jsonc
+// videos/<title>/pipeline_config.json
+{
+  "voiceover": {
+    "engine": "pocket",
+    "voice": "alba",        // named preset voice (see catalog link below)
+    "language": "english",  // default 12-layer distilled model
+    "no_quantize": false,   // quantization on by default (~234 MB runtime)
+    "concurrency": 1        // pocket wrapper forces 1 regardless
+  },
+  "system": {
+    "min_available_ram_mb": 534  // 234 MB model + 300 MB safety margin
+  },
+  "steps": {
+    "5_voiceover_generation": {
+      "command_template": "python3 scripts/generate_voiceover_pocket.py {video_dir} --voice {voiceover.voice}"
+    }
+  }
+}
+```
+
+**Minimum box for the pocket engine**: ~600 MB free RAM at Step 5 (model
+234 MB quantized + runtime + buffers). The wrapper refuses to start with a
+diagnostic message if free RAM is below this floor. On `t3.micro` (1 GB RAM)
+set `system.min_available_ram_mb: 200` globally but ensure step 5 doesn't
+overlap with another memory-heavy automated step — each Phase auto-runs its
+sub-steps sequentially, so Step 5 finishes before any renders fire.
+
+**English named-voice catalog** (HF repo: <https://huggingface.co/kyutai/tts-voices>):
+`alba`, `anna`, `azelma`, `bill_boerst`, `caro_davy`, `charles`, `cosette`,
+`eponine`, `eve`, `fantine`, `george`, `jane`, `jean`, `javert`, `marius`,
+`mary`, `michael`, `paul`, `peter_yearsley`, `stuart_bell`, `vera`.
+Non-English presets: `giovanni` (it), `lola` (es), `juergen` (de),
+`rafael` (pt), `estelle` (fr).
+
+**Pocket-tts OOM defenses**: (1) stream-to-disk generation via
+`generate_audio_stream()` — the full scene's PCM never lives in RAM;
+(2) `quantize=True` by default — halves runtime memory with no measurable
+quality loss (WER delta indistinguishable from noise); (3) voice state
+loaded once and reused across all scenes; (4) forced `concurrency=1`
+(CPU-bound model — parallelism risks OOM); (5) RAM floor pre-check +
+mid-run pulse check (stops cleanly, leaving already-generated scenes
+resumable via the same idempotent-skip mechanism as edge-tts).
+
+**Unsupported in v1**: voice cloning (the wrapper accepts only named preset
+voices; cloning via `--voice ./my-voice.wav` is deferred), SSML, and
+per-scene rate/volume/pitch (the flags are accepted for `voiceover_hash`
+compatibility but ignored at synthesis — logged as a warning). If you need
+these, use the `edge` engine or call `pocket_tts` directly.
 
 ## Audio Path (important)
 
@@ -354,6 +425,7 @@ python3 pipeline.py clean my-video                 # Free disk space (all safe-t
 
 # Individual scripts (orchestrator runs these for you — only call manually for debugging)
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
+python3 scripts/generate_voiceover_pocket.py videos/my-video/ --voice alba  # Optional pocket-tts engine
 python3 scripts/measure_durations.py videos/my-video/
 python3 scripts/render_scene.py videos/my-video/ 1
 python3 scripts/assemble.py videos/my-video/
