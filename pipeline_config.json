@@ -63,11 +63,14 @@
         "burn_captions": false
     },
     "voiceover": {
+        "engine": "edge",
         "voice": "en-GB-RyanNeural",
         "rate": "+0%",
         "volume": "+0%",
         "pitch": "+0Hz",
-        "concurrency": 3
+        "concurrency": 3,
+        "language": "english",
+        "no_quantize": false
     },
     "render": {
         "concurrency": 1,
