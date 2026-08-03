@@ -751,7 +751,7 @@ def validate_project(title, step=0):
 
 def _clean_after_step_13(vdir):
     """Remove remotion/node_modules after final step completes."""
-    cfg = load_pipeline_config()
+    cfg = pl.load_config(video_dir=vdir)
     ren = cfg.get("retention", {})
     if ren.get("clean_remotion_node_modules_after_step_13", True):
         nm_dir = vdir / "remotion" / "node_modules"
@@ -762,7 +762,7 @@ def _clean_after_step_13(vdir):
 
 def _clean_after_assemble(vdir):
     """Optional: remove scene MP4s after a successful stitch."""
-    cfg = load_pipeline_config()
+    cfg = pl.load_config(video_dir=vdir)
     ren = cfg.get("retention", {})
     if ren.get("clean_scene_mp4s_after_stitch", False):
         scenes_dir = vdir / "scenes"
