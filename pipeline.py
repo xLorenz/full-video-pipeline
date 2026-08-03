@@ -299,7 +299,7 @@ def cmd_complete(args):
         sys.exit(4)
 
     # Also validate the pipeline state against schemas as a precondition
-    ok, errs = validate_project(title)
+    ok, errs = validate_project(title, step=step_num)
     if not ok:
         print("VALIDATION FAILED — refusing to mark complete:")
         print(errs)
@@ -373,7 +373,7 @@ def run_automated_step(step_key, title, vdir):
 
     # Post-step schema validation (catches malformed writes immediately)
     if success:
-        post_ok, post_errs = validate_project(title)
+        post_ok, post_errs = validate_project(title, step=STEP_KEYS.index(step_key) + 1)
         if not post_ok:
             success = False
             error_msg = f"post-step validation failed: {post_errs}"
@@ -731,11 +731,19 @@ def load_scenes(title):
 # Validation helper
 # ---------------------------------------------------------------------------
 
-def validate_project(title):
-    """Run scripts/validate.py on this video's scenes/state. Returns (ok, errors)."""
+def validate_project(title, step=0):
+    """Run scripts/validate.py on this video's scenes/state. Returns (ok, errors).
+
+    When ``step`` > 0, validate.py also runs ``check_step_requirements`` for that
+    step number (scene/voiceover/duration/render-level gates). Pass the step that
+    was just completed (post-check) or current_step - 1 (pre-gate).
+    """
+    argv = [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
+            str(video_dir(title))]
+    if step and step > 0:
+        argv += ["--step", str(step)]
     p = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
-         str(video_dir(title))],
+        argv,
         capture_output=True, text=True, cwd=REPO_ROOT,
     )
     return p.returncode == 0, (p.stdout + p.stderr).strip()
@@ -775,7 +783,10 @@ def cmd_continue(args):
     state = load_state(title)
 
     # Schema validation gate: refuse to run automated steps on invalid state.
-    ok, errs = validate_project(title)
+    # Gate against the prior step's requirements (the steps already completed),
+    # not the step we're about to run (whose artifacts don't exist yet).
+    gate_step = max(0, state.get("current_step", 0) - 1)
+    ok, errs = validate_project(title, step=gate_step)
     if not ok:
         print("VALIDATION FAILED — refusing to continue:")
         print(errs)
