@@ -1462,6 +1462,92 @@ def cmd_preview(args):
 
 
 # ---------------------------------------------------------------------------
+# PREVIEW-FRAME subcommand — render a single still at a specific scene+frame
+# for visual QA without re-rendering a whole scene.
+# ---------------------------------------------------------------------------
+
+def cmd_preview_frame(args):
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    rdir = vdir / "remotion"
+    if not (rdir / "package.json").exists():
+        print(f"ERROR: {rdir}/package.json not found (run step 8 first)")
+        sys.exit(2)
+
+    scene_id = int(args.scene_id)
+    frame = int(args.frame)
+
+    scenes = load_scenes(title)
+    if not scenes:
+        print("ERROR: no scenes in scenes.json")
+        sys.exit(2)
+    matches = [s for s in scenes if s["id"] == scene_id]
+    if not matches:
+        print(f"ERROR: scene {scene_id} not found in scenes.json")
+        sys.exit(2)
+    if not matches[0].get("actual_duration_frames"):
+        print(f"ERROR: scene {scene_id} missing actual_duration_frames (run step 6 first)")
+        sys.exit(2)
+
+    # Build props (reuses render_scene.build_props_json). Returns (start, end).
+    import tempfile as _tempfile
+    import render_scene as _render_scene
+    props_fd, props_path = _tempfile.mkstemp(suffix=".json", prefix="remotion-props-")
+    os.close(props_fd)
+    try:
+        frame_start, frame_end = _render_scene.build_props_json(
+            scenes_json_path(title), scene_id, Path(props_path), burn_captions=False)
+    except SystemExit:
+        os.unlink(props_path)
+        print("PREVIEW-FRAME FAILED (props build)")
+        sys.exit(1)
+
+    # Validate the requested frame is within the scene's range in MainVideo time.
+    if frame < frame_start or frame > frame_end:
+        os.unlink(props_path)
+        print(f"ERROR: frame {frame} out of range for scene {scene_id} "
+              f"(MainVideo frames {frame_start}-{frame_end})")
+        sys.exit(2)
+
+    cfg = load_pipeline_config()
+    r = cfg.get("render", {})
+    gl_backend = r.get("gl_backend", "swangle")
+    timeout_ms = r.get("timeout_ms", 60000)
+
+    import os as _os
+    _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={r.get('node_max_old_space_size_mb', 384)}"
+
+    out_dir = vdir / ".preview"
+    out_dir.mkdir(exist_ok=True)
+    out_file = out_dir / f"scene-{scene_id:02d}-frame-{frame}.png"
+
+    print(f"Rendering still: scene {scene_id}, MainVideo frame {frame} -> {out_file}")
+    cmd = (
+        f"npx remotion still src/Root.tsx MainVideo \"{out_file}\" "
+        f"--props=\"{props_path}\" "
+        f"--frame={frame} "
+        f"--gl={gl_backend} "
+        f"--image-format png "
+        f"--timeout {timeout_ms} "
+        f"--overwrite --log=warn"
+    )
+    try:
+        r1 = run_cmd(cmd, cwd=rdir, check=False,
+                     logpath=pl.log_path(title, 9, scene_id=f"preview-frame-{scene_id}-{frame}"))
+        if r1.returncode != 0 or not out_file.exists():
+            print("PREVIEW-FRAME FAILED")
+            sys.exit(1)
+    finally:
+        if os.path.exists(props_path):
+            os.unlink(props_path)
+    print(f"\nStill rendered: {out_file}")
+    print("  Copy/SCP out to inspect.")
+
+
+# ---------------------------------------------------------------------------
 # CAPTIONS subcommand — generate SRT sidecar + populate scene caption cues
 # ---------------------------------------------------------------------------
 
@@ -1565,6 +1651,11 @@ def main():
     preview_p = sub.add_parser("preview", help="Quick low-res smoke render of scene 1")
     preview_p.add_argument("title", help="Video title")
 
+    pf_p = sub.add_parser("preview-frame", help="Render a single still at a specific scene+frame for visual QA")
+    pf_p.add_argument("title", help="Video title")
+    pf_p.add_argument("scene_id", type=int, help="Scene id (e.g. 1, 2, ...)")
+    pf_p.add_argument("frame", type=int, help="Frame number in MainVideo timeline time (scene start offset is added automatically)")
+
     captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
     captions_p.add_argument("title", help="Video title")
 
@@ -1596,6 +1687,8 @@ def main():
         cmd_validate(args)
     elif args.command == "preview":
         cmd_preview(args)
+    elif args.command == "preview-frame":
+        cmd_preview_frame(args)
     elif args.command == "captions":
         cmd_captions(args)
     elif args.command == "clean":
