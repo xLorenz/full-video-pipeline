@@ -95,7 +95,6 @@ full-video-pipeline/
 ├── pipeline.py                  # CLI: new, continue, status, validate, preview, captions
 ├── pipeline_config.json         # Default settings (voice, render, system limits)
 ├── package.json                 # npm workspace config
-├── PLAN.md                      # Architecture notes for maintainers
 ├── scripts/
 │   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
 │   ├── validate.py                      # JSON-schema validation for scenes.json + pipeline_state.json
@@ -109,7 +108,6 @@ full-video-pipeline/
 │   ├── generate_captions.py             # SRT sidecar + per-scene caption cues
 │   ├── publish_animations.py            # Publish templates/animations/ into per-video projects
 │   ├── preview_animations.py            # Render on-demand 3s stubs of every published template
-│   ├── smoke_test.py                    # Pocket-tts engine smoke-test harness (debug; not run by orchestrator)
 │   ├── requirements.txt                 # Python deps (edge-tts, jsonschema, psutil)
 │   └── requirements-pocket.txt          # Optional pocket-tts deps (pocket-tts + PyTorch 2.5+)
 ├── animations/                  # Animation template catalog (see animations/README.md)
@@ -123,7 +121,6 @@ full-video-pipeline/
 │   ├── pipeline_state.schema.json
 │   └── animations.schema.json   # Global DeepConfig schema (per-template schemas layer on top)
 ├── skills/
-│   ├── _archive/                # Historical snapshots (HyperFrames-era skill bundle; README inside)
 │   ├── claude-youtube/          # Script writing reference (submodule)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
 └── videos/                      # Auto-managed per-video projects (gitignored)
