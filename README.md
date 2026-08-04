@@ -95,47 +95,51 @@ full-video-pipeline/
 ├── pipeline.py                  # CLI: new, continue, status, validate, preview, captions
 ├── pipeline_config.json         # Default settings (voice, render, system limits)
 ├── package.json                 # npm workspace config
+├── PLAN.md                      # Architecture notes for maintainers
 ├── scripts/
-│   ├── _pipeline_lib.py          # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
-│   ├── validate.py               # JSON-schema validation for scenes.json + pipeline_state.json
-│   ├── check_system.sh           # Pre-flight resource check
-│   ├── generate_voiceover.py     # edge-tts audio generation (idempotent + parallel) [default engine]
-│   ├── generate_voiceover_pocket.py  # Optional pocket-tts engine (CPU neural, OOM-hardened)
-│   ├── measure_durations.py      # ffprobe duration measurement
-│   ├── render_scene.py           # Remotion renderer with psutil-based guardrails (Linux)
-│   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
-│   ├── render_thumbnail.py        # Remotion still render for YouTube thumbnail
-│   ├── generate_captions.py      # SRT sidecar + per-scene caption cues
-│   ├── publish_animations.py     # Publish templates/animations/ into per-video projects
-│   ├── preview_animations.py     # Render on-demand 3s stubs of every published template
-│   └── requirements.txt          # Python deps
-├── animations/                # Animation template catalog (see animations/README.md)
-│   ├── README.md, CATALOG.md, SCHEMA.md      # Agent-facing manual + field reference
-│   ├── _shared/                             # Reusable TypeScript helpers (theme/timing/layout)
-│   └── <template>/component.tsx + config/    # One folder per template data-driven via DeepConfig
-├── remotion-foundation/          # Template for new Remotion projects
-│   └── src/components/Captions.tsx  # Optional burned-in caption layer
+│   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
+│   ├── validate.py                      # JSON-schema validation for scenes.json + pipeline_state.json
+│   ├── check_system.sh                  # Pre-flight resource check
+│   ├── generate_voiceover.py            # edge-tts audio generation (idempotent + parallel) [default engine]
+│   ├── generate_voiceover_pocket.py     # Optional pocket-tts engine (CPU neural, OOM-hardened)
+│   ├── measure_durations.py             # ffprobe duration measurement
+│   ├── render_scene.py                  # Remotion renderer with psutil-based guardrails (Linux)
+│   ├── assemble.py                      # Efficient single-pass stitching (atomic, codec-safe)
+│   ├── render_thumbnail.py              # Remotion still render for YouTube thumbnail
+│   ├── generate_captions.py             # SRT sidecar + per-scene caption cues
+│   ├── publish_animations.py            # Publish templates/animations/ into per-video projects
+│   ├── preview_animations.py            # Render on-demand 3s stubs of every published template
+│   ├── smoke_test.py                    # Pocket-tts engine smoke-test harness (debug; not run by orchestrator)
+│   ├── requirements.txt                 # Python deps (edge-tts, jsonschema, psutil)
+│   └── requirements-pocket.txt          # Optional pocket-tts deps (pocket-tts + PyTorch 2.5+)
+├── animations/                  # Animation template catalog (see animations/README.md)
+│   ├── README.md, CATALOG.md, SCHEMA.md  # Agent-facing manual + field reference
+│   ├── _shared/                           # Reusable TypeScript helpers (theme/timing/layout)
+│   └── <template>/component.tsx + config/ # One folder per template data-driven via DeepConfig
+├── remotion-foundation/         # Template for new Remotion projects
+│   └── src/components/Captions.tsx      # Optional burned-in caption layer
 ├── schemas/
 │   ├── scenes.schema.json
 │   ├── pipeline_state.schema.json
-│   └── animations.schema.json     # Global DeepConfig schema (per-template schemas layer on top)
+│   └── animations.schema.json   # Global DeepConfig schema (per-template schemas layer on top)
 ├── skills/
-│   ├── claude-youtube/           # Script writing reference (submodule)
+│   ├── _archive/                # Historical snapshots (HyperFrames-era skill bundle; README inside)
+│   ├── claude-youtube/          # Script writing reference (submodule)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
-└── videos/
+└── videos/                      # Auto-managed per-video projects (gitignored)
     └── {video-title}/
-        ├── SCRIPT.md             # Full script
-        ├── VOICEOVER.md          # Parseable voiceover text
-        ├── STYLES.md             # Visual style guide
-        ├── TITLE.md              # 3 YouTube title variants (Step 11)
-        ├── DESCRIPTION.md        # YouTube description with timestamps (Step 11)
-        ├── TAGS.md               # 10-15 YouTube tags (Step 11)
-        ├── scenes.json           # Scene data (durations, status, files, hashes, captions)
-        ├── pipeline_state.json   # Pipeline progress (per-step attempts + last_error)
-        ├── logs/                 # Per-step + per-scene append-only logs
-        ├── voiceover_aligned.mp3 # Concatenated voiceover (created by assemble.py)
-        ├── {title}.srt           # Optional caption sidecar
-        ├── remotion/             # Remotion project (scaffolded per video)
+        ├── SCRIPT.md               # Full script
+        ├── VOICEOVER.md            # Parseable voiceover text
+        ├── STYLES.md               # Visual style guide
+        ├── TITLE.md                # 3 YouTube title variants (Step 11)
+        ├── DESCRIPTION.md          # YouTube description with timestamps (Step 11)
+        ├── TAGS.md                 # 10-15 YouTube tags (Step 11)
+        ├── scenes.json             # Scene data (durations, status, files, hashes, captions)
+        ├── pipeline_state.json     # Pipeline progress (per-step attempts + last_error)
+        ├── logs/                   # Per-step + per-scene append-only logs
+        ├── voiceover_aligned.mp3   # Concatenated voiceover (created by assemble.py)
+        ├── {title}.srt             # Optional caption sidecar
+        ├── remotion/               # Remotion project (scaffolded per video)
         │   ├── PLAN.md
         │   ├── src/
         │   │   ├── Root.tsx
@@ -144,9 +148,9 @@ full-video-pipeline/
         │   │   ├── lib/{types,config,styles}.ts
         │   │   └── scenes/
         │   └── public/
-        ├── voiceover/            # Generated .mp3 files
-        ├── scenes/               # Rendered .mp4 scene files (silent video)
-        └── versions/             # Final stitched .mp4 videos + thumbnail .png
+        ├── voiceover/               # Generated .mp3 files
+        ├── scenes/                  # Rendered .mp4 scene files (silent video)
+        └── versions/                # Final stitched .mp4 videos + thumbnail .png
             ├── {title}-v1.mp4
             └── {title}-thumbnail-v1.png
 ```
