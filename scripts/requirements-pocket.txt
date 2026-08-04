@@ -1,0 +1,31 @@
+# Optional TTS engine: pocket-tts (kyutai-labs, MIT, CPU neural TTS)
+#
+# This is NOT installed by the default `pip install -r scripts/requirements.txt`.
+# The default pipeline engine remains edge-tts (network-bound, lightweight,
+# ~400 Azure voices). Install this file only when you want to opt into the
+# pocket-tts engine, which trades PyTorch's heavier install footprint for
+# offline operation, voice cloning potential, and a properly-licensed model.
+#
+# Why you might want it:
+#   - Offline / airgapped operation (no Microsoft Azure endpoint dependency)
+#   - Cleaner legal posture (MIT model + explicitly-licensed voices vs
+#     edge-tts's reverse-engineered Azure endpoint)
+#   - Voice cloning capability (any .wav -> cloned voice; not exposed in v1
+#     wrapper but available in the underlying API)
+#   - Deterministic synthesis (never rate-limited or 5xx'd by Azure)
+#
+# Why you might NOT want it:
+#   - Adds ~1 GB to the install footprint (PyTorch wheel)
+#   - CPU-bound on a box you may already be CPU-starved on (e.g. t3.micro)
+#   - Smaller voice catalog (26 named English voices + 5 non-English)
+#   - No SSML, no rate/volume/pitch controls (unlike edge-tts)
+#
+# Requires Python 3.10+ (vs 3.9+ for the base pipeline) and PyTorch 2.5+.
+# PyTorch installs its own CPU wheels; no CUDA/GPU wheel required.
+pocket-tts>=0.1
+
+# Optional but recommended on torch>=2.10 for faster quantized inference
+# on both ARM (QNNPACK) and x86 (FBGEMM). With torch 2.5-2.9, the built-in
+# torch.ao fallback is used automatically. Commented out by default to
+# avoid forcing a torch upgrade on users still on 2.5-2.9.
+# torchao

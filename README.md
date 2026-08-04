@@ -27,12 +27,16 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 
 - Linux
 - Node.js 18+
-- Python 3.9+
+- Python 3.9+ (Python 3.10+ if using the pocket-tts engine)
 - ffmpeg / ffprobe
 - Git
 
 ```bash
 pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
+
+# Optional: pocket-tts CPU neural TTS engine (adds PyTorch wheel, ~1 GB)
+# Only required if you set voiceover.engine to "pocket" (see below).
+pip install -r scripts/requirements-pocket.txt
 ```
 
 ## Quick Start
@@ -92,45 +96,47 @@ full-video-pipeline/
 ├── pipeline_config.json         # Default settings (voice, render, system limits)
 ├── package.json                 # npm workspace config
 ├── scripts/
-│   ├── _pipeline_lib.py          # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
-│   ├── validate.py               # JSON-schema validation for scenes.json + pipeline_state.json
-│   ├── check_system.sh           # Pre-flight resource check
-│   ├── generate_voiceover.py     # edge-tts audio generation (idempotent + parallel)
-│   ├── measure_durations.py      # ffprobe duration measurement
-│   ├── render_scene.py           # Remotion renderer with psutil-based guardrails (Linux)
-│   ├── assemble.py               # Efficient single-pass stitching (atomic, codec-safe)
-│   ├── render_thumbnail.py        # Remotion still render for YouTube thumbnail
-│   ├── generate_captions.py      # SRT sidecar + per-scene caption cues
-│   ├── publish_animations.py     # Publish templates/animations/ into per-video projects
-│   ├── preview_animations.py     # Render on-demand 3s stubs of every published template
-│   └── requirements.txt          # Python deps
-├── animations/                # Animation template catalog (see animations/README.md)
-│   ├── README.md, CATALOG.md, SCHEMA.md      # Agent-facing manual + field reference
-│   ├── _shared/                             # Reusable TypeScript helpers (theme/timing/layout)
-│   └── <template>/component.tsx + config/    # One folder per template data-driven via DeepConfig
-├── remotion-foundation/          # Template for new Remotion projects
-│   └── src/components/Captions.tsx  # Optional burned-in caption layer
+│   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
+│   ├── validate.py                      # JSON-schema validation for scenes.json + pipeline_state.json
+│   ├── check_system.sh                  # Pre-flight resource check
+│   ├── generate_voiceover.py            # edge-tts audio generation (idempotent + parallel) [default engine]
+│   ├── generate_voiceover_pocket.py     # Optional pocket-tts engine (CPU neural, OOM-hardened)
+│   ├── measure_durations.py             # ffprobe duration measurement
+│   ├── render_scene.py                  # Remotion renderer with psutil-based guardrails (Linux)
+│   ├── assemble.py                      # Efficient single-pass stitching (atomic, codec-safe)
+│   ├── render_thumbnail.py              # Remotion still render for YouTube thumbnail
+│   ├── generate_captions.py             # SRT sidecar + per-scene caption cues
+│   ├── publish_animations.py            # Publish templates/animations/ into per-video projects
+│   ├── preview_animations.py            # Render on-demand 3s stubs of every published template
+│   ├── requirements.txt                 # Python deps (edge-tts, jsonschema, psutil)
+│   └── requirements-pocket.txt          # Optional pocket-tts deps (pocket-tts + PyTorch 2.5+)
+├── animations/                  # Animation template catalog (see animations/README.md)
+│   ├── README.md, CATALOG.md, SCHEMA.md  # Agent-facing manual + field reference
+│   ├── _shared/                           # Reusable TypeScript helpers (theme/timing/layout)
+│   └── <template>/component.tsx + config/ # One folder per template data-driven via DeepConfig
+├── remotion-foundation/         # Template for new Remotion projects
+│   └── src/components/Captions.tsx      # Optional burned-in caption layer
 ├── schemas/
 │   ├── scenes.schema.json
 │   ├── pipeline_state.schema.json
-│   └── animations.schema.json     # Global DeepConfig schema (per-template schemas layer on top)
+│   └── animations.schema.json   # Global DeepConfig schema (per-template schemas layer on top)
 ├── skills/
-│   ├── claude-youtube/           # Script writing reference (submodule)
+│   ├── claude-youtube/          # Script writing reference (submodule)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
-└── videos/
+└── videos/                      # Auto-managed per-video projects (gitignored)
     └── {video-title}/
-        ├── SCRIPT.md             # Full script
-        ├── VOICEOVER.md          # Parseable voiceover text
-        ├── STYLES.md             # Visual style guide
-        ├── TITLE.md              # 3 YouTube title variants (Step 11)
-        ├── DESCRIPTION.md        # YouTube description with timestamps (Step 11)
-        ├── TAGS.md               # 10-15 YouTube tags (Step 11)
-        ├── scenes.json           # Scene data (durations, status, files, hashes, captions)
-        ├── pipeline_state.json   # Pipeline progress (per-step attempts + last_error)
-        ├── logs/                 # Per-step + per-scene append-only logs
-        ├── voiceover_aligned.mp3 # Concatenated voiceover (created by assemble.py)
-        ├── {title}.srt           # Optional caption sidecar
-        ├── remotion/             # Remotion project (scaffolded per video)
+        ├── SCRIPT.md               # Full script
+        ├── VOICEOVER.md            # Parseable voiceover text
+        ├── STYLES.md               # Visual style guide
+        ├── TITLE.md                # 3 YouTube title variants (Step 11)
+        ├── DESCRIPTION.md          # YouTube description with timestamps (Step 11)
+        ├── TAGS.md                 # 10-15 YouTube tags (Step 11)
+        ├── scenes.json             # Scene data (durations, status, files, hashes, captions)
+        ├── pipeline_state.json     # Pipeline progress (per-step attempts + last_error)
+        ├── logs/                   # Per-step + per-scene append-only logs
+        ├── voiceover_aligned.mp3   # Concatenated voiceover (created by assemble.py)
+        ├── {title}.srt             # Optional caption sidecar
+        ├── remotion/               # Remotion project (scaffolded per video)
         │   ├── PLAN.md
         │   ├── src/
         │   │   ├── Root.tsx
@@ -139,9 +145,9 @@ full-video-pipeline/
         │   │   ├── lib/{types,config,styles}.ts
         │   │   └── scenes/
         │   └── public/
-        ├── voiceover/            # Generated .mp3 files
-        ├── scenes/               # Rendered .mp4 scene files (silent video)
-        └── versions/             # Final stitched .mp4 videos + thumbnail .png
+        ├── voiceover/               # Generated .mp3 files
+        ├── scenes/                  # Rendered .mp4 scene files (silent video)
+        └── versions/                # Final stitched .mp4 videos + thumbnail .png
             ├── {title}-v1.mp4
             └── {title}-thumbnail-v1.png
 ```
@@ -206,11 +212,14 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "burn_captions": false
   },
   "voiceover": {
+    "engine": "edge",
     "voice": "en-GB-RyanNeural",
     "rate": "+0%",
     "volume": "+0%",
     "pitch": "+0Hz",
-    "concurrency": 3
+    "concurrency": 3,
+    "language": "english",
+    "no_quantize": false
   },
   "render": {
     "concurrency": 1,
@@ -261,6 +270,88 @@ The `steps.{key}.command_template` strings support `{variable}` substitution:
 binary or plugin without touching the orchestrator code.
 
 List available voices: `edge-tts --list-voices`
+
+### Voiceover Engines
+
+The pipeline supports two TTS engines, selected via `voiceover.engine` in
+`pipeline_config.json`:
+
+| Engine | Install | Footprint | Offline | Pros | Cons |
+|--------|---------|-----------|---------|------|------|
+| `edge` (default) | `scripts/requirements.txt` | <1 MB | no | 400+ Azure voices, SSML/rate/pitch, fast, light | network-dependent, less-polished legal posture (reverse-engineered Azure endpoint) |
+| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic, voice cloning potential | CPU-bound (~895 MB peak RSS during model load), small voice catalog, no SSML/rate/pitch |
+
+Edge-tts remains the zero-config default. Opt into pocket-tts by swapping
+two config keys (per-video auto-discovery makes this a per-project choice):
+
+```jsonc
+// videos/<title>/pipeline_config.json
+{
+  "voiceover": {
+    "engine": "pocket",
+    "voice": "alba",        // named preset voice (see catalog link below)
+    "language": "english",  // default 12-layer distilled model
+    "no_quantize": false,   // quantization on by default (~895 MB peak RSS)
+    "concurrency": 1        // pocket wrapper forces 1 regardless
+  },
+  "system": {
+    "min_available_ram_mb": 534  // 234 MB model + 300 MB safety margin
+  },
+  "steps": {
+    "5_voiceover_generation": {
+      "command_template": "python3 scripts/generate_voiceover_pocket.py {video_dir} --voice {voiceover.voice}"
+    }
+  }
+}
+```
+
+**Minimum box for the pocket engine**: smoke-tested on Windows / Python 3.10 /
+PyTorch 2.13 CPU / 8 GB RAM with the `english` quantized model:
+
+  - Peak child RSS at model load: **~895 MB** (process peak, includes
+    Python + PyTorch runtime + quantized weights + scipy + chunk buffer).
+    Smoke-test measured across 82 samples over 42s.
+  - Minimum VM available observed during generation: **~452 MB** on an
+    8 GB box (model load is the squeeze point, not synthesis).
+  - Per-scene MP3: ~52-57 KB / ~6s @ 24 kHz mono / 65 Kbps.
+  - Re-run idempotency check: 0.3s wall when every scene is unchanged
+    (model NOT loaded; PyTorch not imported).
+  - Wall time per `complete`: ~42s for 2 scenes (model load dominates,
+    ~30s on a warm HuggingFace cache); scales as load + ~1s per scene synth.
+
+The wrapper refuses to even load the model if free RAM is below
+`MIN_FREE_FOR_POCKET_MB` (534 MB, model + safety margin). On `t3.micro`
+(1 GB RAM) this is tight: in practice the OS already uses ~150 MB, so
+~600 MB free at the start of Step 5 would clear the pre-check but the
+generation pass will leave only ~50-200 MB free at peak. **A safer
+minimum is a `t3.small` (2 GB RAM) or any box with ≥1 GB free at Step 5.**
+Per Phase auto-runs sequentially, so Step 5 finishes before any renders
+fire — no concurrent memory pressure from the rest of the pipeline.
+
+**English named-voice catalog** (HF repo: <https://huggingface.co/kyutai/tts-voices>):
+`alba`, `anna`, `azelma`, `bill_boerst`, `caro_davy`, `charles`, `cosette`,
+`eponine`, `eve`, `fantine`, `george`, `jane`, `jean`, `javert`, `marius`,
+`mary`, `michael`, `paul`, `peter_yearsley`, `stuart_bell`, `vera`.
+Non-English presets: `giovanni` (it), `lola` (es), `juergen` (de),
+`rafael` (pt), `estelle` (fr).
+
+**Pocket-tts OOM defenses**: (1) **deferred model load** — pre-flight
+idempotency check skips the whole model load when every scene is unchanged
+(0.3s no-op re-run vs ~30s); (2) **stream-to-disk generation** via
+`generate_audio_stream()` — the full scene's PCM never lives in RAM; (3)
+`quantize=True` by default — halves runtime memory with no measurable
+quality loss (WER delta indistinguishable from noise); (4) voice state
+loaded once and reused across all scenes; (5) forced `concurrency=1`
+(CPU-bound model — parallelism risks OOM); (6) RAM floor pre-check
+(refuses to load the model if it won't fit) + mid-run pulse check (stops
+cleanly, leaving already-generated scenes resumable via the same
+idempotent-skip mechanism as edge-tts).
+
+**Unsupported in v1**: voice cloning (the wrapper accepts only named preset
+voices; cloning via `--voice ./my-voice.wav` is deferred), SSML, and
+per-scene rate/volume/pitch (the flags are accepted for `voiceover_hash`
+compatibility but ignored at synthesis — logged as a warning). If you need
+these, use the `edge` engine or call `pocket_tts` directly.
 
 ## Audio Path (important)
 
@@ -354,6 +445,7 @@ python3 pipeline.py clean my-video                 # Free disk space (all safe-t
 
 # Individual scripts (orchestrator runs these for you — only call manually for debugging)
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
+python3 scripts/generate_voiceover_pocket.py videos/my-video/ --voice alba  # Optional pocket-tts engine
 python3 scripts/measure_durations.py videos/my-video/
 python3 scripts/render_scene.py videos/my-video/ 1
 python3 scripts/assemble.py videos/my-video/

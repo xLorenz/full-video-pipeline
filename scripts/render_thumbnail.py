@@ -65,18 +65,46 @@ def get_last_frame(remotion_dir):
 
 
 def read_title_md(video_dir):
-    """Read TITLE.md and extract the recommended/hybrid title."""
+    """Read TITLE.md and extract the recommended/hybrid title.
+
+    Prefers an explicit ``## Recommended Title`` machine-readable block
+    (a ``Title: <value>`` or ``Hybrid | <value>`` line); falls back to scanning
+    the whole document for the first ``Hybrid | <value>`` line, then for any
+    plausible title line.
+    """
     title_md = Path(video_dir) / "TITLE.md"
     if not title_md.exists():
         return None
     text = title_md.read_text(encoding="utf-8")
-    # Try to find the hybrid/recommended title first
+
+    def _extract_value(line):
+        # "Hybrid | <value>" -> split on the first "|"
+        if "|" in line and "Hybrid" in line:
+            parts = [p.strip() for p in line.split("|") if p.strip()]
+            if len(parts) >= 2:
+                return parts[1]
+        # "Title: <value>" -> strip the prefix
+        m = re.match(r"^\s*Title:\s*(.+?)\s*$", line, re.IGNORECASE)
+        if m:
+            return m.group(1)
+        return None
+
+    # 1. Prefer the machine-readable block.
+    block = _block_text(text, "Recommended Title")
+    if block:
+        for line in block.splitlines():
+            val = _extract_value(line)
+            if val:
+                return val
+
+    # 2. Fallback: hybrid line anywhere in the doc.
     for line in text.split("\n"):
         if "Hybrid" in line and "|" in line:
             parts = [p.strip() for p in line.split("|") if p.strip()]
             if len(parts) >= 2:
                 return parts[1]
-    # Fallback: any non-empty line that looks like a title
+
+    # 3. Fallback: any non-empty line that looks like a title.
     for line in text.split("\n"):
         stripped = line.strip()
         if stripped and not stripped.startswith("|") and not stripped.startswith("#") and len(stripped) > 10:
@@ -84,23 +112,49 @@ def read_title_md(video_dir):
     return None
 
 
+def _block_text(text, heading):
+    """Return the body of the ``## <heading>`` section (exclusive of the header
+    and the next ``## `` heading), or '' if the heading is absent."""
+    m = re.search(rf"^##\s*{re.escape(heading)}\s*$", text, re.IGNORECASE | re.MULTILINE)
+    if not m:
+        return ""
+    after = text[m.end():]
+    nxt = re.search(r"^##\s+", after, re.MULTILINE)
+    return after[: nxt.start()] if nxt else after
+
+
 def read_styles_md(video_dir):
-    """Read STYLES.md and extract palette colors as a dict."""
+    """Read STYLES.md and extract palette colors as a dict.
+
+    Prefers an explicit ``## Palette (machine-readable)`` block (lines of the
+    form ``Label: #RRGGBB``); falls back to scanning the whole document for the
+    same ``Label: #HEX`` pattern. Recognised labels: primary, secondary, accent,
+    background, text, plus the extended palette surface / alert / cool.
+    """
     styles_md = Path(video_dir) / "STYLES.md"
     palette = {}
     if not styles_md.exists():
         return palette
     text = styles_md.read_text(encoding="utf-8")
+
+    # Prefer the machine-readable block; fall back to the whole document so the
+    # existing "## Color Palette" / ad-hoc label formats still work.
+    block = _block_text(text, "Palette (machine-readable)")
+    scan_text = block if block else text
+
     color_map = {
         "primary": ["Primary", "primary"],
         "secondary": ["Secondary", "secondary"],
         "accent": ["Accent", "accent"],
         "background": ["Background", "background"],
         "text": ["Text", "text"],
+        "surface": ["Surface", "surface"],
+        "alert": ["Alert", "alert"],
+        "cool": ["Cool", "cool"],
     }
     for key, labels in color_map.items():
         for label in labels:
-            m = re.search(rf"{re.escape(label)}:\s*#([0-9A-Fa-f]{{6}})", text)
+            m = re.search(rf"{re.escape(label)}:\s*#([0-9A-Fa-f]{{6}})", scan_text)
             if m:
                 palette[key] = f"#{m.group(1)}"
                 break
