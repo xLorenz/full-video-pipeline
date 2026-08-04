@@ -50,6 +50,10 @@ If pre-flight fails, resolve issues before proceeding. Required tools:
 - `ffmpeg` + `ffprobe` (for audio/video processing)
 - `git` (for cloning skill references)
 
+Optional (pocket-tts engine — see "Voiceover Engines" below):
+- Python 3.10+ and `pip install -r scripts/requirements-pocket.txt` (adds PyTorch)
+- ~500 MB free RAM at Step 5 (model + runtime + buffers)
+
 ## Execution Protocol (READ FIRST — DO NOT SKIP)
 
 The pipeline is driven by **one entry point** and **two commands**:
@@ -85,9 +89,9 @@ brief (or "All steps complete!").
 ### Hard rules (non-negotiable)
 
 - **Never manually invoke** `render_scene.py`, `assemble.py`, `render_thumbnail.py`,
-  `generate_voiceover.py`, or `measure_durations.py` yourself. The orchestrator runs
-  them with idempotency checks, lint gates, atomic writes, and per-step logging that
-  you would bypass.
+  `generate_voiceover.py`, `generate_voiceover_pocket.py`, or `measure_durations.py`
+  yourself. The orchestrator runs them with idempotency checks, lint gates,
+  atomic writes, and per-step logging that you would bypass.
 - **Never edit `pipeline_state.json` by hand.** Treat it as read-only state.
   Use `python3 pipeline.py status <title>` to inspect it.
 - **Always let the orchestrator validate.** After every creative phase your
@@ -155,13 +159,48 @@ render performance.
 Defaults are in `pipeline_config.json`. Override per-video as needed:
 - `video.fps`, `video.width`, `video.height` — composition settings
 - `video.burn_captions` — render `<Captions>` layer when scene has cues (default `false`)
-- `voiceover.voice` — edge-tts voice name (list voices: `edge-tts --list-voices`)
+- `voiceover.engine` — `edge` (default) or `pocket` (optional CPU neural TTS; see below)
+- `voiceover.voice` — TTS voice name. For `edge`: Azure neural voice (`edge-tts --list-voices`). For `pocket`: one of the named preset voices (e.g. `alba`, `michael`, `vera` — full catalog at <https://huggingface.co/kyutai/tts-voices>)
+- `voiceover.language` — pocket-tts language model (default `english`; non-English `*_24l` variants are heavier)
+- `voiceover.no_quantize` — disables int8 quantization of the pocket model (default `false` — quantization has no measurable quality loss and halves runtime memory)
 - `render.*` — rendering guardrails (concurrency, codec, memory limits)
 - `system.*` — resource thresholds
 - `retention.*` — disk cleanup flags (see "Disk Cleanup" below)
 - `skills.sources` — skill file paths per phase (each entry has `name`, `path`, `phases` mapping)
 - `steps.{step_key}.command_template` — plugin escape hatch for automated step commands
 - `config_files.auto_discover_per_video` — enable/disable per-video config discovery (default `true`)
+
+### Voiceover Engines
+
+The pipeline ships two TTS engines; default is `edge`, opt-in `pocket`:
+
+| Engine | Footprint | Offline | Voice count | SSML/rate/pitch | When to use |
+|--------|-----------|---------|-------------|-----------------|-------------|
+| `edge` (default) | <1 MB | no | ~400+ | yes | default, broad language/SSML needs |
+| `pocket` | ~1 GB (PyTorch) | yes | 21 EN + 5 non-EN | no | offline, deterministic, MIT-licensed voices |
+
+To opt into pocket-tts, override two keys per video (auto-discovery is on by default):
+
+```jsonc
+// videos/<title>/pipeline_config.json
+{
+  "voiceover": {
+    "engine": "pocket",
+    "voice": "alba",
+    "language": "english",
+    "no_quantize": false,
+    "concurrency": 1
+  },
+  "system": { "min_available_ram_mb": 200 },
+  "steps": {
+    "5_voiceover_generation": {
+      "command_template": "python3 scripts/generate_voiceover_pocket.py {video_dir} --voice {voiceover.voice}"
+    }
+  }
+}
+```
+
+The pocket wrapper quantizes by default (~895 MB peak RSS during model load), streams WAV chunks to disk (no full-audio tensor in RAM), forces sequential execution, and **skips model load entirely on unchanged re-runs** (0.3s no-op re-run vs ~30s when the model loads). See `README.md` "Voiceover Engines" for the full OOM-defense enumeration and the minimum-box recommendation.
 
 ---
 
@@ -313,12 +352,21 @@ python3 pipeline.py complete <title>
 
 `complete` validates `VOICEOVER.md` exists, marks Step 4 done, then **auto-runs**:
 
-- **Step 5 (Voiceover Generation)**: Runs `generate_voiceover.py` — parses
-  VOICEOVER.md delimiters, computes a SHA-256 `voiceover_hash` per scene from
-  `(text, voice, rate, volume, pitch)`, **skips** any scene whose MP3 exists AND
-  matches the stored hash (idempotent — editing VOICEOVER.md only regenerates
-  changed scenes), generates MP3s concurrently (config: `voiceover.concurrency`),
-  retries failed scenes once after 5s backoff, updates `scenes.json`.
+- **Step 5 (Voiceover Generation)**: Runs `generate_voiceover.py` (edge) or
+  `generate_voiceover_pocket.py` (when `voiceover.engine == "pocket"` via the
+  per-video `steps.5_voiceover_generation.command_template` override). Both
+  parse VOICEOVER.md delimiters, compute a SHA-256 `voiceover_hash` per scene
+  from `(text, voice, rate, volume, pitch)`, **skip** any scene whose MP3
+  exists AND matches the stored hash (idempotent — editing VOICEOVER.md
+  only regenerates changed scenes), update `scenes.json`. Engine-specifics:
+  - **edge**: generates MP3s concurrently (config: `voiceover.concurrency`),
+    retries failed scenes once after 5s backoff (Azure endpoint is flaky).
+  - **pocket**: CPU-bound (PyTorch); forced `concurrency=1` regardless of
+    config. Quantized by default (~895 MB peak RSS). OOM defenses: deferred
+    model load (skips entirely if every scene is unchanged), streaming
+    WAV-to-disk (no full-audio tensor in RAM), RAM floor pre-check + mid-run
+    pulse check. `rate`/`volume`/`pitch` flags accepted but ignored (kept
+    for hash-compat only). See "Voiceover Engines" above.
 - **Step 6 (Duration Measurement)**: Runs `measure_durations.py` — uses ffprobe
   on each MP3, computes `actual_duration_frames = ceil(duration * fps)`, updates
   `scenes.json` with real values. **Do NOT proceed to Phase 3 until Step 6
@@ -773,6 +821,10 @@ python3 pipeline.py clean <title>
 | Error | Recovery |
 |-------|----------|
 | `edge-tts` network failure | Step 5 retries each scene once after 5s backoff. Re-run `complete` — unchanged scenes skipped (idempotent). |
+| pocket-tts insufficient RAM at start | Wrapper refuses to load model and exits 2 with a diagnostic. Free RAM on the host (kill chrome, drop caches) or switch `voiceover.engine` back to `edge` in the per-video config. |
+| pocket-tts mid-batch RAM pressure | Wrapper records a WARN and exits 1; scenes generated before the pressure point are on disk with valid hashes. Re-run `complete` — generated scenes skip, the rest resume. If persistent, reduce `voiceover.language` to the default `english` (avoid `*_24l`) and ensure `voiceover.no_quantize: false`. |
+| pocket-tts model-download failure (first run) | One-time HuggingFace download of weights (~215 MB) failed. Re-run `complete`; HF resumes partial downloads. |
+| pocket-tts ImportError | Run `pip install -r scripts/requirements-pocket.txt`. Base `requirements.txt` does NOT install pocket-tts (optional engine). |
 | Remotion render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill Chrome (`pkill -f chrome`), wait 60s, re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
 | Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
 | ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `complete`. |
