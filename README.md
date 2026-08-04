@@ -278,7 +278,7 @@ The pipeline supports two TTS engines, selected via `voiceover.engine` in
 | Engine | Install | Footprint | Offline | Pros | Cons |
 |--------|---------|-----------|---------|------|------|
 | `edge` (default) | `scripts/requirements.txt` | <1 MB | no | 400+ Azure voices, SSML/rate/pitch, fast, light | network-dependent, less-polished legal posture (reverse-engineered Azure endpoint) |
-| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic, voice cloning potential | CPU-bound on tiny boxes, small voice catalog, no SSML/rate/pitch |
+| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic, voice cloning potential | CPU-bound (~895 MB peak RSS during model load), small voice catalog, no SSML/rate/pitch |
 
 Edge-tts remains the zero-config default. Opt into pocket-tts by swapping
 two config keys (per-video auto-discovery makes this a per-project choice):
@@ -290,7 +290,7 @@ two config keys (per-video auto-discovery makes this a per-project choice):
     "engine": "pocket",
     "voice": "alba",        // named preset voice (see catalog link below)
     "language": "english",  // default 12-layer distilled model
-    "no_quantize": false,   // quantization on by default (~234 MB runtime)
+    "no_quantize": false,   // quantization on by default (~895 MB peak RSS)
     "concurrency": 1        // pocket wrapper forces 1 regardless
   },
   "system": {
@@ -304,12 +304,28 @@ two config keys (per-video auto-discovery makes this a per-project choice):
 }
 ```
 
-**Minimum box for the pocket engine**: ~600 MB free RAM at Step 5 (model
-234 MB quantized + runtime + buffers). The wrapper refuses to start with a
-diagnostic message if free RAM is below this floor. On `t3.micro` (1 GB RAM)
-set `system.min_available_ram_mb: 200` globally but ensure step 5 doesn't
-overlap with another memory-heavy automated step — each Phase auto-runs its
-sub-steps sequentially, so Step 5 finishes before any renders fire.
+**Minimum box for the pocket engine**: smoke-tested on Windows / Python 3.10 /
+PyTorch 2.13 CPU / 8 GB RAM with the `english` quantized model:
+
+  - Peak child RSS at model load: **~895 MB** (process peak, includes
+    Python + PyTorch runtime + quantized weights + scipy + chunk buffer).
+    Smoke-test measured across 82 samples over 42s.
+  - Minimum VM available observed during generation: **~452 MB** on an
+    8 GB box (model load is the squeeze point, not synthesis).
+  - Per-scene MP3: ~52-57 KB / ~6s @ 24 kHz mono / 65 Kbps.
+  - Re-run idempotency check: 0.3s wall when every scene is unchanged
+    (model NOT loaded; PyTorch not imported).
+  - Wall time per `complete`: ~42s for 2 scenes (model load dominates,
+    ~30s on a warm HuggingFace cache); scales as load + ~1s per scene synth.
+
+The wrapper refuses to even load the model if free RAM is below
+`MIN_FREE_FOR_POCKET_MB` (534 MB, model + safety margin). On `t3.micro`
+(1 GB RAM) this is tight: in practice the OS already uses ~150 MB, so
+~600 MB free at the start of Step 5 would clear the pre-check but the
+generation pass will leave only ~50-200 MB free at peak. **A safer
+minimum is a `t3.small` (2 GB RAM) or any box with ≥1 GB free at Step 5.**
+Per Phase auto-runs sequentially, so Step 5 finishes before any renders
+fire — no concurrent memory pressure from the rest of the pipeline.
 
 **English named-voice catalog** (HF repo: <https://huggingface.co/kyutai/tts-voices>):
 `alba`, `anna`, `azelma`, `bill_boerst`, `caro_davy`, `charles`, `cosette`,
@@ -318,14 +334,17 @@ sub-steps sequentially, so Step 5 finishes before any renders fire.
 Non-English presets: `giovanni` (it), `lola` (es), `juergen` (de),
 `rafael` (pt), `estelle` (fr).
 
-**Pocket-tts OOM defenses**: (1) stream-to-disk generation via
-`generate_audio_stream()` — the full scene's PCM never lives in RAM;
-(2) `quantize=True` by default — halves runtime memory with no measurable
-quality loss (WER delta indistinguishable from noise); (3) voice state
-loaded once and reused across all scenes; (4) forced `concurrency=1`
-(CPU-bound model — parallelism risks OOM); (5) RAM floor pre-check +
-mid-run pulse check (stops cleanly, leaving already-generated scenes
-resumable via the same idempotent-skip mechanism as edge-tts).
+**Pocket-tts OOM defenses**: (1) **deferred model load** — pre-flight
+idempotency check skips the whole model load when every scene is unchanged
+(0.3s no-op re-run vs ~30s); (2) **stream-to-disk generation** via
+`generate_audio_stream()` — the full scene's PCM never lives in RAM; (3)
+`quantize=True` by default — halves runtime memory with no measurable
+quality loss (WER delta indistinguishable from noise); (4) voice state
+loaded once and reused across all scenes; (5) forced `concurrency=1`
+(CPU-bound model — parallelism risks OOM); (6) RAM floor pre-check
+(refuses to load the model if it won't fit) + mid-run pulse check (stops
+cleanly, leaving already-generated scenes resumable via the same
+idempotent-skip mechanism as edge-tts).
 
 **Unsupported in v1**: voice cloning (the wrapper accepts only named preset
 voices; cloning via `--voice ./my-voice.wav` is deferred), SSML, and
