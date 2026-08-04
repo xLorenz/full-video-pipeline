@@ -106,6 +106,34 @@ def update_scene_in_scenes_json(video_dir_path, scene_id, audio_rel, duration, v
     pl.save_scenes_full(video_dir_path, data)
 
 
+def scene_is_current(scene, voiceover_dir, video_dir, voice, rate, volume, pitch) -> bool:
+    """Idempotency check ONLY — returns True if the scene's MP3 already
+    exists on disk and the stored voiceover_hash matches the recomputed
+    hash. Used both in generate_one (real skip path) and in a pre-flight
+    pass that lets us short-circuit model loading when every scene is
+    unchanged.
+
+    Why a pre-flight matters: pocket-tts pays ~10-30s + ~700 MB to load
+    the model and voice state. If every scene is unchanged, we want to
+    skip that overhead entirely. edge-tts has no model load, so the same
+    pattern there is essentially free; here it's the difference between
+    a 0.05s no-op re-run and a 30s 700MB-spin-up no-op re-run on a
+    1 GB t3.micro. So we pre-flight before loading anything.
+    """
+    mp3_path = os.path.join(voiceover_dir, f"scene-{scene['id']:02d}.mp3")
+    if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) == 0:
+        return False
+    scenes_path = os.path.join(video_dir, "scenes.json")
+    with open(scenes_path, "r", encoding="utf-8") as f:
+        existing = next((s for s in json.load(f).get("scenes", [])
+                         if s["id"] == scene["id"]), None)
+    if not existing:
+        return False
+    voice_hash = pl.hash_voiceover(scene["text"], voice, rate, volume, pitch)
+    return existing.get("voiceover_hash") == voice_hash
+
+
+
 def available_ram_mb() -> float:
     try:
         import psutil
@@ -185,20 +213,22 @@ def generate_one(model, voice_state, scene, voiceover_dir, video_dir,
     relative_path = f"voiceover/{mp3_file}"
     voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch)
 
-    # Idempotency check: skip if file exists and hash matches (same as edge-tts).
-    if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
+    # Idempotency check via the shared helper (kept inline-equivalent for
+    # logging continuity; the actual decision lives in scene_is_current
+    # so main()'s pre-flight pass and generate_one agree on the rule).
+    if scene_is_current(scene, voiceover_dir, video_dir, voice, rate, volume, pitch):
+        # Re-read for the duration log line (cheap; one file read).
         scenes_path = os.path.join(video_dir, "scenes.json")
         with open(scenes_path, "r", encoding="utf-8") as f:
             existing = next((s for s in json.load(f).get("scenes", [])
                              if s["id"] == scene_id), None)
-        if existing and existing.get("voiceover_hash") == voice_hash:
-            existing_dur = existing.get("actual_duration_seconds") or 0
-            msg = (f"Scene {scene_id}: skip (unchanged) — "
-                   f"{mp3_file} ({existing_dur:.2f}s)")
-            print(msg)
-            with open(logpath, "a", encoding="utf-8") as logf:
-                logf.write(msg + "\n")
-            return ("skipped", scene_id, voice_hash)
+        existing_dur = (existing or {}).get("actual_duration_seconds") or 0
+        msg = (f"Scene {scene_id}: skip (unchanged) — "
+               f"{mp3_file} ({existing_dur:.2f}s)")
+        print(msg)
+        with open(logpath, "a", encoding="utf-8") as logf:
+            logf.write(msg + "\n")
+        return ("skipped", scene_id, voice_hash)
 
     msg = f"Scene {scene_id}: generating audio (pocket-tts)..."
     print(msg)
@@ -314,10 +344,60 @@ def main():
         print("ERROR: No scenes found in VOICEOVER.md", file=sys.stderr)
         sys.exit(2)
 
-    # Pre-flight RAM check. The quantized model needs ~234 MB; we add a
-    # generous safety margin for Python/PyTorch runtime + buffers. If free
-    # RAM is below this we refuse to start — better to fail cleanly than
-    # OOM mid-render and waste the partial work.
+    print(f"Found {len(scenes)} scenes total")
+    print(f"Engine: pocket-tts   Voice: {voice}   Language: {language}")
+    print(f"Quantized: {quantize}   Mode: sequential (CPU-bound)")
+    print(f"rate/volume/pitch flags IGNORED for pocket-tts (logged for hash-compat)")
+
+    with open(log_file, "a", encoding="utf-8") as logf:
+        logf.write(f"\n=== generate_voiceover_pocket.py run {pl.now_iso()} ===\n")
+        logf.write(f"voice={voice} language={language} quantize={quantize} "
+                   f"mode=sequential\n")
+
+    # ------------------------------------------------------------------
+    # Pre-flight idempotency check on EVERY scene. If every scene is
+    # unchanged, we exit 0 WITHOUT importing pocket_tts or loading the
+    # model. This is the critical OOM/latency optimization vs the naive
+    # "load model first, then check" pattern: on a re-run after a
+    # successful generation, pocket-tts would otherwise burn ~10-30s
+    # and ~700 MB of RAM just to print "skip" 12 times. The matching
+    # edge-tts path is essentially free because edge-tts has no model.
+    # ------------------------------------------------------------------
+    pending = [s for s in scenes
+               if not scene_is_current(s, voiceover_dir, video_dir,
+                                       voice, rate, volume, pitch)]
+    if not pending:
+        free = available_ram_mb()
+        msg = (f"All {len(scenes)} scenes unchanged — skipping model load "
+               f"and exiting 0. Free RAM: {free:.0f}MB (model NOT loaded).")
+        print(msg)
+        with open(log_file, "a", encoding="utf-8") as logf:
+            logf.write(msg + "\n")
+            for s in scenes:
+                logf.write(f"Scene {s['id']}: skip (unchanged)\n")
+        # Print the per-scene skip lines via the existing generate_one path
+        # by reusing its logging (single read of scenes.json, not setting
+        # the model up). Cleaner is to inline the message here.
+        for s in scenes:
+            scenes_path = os.path.join(video_dir, "scenes.json")
+            with open(scenes_path, "r", encoding="utf-8") as f:
+                existing = next((x for x in json.load(f).get("scenes", [])
+                                 if x["id"] == s["id"]), None)
+            existing_dur = (existing or {}).get("actual_duration_seconds") or 0
+            mp3_name = f"scene-{s['id']:02d}.mp3"
+            print(f"Scene {s['id']}: skip (unchanged) — {mp3_name} ({existing_dur:.2f}s)")
+        print("\nVoiceover generation complete.")
+        print(f"  Generated: 0, Skipped (unchanged): {len(scenes)}, "
+              f"Failed: 0, Stopped (RAM): 0")
+        return  # exit 0 implicitly
+
+    print(f"{len(pending)} of {len(scenes)} scenes need regeneration; "
+          f"loading model.")
+
+    # ------------------------------------------------------------------
+    # RAM floor pre-check — only matters if we're about to load the model.
+    # Pays nothing when the pre-flight short-circuited above.
+    # ------------------------------------------------------------------
     free = available_ram_mb()
     needed = MIN_FREE_FOR_POCKET_MB if quantize else 450 + SAFETY_MARGIN_MB
     if free < needed:
@@ -330,20 +410,10 @@ def main():
                f"edge-tts engine instead.")
         print(msg, file=sys.stderr)
         with open(log_file, "a", encoding="utf-8") as logf:
-            logf.write(f"\n=== generate_voiceover_pocket.py REFUSED {pl.now_iso()} ===\n")
-            logf.write(msg + "\n")
+            logf.write(f"REFUSED {pl.now_iso()}: {msg}\n")
         sys.exit(2)
 
-    print(f"Found {len(scenes)} scenes to generate")
-    print(f"Engine: pocket-tts   Voice: {voice}   Language: {language}")
-    print(f"Quantized: {quantize}   Mode: sequential (CPU-bound)")
-    print(f"rate/volume/pitch flags IGNORED for pocket-tts (logged for hash-compat)")
     print(f"Free RAM at start: {free:.0f}MB (need ~{needed}MB)")
-
-    with open(log_file, "a", encoding="utf-8") as logf:
-        logf.write(f"\n=== generate_voiceover_pocket.py run {pl.now_iso()} ===\n")
-        logf.write(f"voice={voice} language={language} quantize={quantize} "
-                   f"mode=sequential\n")
 
     # ------------------------------------------------------------------
     # Lazy import — keeps pocket-tts as an optional dependency. If it's
@@ -360,10 +430,9 @@ def main():
             logf.write("ABORT: pocket-tts ImportError\n")
         sys.exit(2)
 
-    # Load model ONCE, reuse across all scenes. This is the single expensive
-    # operation; the command_template only fires once per `complete` call so
-    # paying 10-30s here for the whole video is fine. The voice state is
-    # also loaded once and reused (preset name → KV-cache dict).
+    # Load model ONCE, reuse across all scenes that need regeneration.
+    # The pre-flight pass above already filtered out unchanged scenes, so
+    # every iteration of the loop below does real work.
     print("Loading pocket-tts model (this may take 10-30s on first run, "
           "including one-time download of model weights)...")
     with open(log_file, "a", encoding="utf-8") as logf:
