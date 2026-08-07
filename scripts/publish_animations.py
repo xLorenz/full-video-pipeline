@@ -187,12 +187,25 @@ def copy_template(template_dir: Path, dest_anim_dir: Path, dry_run: bool) -> Non
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
-    # Copy the tracked files and the config/, preview/ subdirs. Skip docs that
-    # only matter in the source repo (.git, .DS_Store, etc.) — we DO copy
-    # animation.md because the per-video agent needs to read it without
-    # nawigating back to the repo root.
-    def _ignore(_src, names):
-        return {n for n in names if n.startswith(".")}
+    # Copy the tracked files and the config/, preview/ subdirs. Skip dot-files
+    # (.git, .DS_Store, etc.) AND stray render-project cruft that prior sessions
+    # sometimes left inside preview/ (Root.tsx, package.json, tsconfig.json,
+    # remotion.config.ts, node_modules, debug PNGs). A template's preview/ dir
+    # should ONLY ever contain preview.tsx (+ the rendered preview.mp4).
+    PREVIEW_CRUFT = {
+        "Root.tsx", "package.json", "tsconfig.json",
+        "remotion.config.ts", "remotion.config.tsx",
+    }
+    def _ignore(src, names):
+        skip = {n for n in names if n.startswith(".")}
+        # Inside a preview/ folder, drop known render-project leftovers.
+        if Path(src).name == "preview":
+            skip |= {n for n in names if n in PREVIEW_CRUFT}
+            skip |= {"node_modules"}
+            # Drop debug PNG outputs from prior dev sessions (anything other than
+            # preview.mp4 / preview.tsx).
+            skip |= {n for n in names if n.endswith(".png") and not n.startswith("preview")}
+        return skip
     shutil.copytree(
         template_dir,
         dest,

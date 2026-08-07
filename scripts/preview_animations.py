@@ -35,6 +35,7 @@ Exit codes:
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -77,7 +78,13 @@ def write_previews_root(previews: list, dest_root: Path) -> None:
     ]
     for name, preview_path in previews:
         cname = pascal(name) + "Preview"
-        rel = preview_path.relative_to(dest_root.parent).as_posix()
+        # PreviewsRoot.tsx is written to dest_root/. The imports it emits must
+        # resolve relative to that file's location, so compute the relpath
+        # from dest_root (not dest_root.parent). The published previews live
+        # under <rdir>/src/components/animations/<template>/preview/, which
+        # is a SIBLING tree of .animation-previews/ — pathlib.relative_to
+        # raises ValueError for non-subpath pairs, so use os.path.relpath.
+        rel = Path(os.path.relpath(preview_path, start=dest_root)).as_posix()
         lines.append(f"import {{ Preview as {cname} }} from './{rel}';")
     lines.append("")
     lines.append("const Root: React.FC = () => (")
@@ -97,7 +104,7 @@ def write_previews_root(previews: list, dest_root: Path) -> None:
 
 
 def render_one(
-    entry_rel: str,
+    entry_arg: str,
     video_dir: Path,
     comp_id: str,
     out_path: Path,
@@ -107,14 +114,14 @@ def render_one(
     """Run `npx remotion render` with --entry pointing at PreviewsRoot.tsx.
 
     Returns (ok, msg). The entry file is the PreviewsRoot.tsx we generated
-    into .animation-previews/src/. We pass it via `--entry` so Remotion's
-    bundler uses it instead of the project's default Root.tsx (which only
-    registers MainVideo+Thumbnail compositions — preview comps wouldn't show).
+    into .animation-previews/src/. We pass it via `--entry` (as an absolute
+    path) so Remotion's bundler uses it instead of the project's default
+    Root.tsx (which only registers MainVideo+Thumbnail compositions —
+    preview comps wouldn't show).
     """
     cmd = [
-        "npx", "remotion", "render", comp_id,
-        str(out_path),
-        "--entry", entry_rel,
+        shutil.which("npx") or "npx", "remotion", "render",
+        entry_arg, comp_id, str(out_path),
         "--jpeg-quality", str(jpeg_quality),
         "--frames", "0-89",
     ]
@@ -185,7 +192,12 @@ def main(argv=None):
     # `--entry` flag. (The Remotion CLI accepts any file that registerRoot
     # has run against.)
     write_previews_root(previews, src_dir)
-    entry_rel = (src_dir / "PreviewsRoot.tsx").relative_to(rdir).as_posix()
+    # PreviewsRoot.tsx lives OUTSIDE rdir (.animation-previews/src/), so
+    # pathlib.relative_to raises ValueError here too. Remotion's --entry
+    # accepts an absolute path on all platforms, which sidesteps the need
+    # to compute a relative path across a sibling tree.
+    entry_path = src_dir / "PreviewsRoot.tsx"
+    entry_arg = str(entry_path)
 
     log_dir = dest_dir / "logs"
 
@@ -194,7 +206,7 @@ def main(argv=None):
         comp_id = f"preview-{name}"
         out_path = dest_dir / f"preview-{name}.mp4"
         ok, msg = render_one(
-            entry_rel, video_dir, comp_id, out_path, args.jpeg_quality, log_dir,
+            entry_arg, video_dir, comp_id, out_path, args.jpeg_quality, log_dir,
         )
         print(f"  {'OK ' if ok else 'FAIL'} {msg}")
         if not ok:
