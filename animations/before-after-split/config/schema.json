@@ -33,14 +33,29 @@
       "additionalProperties": false,
       "properties": {
         "direction": {"type": "string", "enum": ["horizontal", "vertical"], "default": "vertical"},
-        "sweepDurationSeconds": {"type": "number", "minimum": 0.3, "maximum": 8, "default": 1.2},
-        "dividerStyle": {"type": "string", "enum": ["line", "gradient"], "default": "line"},
+        "sweepDirection": {"type": "string", "enum": ["ltr", "rtl", "ttb", "btt"], "default": "ltr"},
+        "panelContentAnchor": {"type": "string", "enum": ["panel-edge", "screen-center"], "default": "screen-center"},
+        "sweepDurationSeconds": {"type": "number", "minimum": 0.3, "maximum": 8, "default": 1.4},
+        "sweepEasing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+        "sweepAccentSeconds": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.32},
+        "dividerStyle": {"type": "string", "enum": ["line", "gradient", "glow"], "default": "gradient"},
         "dividerColor": {"type": ["string", "null"], "default": null},
+        "dividerWidthPx": {"type": "number", "minimum": 1, "maximum": 32, "default": 6},
+        "wipeLightWidthPx": {"type": "number", "minimum": 24, "maximum": 400, "default": 120},
         "beforeColor": {"type": ["string", "null"], "default": null},
         "afterColor": {"type": ["string", "null"], "default": null},
-        "dividerWidthPx": {"type": "number", "minimum": 1, "maximum": 32, "default": 4},
-        "panelPaddingPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 96},
-        "labelOpacityDuringSweep": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.6}
+        "panelGradient": {"type": "boolean", "default": true},
+        "beforeValue": {"type": ["string", "null"], "default": null},
+        "afterValue": {"type": ["string", "null"], "default": null},
+        "valueFontPx": {"type": "number", "minimum": 12, "maximum": 120, "default": 40},
+        "labelFontPx": {"type": "number", "minimum": 24, "maximum": 160, "default": 84},
+        "panelPaddingPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 120},
+        "labelOpacityDuringSweep": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.55},
+        "labelFadeInFrames": {"type": "integer", "minimum": 1, "maximum": 120, "default": 12},
+        "labelHoldAfterFrames": {"type": "integer", "minimum": 0, "maximum": 120, "default": 12},
+        "preSweepHoldFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 18},
+        "postSweepHoldFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 30},
+        "sameColorGuard": {"type": "boolean", "default": true}
       }
     }
   }

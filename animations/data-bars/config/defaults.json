@@ -1,7 +1,7 @@
 {
   "instanceId": "data-bars.defaults",
   "theme": {},
-  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-quint" },
   "elements": [],
   "extras": {
     "values": [42, 88, 56, 120, 35, 74, 91],
@@ -9,10 +9,19 @@
     "countUp": true,
     "topN": 8,
     "barHeightPx": 48,
-    "barGapPx": 12,
+    "barGapPx": 14,
     "barColor": null,
+    "barRampFrom": null,
+    "barRampTo": null,
     "valueFormat": "int",
     "showValueLabels": true,
-    "lanePaddingPx": 120
+    "lanePaddingPx": 140,
+    "labelGutterPx": 300,
+    "holdAfterFillFrames": 18,
+    "barSpringDamping": 10,
+    "staggerFrames": 5,
+    "fillFrames": 22,
+    "accentLeader": true,
+    "trackRoundingPx": 8
   }
 }

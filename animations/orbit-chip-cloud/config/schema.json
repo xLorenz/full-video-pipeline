@@ -1,0 +1,391 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/orbit-chip-cloud.schema.json",
+  "title": "OrbitChipCloud instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "extras"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "theme": {
+      "$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"
+    },
+    "global": {
+      "$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^chip-[0-9]+$"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "delay": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "duration": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 60000
+          },
+          "easing": {
+            "$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"
+          },
+          "position": {
+            "$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"
+          },
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 4,
+                "maximum": 1000
+              },
+              "scale": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.05,
+                "maximum": 20
+              }
+            }
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hidden": {
+            "type": "boolean",
+            "default": false
+          },
+          "custom": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "connector": {
+                "type": "boolean",
+                "default": true
+              },
+              "mono": {
+                "type": "boolean",
+                "default": false
+              },
+              "accent": {
+                "type": "boolean",
+                "default": false
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 100,
+                "maximum": 900
+              }
+            }
+          }
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chips"
+      ],
+      "properties": {
+        "chips": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "eyebrow": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "chipsStaggerSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0.1
+        },
+        "revealSeconds": {
+          "type": "number",
+          "minimum": 0.4,
+          "maximum": 5,
+          "default": 0.95
+        },
+        "orbitStartAngleDeg": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "default": -90
+        },
+        "orbitDegreesPerSec": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360,
+          "default": 8
+        },
+        "orbitRadiusXPx": {
+          "type": "number",
+          "minimum": 80,
+          "maximum": 2000,
+          "default": 728
+        },
+        "orbitRadiusYPx": {
+          "type": "number",
+          "minimum": 80,
+          "maximum": 2000,
+          "default": 388
+        },
+        "orbitStroke": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "orbitStrokeWidthPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4,
+          "default": 1
+        },
+        "orbitDashOnPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40,
+          "default": 4
+        },
+        "orbitDashOffPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40,
+          "default": 8
+        },
+        "orbitDashDriftPxPerSec": {
+          "type": "number",
+          "minimum": -60,
+          "maximum": 60,
+          "default": 6
+        },
+        "chipHeightPx": {
+          "type": "number",
+          "minimum": 28,
+          "maximum": 200,
+          "default": 56
+        },
+        "chipPaddingXPx": {
+          "type": "number",
+          "minimum": 12,
+          "maximum": 80,
+          "default": 32
+        },
+        "chipPaddingYPx": {
+          "type": "number",
+          "minimum": 4,
+          "maximum": 40,
+          "default": 14
+        },
+        "chipFill": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "chipTextColor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "chipStroke": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "chipStrokeWidthPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8,
+          "default": 0
+        },
+        "chipRadiusPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 28
+        },
+        "chipFontWeight": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 900,
+          "default": 600
+        },
+        "chipFontSizeScale": {
+          "type": "number",
+          "minimum": 0.3,
+          "maximum": 1.5,
+          "default": 0.42
+        },
+        "chipArrivalTangent": {
+          "type": "string",
+          "enum": [
+            "behind",
+            "ahead"
+          ],
+          "default": "behind"
+        },
+        "chipArrivalOffsetPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 400,
+          "default": 110
+        },
+        "chipTextShadow": {
+          "type": "boolean",
+          "default": false
+        },
+        "nodeRadiusPx": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 200,
+          "default": 70
+        },
+        "nodeFill": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "nodeGlow": {
+          "type": "boolean",
+          "default": true
+        },
+        "nodeLabel": {
+          "type": "string",
+          "default": ""
+        },
+        "nodeLabelColor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "nodeLabelFontPx": {
+          "type": "number",
+          "minimum": 12,
+          "maximum": 200,
+          "default": 24
+        },
+        "connectors": {
+          "type": "boolean",
+          "default": true
+        },
+        "connectorColor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "connectorWidthPx": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 1
+        },
+        "connectorsDrawOn": {
+          "type": "boolean",
+          "default": true
+        },
+        "accentColor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "surfaceColor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "sceneBg": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "holdAfterLandFrames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600,
+          "default": 18
+        }
+      }
+    }
+  }
+}

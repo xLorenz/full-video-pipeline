@@ -50,14 +50,28 @@
         },
         "trackColor": {"type": ["string", "null"], "default": null},
         "trackHeightPx": {"type": "number", "minimum": 1, "maximum": 32, "default": 4},
+        "trackInnerHighlight": {"type": "boolean", "default": true},
+        "trackLeadingGlow": {"type": "boolean", "default": true},
         "dotColor": {"type": ["string", "null"], "default": null},
         "dotRadiusPx": {"type": "number", "minimum": 4, "maximum": 80, "default": 18},
+        "dotRingOnLand": {"type": "boolean", "default": true},
+        "trackRippleOnLand": {"type": "boolean", "default": true},
+        "focusPulse": {
+          "oneOf": [
+            {"type": "string", "enum": ["last", "none"]},
+            {"type": "number", "minimum": 0, "maximum": 11}
+          ],
+          "default": "last"
+        },
         "labelColor": {"type": ["string", "null"], "default": null},
         "markerDropDurationSeconds": {"type": "number", "minimum": 0.2, "maximum": 4, "default": 0.6},
         "staggerSeconds": {"type": "number", "minimum": 0, "maximum": 6, "default": 0.4},
         "iconGlyph": {"type": "string", "default": ""},
         "foregroundLabel": {"type": "string", "default": ""},
-        "foregroundLabelColor": {"type": ["string", "null"], "default": null}
+        "foregroundLabelColor": {"type": ["string", "null"], "default": null},
+        "trackSweepSeconds": {"type": "number", "minimum": 0.2, "maximum": 3, "default": 0.8},
+        "trackGlow": {"type": "boolean", "default": false},
+        "holdAfterLastMarkerFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 18}
       }
     }
   }

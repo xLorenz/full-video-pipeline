@@ -19,6 +19,9 @@
     "staggerSeconds": 0.4,
     "iconGlyph": "",
     "foregroundLabel": "",
-    "foregroundLabelColor": null
+    "foregroundLabelColor": null,
+    "trackSweepSeconds": 0.8,
+    "trackGlow": false,
+    "holdAfterLastMarkerFrames": 18
   }
 }

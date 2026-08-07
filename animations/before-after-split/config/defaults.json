@@ -8,13 +8,28 @@
   ],
   "extras": {
     "direction": "vertical",
-    "sweepDurationSeconds": 1.2,
-    "dividerStyle": "line",
+    "sweepDirection": "ltr",
+    "panelContentAnchor": "screen-center",
+    "sweepDurationSeconds": 1.4,
+    "sweepEasing": "ease-in-out",
+    "sweepAccentSeconds": 0.32,
+    "dividerStyle": "gradient",
     "dividerColor": null,
+    "dividerWidthPx": 6,
+    "wipeLightWidthPx": 120,
     "beforeColor": null,
     "afterColor": null,
-    "dividerWidthPx": 4,
-    "panelPaddingPx": 96,
-    "labelOpacityDuringSweep": 0.6
+    "panelGradient": true,
+    "beforeValue": null,
+    "afterValue": null,
+    "valueFontPx": 40,
+    "labelFontPx": 84,
+    "panelPaddingPx": 120,
+    "labelOpacityDuringSweep": 0.55,
+    "labelFadeInFrames": 12,
+    "labelHoldAfterFrames": 12,
+    "preSweepHoldFrames": 18,
+    "postSweepHoldFrames": 30,
+    "sameColorGuard": true
   }
 }

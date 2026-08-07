@@ -10,14 +10,34 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Before-after split | [`before-after-split/`](./before-after-split/animation.md) | `comparison` `wipe` `contrast` `split` | Two-panel divider wipe to reveal a contrast |
 | Timeline marker | [`timeline-marker/`](./timeline-marker/animation.md) | `sequence` `events` `steps` `reveal` | Horizontal timeline with milestones dropping in order |
 | Comparison grid | [`comparison-grid/`](./comparison-grid/animation.md) | `matrix` `grid` `comparison` | N×M grid of cells tumbling in to show a matrix |
+| Kinetic title mosaic | [`kinetic-title-mosaic/`](./kinetic-title-mosaic/animation.md) | `typography` `opener` `title` `kinetic` | Multi-word kinetic typography with per-word motion variants |
+| Radial pulse rings | [`radial-pulse-rings/`](./radial-pulse-rings/animation.md) | `emphasis` `radar` `transmission` `focal` | Concentric pulse rings emit from a focal node |
+| Rolling digit counter | [`rolling-digit-counter/`](./rolling-digit-counter/animation.md) | `stat` `number` `scoreboard` `count-up` | Slot-machine tumbling numeral columns snap to target |
+| Orbit chip cloud | [`orbit-chip-cloud/`](./orbit-chip-cloud/animation.md) | `relationship` `orbit` `pill` `cloud` | Labelled pill chips orbit a focal node on an ellipse |
+| Bar code scan | [`bar-code-scan/`](./bar-code-scan/animation.md) | `sequence` `decode` `barcode` `scan` | Scanline sweeps decoding barcode segments one by one |
 
 ## By tag
 
 - `comparison` — `right-wrong-card`, `before-after-split`, `comparison-grid`
 - `data-viz` — `data-bars`, `count-up-stat`
 - `judgment` — `right-wrong-card`
-- `sequence` — `timeline-marker`
-- `count` — `data-bars`, `count-up-stat`
+- `sequence` — `timeline-marker`, `bar-code-scan`
+- `count` — `data-bars`, `count-up-stat`, `rolling-digit-counter`
+- `typography` — `kinetic-title-mosaic`
+- `opener` — `kinetic-title-mosaic`
+- `emphasis` — `radial-pulse-rings`
+- `radar` — `radial-pulse-rings`
+- `transmission` — `radial-pulse-rings`
+- `focal` — `radial-pulse-rings`, `orbit-chip-cloud`
+- `stat` — `count-up-stat`, `rolling-digit-counter`
+- `scoreboard` — `rolling-digit-counter`
+- `relationship` — `orbit-chip-cloud`
+- `orbit` — `orbit-chip-cloud`
+- `pill` — `orbit-chip-cloud`
+- `cloud` — `orbit-chip-cloud`
+- `decode` — `bar-code-scan`
+- `barcode` — `bar-code-scan`
+- `scan` — `bar-code-scan`
 
 ## Status
 

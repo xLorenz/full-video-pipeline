@@ -16,9 +16,21 @@
     "prefix": "",
     "suffix": "%",
     "pop": true,
-    "popForce": 1.0,
     "rowGapPx": 24,
     "maxFontPx": 240,
-    "thousandSeparator": ""
+    "thousandSeparator": "",
+    "valueFontRole": "heading",
+    "holdAfterCountUpFrames": 24,
+    "showAccentLine": true,
+    "accentLineDelayFrames": 0,
+    "accentLineDurationFrames": 18,
+    "accentLineWidthPct": 62,
+    "accentLineThicknessPx": 2,
+    "landPunch": true,
+    "landPunchScale": 1.02,
+    "landPunchDurationFrames": 7,
+    "anticipationFrames": 6,
+    "anticipationScale": 0.92,
+    "labelAfterLand": true
   }
 }

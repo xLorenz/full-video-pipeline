@@ -49,10 +49,22 @@
         "prefix": {"type": "string", "default": ""},
         "suffix": {"type": "string", "default": ""},
         "pop": {"type": "boolean", "default": true},
-        "popForce": {"type": "number", "minimum": 0, "maximum": 2, "default": 1},
         "rowGapPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 24},
         "maxFontPx": {"type": "number", "minimum": 8, "maximum": 1000, "default": 240},
-        "thousandSeparator": {"type": "string", "enum": [",", ".", ""], "default": ""}
+        "thousandSeparator": {"type": "string", "enum": [",", ".", ""], "default": ""},
+        "valueFontRole": {"type": "string", "enum": ["heading", "mono"], "default": "heading"},
+        "holdAfterCountUpFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 24},
+        "showAccentLine": {"type": "boolean", "default": true},
+        "accentLineDelayFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0},
+        "accentLineDurationFrames": {"type": "integer", "minimum": 1, "maximum": 600, "default": 18},
+        "accentLineWidthPct": {"type": "number", "minimum": 0, "maximum": 100, "default": 62},
+        "accentLineThicknessPx": {"type": "number", "minimum": 1, "maximum": 40, "default": 2},
+        "landPunch": {"type": "boolean", "default": true},
+        "landPunchScale": {"type": "number", "minimum": 1, "maximum": 1.5, "default": 1.02},
+        "landPunchDurationFrames": {"type": "integer", "minimum": 1, "maximum": 60, "default": 7},
+        "anticipationFrames": {"type": "integer", "minimum": 0, "maximum": 120, "default": 6},
+        "anticipationScale": {"type": "number", "minimum": 0.1, "maximum": 1, "default": 0.92},
+        "labelAfterLand": {"type": "boolean", "default": true}
       }
     }
   }
