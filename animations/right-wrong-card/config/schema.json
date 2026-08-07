@@ -50,19 +50,62 @@
     "extras": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["leftIsWinner"],
+      "required": [],
       "properties": {
-        "leftIsWinner": {"type": "boolean"},
+        "leftIsWinner": {
+          "type": "boolean",
+          "description": "DEPRECATED — use cards[].verdict instead. Still accepted for backwards-compat; absent when extras.cards is supplied."
+        },
         "stampStyle": {"type": "string", "enum": ["stamp", "shake", "glow", "none"], "default": "stamp"},
         "stampGlyph": {"type": "string", "default": ""},
         "stampForce": {"type": "number", "minimum": 0, "maximum": 2, "default": 1},
         "cardPaddingPx": {"type": "number", "minimum": 0, "maximum": 200, "default": 48},
         "cardGapPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 64},
         "cornerRadiusPx": {"type": "number", "minimum": 0, "maximum": 200, "default": 24},
-        "bgRgbaAlpha": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.55},
+        "cardElevationPx": {"type": "number", "minimum": 0, "maximum": 32, "default": 16},
         "loserDesaturate": {"type": "boolean", "default": true},
         "loserShrink": {"type": "number", "minimum": 0.1, "maximum": 1.5, "default": 0.92},
-        "winnerGlowWidthPx": {"type": "number", "minimum": 0, "maximum": 100, "default": 24}
+        "loserFade": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.55},
+        "winnerBorderWidthPx": {"type": "number", "minimum": 0, "maximum": 8, "default": 3},
+        "watermarkGlyphPx": {"type": "number", "minimum": 80, "maximum": 800, "default": 380},
+        "watermarkOpacity": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.22},
+        "preEnterHoldFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 12},
+        "postVerdictHoldFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 30},
+        "cardGradient": {"type": "boolean", "default": true},
+        "winnerGlowPx": {"type": "number", "minimum": 0, "maximum": 96, "default": 40},
+        "winnerGlowColor": {"type": ["string", "null"], "default": null},
+        "loserShadowTint": {"type": "boolean", "default": true},
+        "impactFlash": {"type": "boolean", "default": true},
+        "impactFlashPeak": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.85},
+        "cards": {
+          "type": "array",
+          "description": "Per-card spec. If absent, legacy leftIsWinner + elements[] is synthesized.",
+          "items": {
+            "type": "object",
+            "required": ["id", "verdict"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "verdict": {"type": "string", "enum": ["win", "lose", "none"]},
+              "placement": {"type": ["string", "number", "null"]},
+              "label": {"type": ["string", "null"]},
+              "body": {"type": ["string", "null"]},
+              "labelColor": {"type": ["string", "null"]},
+              "bodyColor": {"type": ["string", "null"]},
+              "hidden": {"type": "boolean"},
+              "enterDelay": {"type": "number", "description": "extra stagger for this card's slide-in (frames)"},
+              "verdictAt": {"type": "number", "description": "frame at which this card's stamp starts — INDEPENDENT per card"},
+              "verdictDuration": {"type": "number"},
+              "stampGlyph": {"type": "string"},
+              "stampStyle": {"type": "string", "enum": ["stamp", "shake", "glow", "none"]},
+              "stampForce": {"type": "number", "minimum": 0, "maximum": 2},
+              "stampColor": {"type": ["string", "null"]},
+              "stampSize": {"type": "number"},
+              "stampOpacity": {"type": "number", "minimum": 0, "maximum": 1},
+              "winnerBorderWidthPx": {"type": "number", "minimum": 0, "maximum": 10},
+              "winnerGlowPx": {"type": "number", "minimum": 0, "maximum": 96}
+            }
+          }
+        }
       }
     }
   }

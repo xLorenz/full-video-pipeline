@@ -21,9 +21,11 @@
     "cardPaddingPx": 48,
     "cardGapPx": 64,
     "cornerRadiusPx": 24,
-    "bgRgbaAlpha": 0.55,
+    "cardElevationPx": 16,
     "loserDesaturate": true,
     "loserShrink": 0.92,
-    "winnerGlowWidthPx": 24
+    "winnerBorderWidthPx": 3,
+    "preEnterHoldFrames": 12,
+    "postVerdictHoldFrames": 30
   }
 }

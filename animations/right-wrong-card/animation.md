@@ -49,12 +49,21 @@ Save the config at `videos/<title>/remotion/src/scene-assets/scene-04-rightwrong
     "leftIsWinner": false,
     "stampStyle": "stamp",
     "loserShrink": 0.85,
-    "winnerGlowWidthPx": 32
+    "winnerBorderWidthPx": 4
   }
 }
 ```
 
 > `fontSizes` is optional — if `FONT_SIZES` doesn't exist in your `lib/styles.ts`, the template falls back to defaults (headline=64px, body=28px, stamp=180px). Better: add a `FONT_SIZES` constant to `lib/styles.ts` (the rings example does this; see `videos/what-if-earth-had-rings/remotion/src/lib/styles.ts`).
+
+## Holds & visual design notes
+
+- **Built-in rhythm.** `preEnterHoldFrames` (12) → cards slide in → text reveals stagger → `verdict-stamp` lands → `postVerdictHoldFrames` (30) holds before the scene cuts. The verdict is the climax — *let it land*. Tightening the hold below 18 reads rushed; the feedback rubric leans toward longer holds, never faster.
+- **Single signature accent.** The winning card's solid accent border (`winnerBorderWidthPx`) carries the verdict at a glance. We deliberately cut the per-card box-shadow glow cascade from earlier releases — it made every card "lit" and the verdict lost its uniqueness. Set `winnerBorderWidthPx: 0` only if the stamp glyph alone is loud enough.
+- **Type hierarchy encodes the verdict.** The winner's headline is `weight 800`/`letter-spacing -0.01em`; the loser's is `weight 500`/`letter-spacing 0.01em`. You can read who won before the stamp drops. Don't override both labels back to the same weight.
+- **Default palette is no longer red/green + amber.** The winner color falls through to `theme.secondary`; the loser to a quiet `theme.danger` (now a slate color in the bundled defaults, not a saturated red). Override per-element with `element.color` if your video has a brand-red "loser" cue.
+- **`fps` aware.** The entry and spring timings derive from `useVideoConfig().fps`, so 24/60 deliverables keep the same perceived pacing as the 30fps preview.
+- **Spring on `shake`.** The "shake" stamp style uses Remotion's `spring()` for the pop-and-settle — a real damped settle replaces the hand-tuned wobble from earlier releases.
 
 ## All fields
 
@@ -83,10 +92,12 @@ Stable element ids — reference these when overriding. Any other `elements[].id
 | `cardPaddingPx` | number 0-200 | `48` | Padding inside each card. |
 | `cardGapPx` | number 0-400 | `64` | Pixel gap between the two cards (symmetric; subtracted from each card's width). |
 | `cornerRadiusPx` | number 0-200 | `24` | Border-radius. |
-| `bgRgbaAlpha` | number 0-1 | `0.55` | Card shadow drop alpha. Lower for subtle cards; raise for higher contrast on bright backgrounds. |
+| `cardElevationPx` | number 0-32 | `16` | Quiet elevation under each card (a single soft drop, the only shadow on the template). Set `0` for a flat design. |
 | `loserDesaturate` | boolean | `true` | Whether the losing card desaturates after the verdict. |
 | `loserShrink` | number 0.1-1.5 | `0.92` | Scale factor the losing card eases down to after verdict. Set to `1` for a "stay still, but greyed" feel. |
-| `winnerGlowWidthPx` | number 0-100 | `24` | Border-glow width for the winning card when `stampStyle == "glow"`. Set 0 to disable glow even in glow mode. |
+| `winnerBorderWidthPx` | number 0-8 | `3` | Width of the solid accent border on the winning card. **This border is the single signature accent on the template** — set to `0` only if the stamp glyph alone must carry the verdict. |
+| `preEnterHoldFrames` | integer 0-600 | `12` | Hold before the cards slide in. Gives the "before" beat a breath. The total entry beat now reads: hold → slide → text → verdict, instead of slide → text → verdict. |
+| `postVerdictHoldFrames` | integer 0-600 | `30` | Hold after the verdict lands (≥1s by default). The verdict is the climax — let it land before the scene cuts. |
 
 ### Per-element `custom.*`
 
@@ -160,11 +171,11 @@ Both cards will desaturate after the verdict timing, but neither gets a winner g
 ## Pitfalls
 
 - **`leftIsWinner` is required.** The schema rejects configs that omit it. If you want ambiguity, use `"stampStyle": "none"` and set `leftIsWinner` either way (cosmetic only).
-- **`stampGlyph` overrides both cards** — use the same glyph for both. If you want different glyphs per side, set `elements` with custom props — but currently this template applies one glyph to both. File a new template if asymmetric glyphs are needed.
+- **One signature, not many.** The winner reads via *one* of: border (`winnerBorderWidthPx`), stamp glyph, or text-weight hierarchy. Stacking all three defeats the verdict's clarity. Pick the strongest one for the brief.
 - **`loserDesaturate: false` + `loserShrink: 1`** = a single-color verdict-style (no visual loser cue). The viewer still sees the ✓/✗, so this is fine if your scene is fast-paced.
 - **`stampStyle: "none"` + hidden `verdict-stamp` element** = no verdict at all — the cards just slide in and stay. Use this only if you want a pure side-by-side.
 - **`speed` > 2 may make the text reveal too fast to read** — bump `delayOffset: 30` to give it air, or override per-element `duration`s.
-- **Big `winnerGlowWidthPx` (>40)** on a dark palette can wash the winner card text. Pair with a brighter `success` color or reduce glow.
+- **Old `bgRgbaAlpha` / `winnerGlowWidthPx` extras are removed.** Replace `winnerGlowWidthPx` with `winnerBorderWidthPx` (a solid accent border, not a glow halo). Replace `bgRgbaAlpha` with `cardElevationPx` (single soft drop, not a colored shadow cascade).
 
 ## To preview
 

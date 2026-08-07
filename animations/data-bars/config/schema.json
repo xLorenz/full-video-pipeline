@@ -24,13 +24,14 @@
           "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
           "color": {"type": ["string", "null"]},
           "hidden": {"type": "boolean", "default": false},
-          "custom": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "color": {"type": ["string", "null"]}
+            "custom": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "color": {"type": ["string", "null"]},
+                "glow": {"type": "boolean", "default": false}
+              }
             }
-          }
         }
       }
     },
@@ -46,9 +47,18 @@
         "barHeightPx": {"type": "number", "minimum": 8, "maximum": 200, "default": 48},
         "barGapPx": {"type": "number", "minimum": 0, "maximum": 80, "default": 12},
         "barColor": {"type": ["string", "null"], "default": null},
+        "barRampFrom": {"type": ["string", "null"], "default": null},
+        "barRampTo": {"type": ["string", "null"], "default": null},
         "valueFormat": {"type": "string", "enum": ["int", "decimals1", "decimals2", "percent"], "default": "int"},
         "showValueLabels": {"type": "boolean", "default": true},
-        "lanePaddingPx": {"type": "number", "minimum": 0, "maximum": 800, "default": 120}
+        "lanePaddingPx": {"type": "number", "minimum": 0, "maximum": 800, "default": 140},
+        "labelGutterPx": {"type": "number", "minimum": 0, "maximum": 600, "default": 300},
+        "holdAfterFillFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 18},
+        "barSpringDamping": {"type": "number", "minimum": 4, "maximum": 30, "default": 10},
+        "staggerFrames": {"type": "integer", "minimum": 0, "maximum": 30, "default": 5},
+        "fillFrames": {"type": "integer", "minimum": 8, "maximum": 90, "default": 22},
+        "accentLeader": {"type": "boolean", "default": true},
+        "trackRoundingPx": {"type": "number", "minimum": 0, "maximum": 40, "default": 8}
       }
     }
   }
