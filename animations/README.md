@@ -24,6 +24,11 @@ Reach for a template when your scene's `visual_notes` describe a **complex, mult
 | Before-after split | [`before-after-split/animation.md`](./before-after-split/animation.md) | Wipe-reveal contrast of two halves |
 | Timeline marker | [`timeline-marker/animation.md`](./timeline-marker/animation.md) | Horizontal milestone drop-in sequence |
 | Comparison grid | [`comparison-grid/animation.md`](./comparison-grid/animation.md) | N×M matrix of tumbling-in cells |
+| Kinetic title mosaic | [`kinetic-title-mosaic/animation.md`](./kinetic-title-mosaic/animation.md) | Multi-word kinetic typography with per-word motion variants |
+| Radial pulse rings | [`radial-pulse-rings/animation.md`](./radial-pulse-rings/animation.md) | Concentric pulse rings emit from a focal node |
+| Rolling digit counter | [`rolling-digit-counter/animation.md`](./rolling-digit-counter/animation.md) | Slot-machine tumbling numeral columns snap to target |
+| Orbit chip cloud | [`orbit-chip-cloud/animation.md`](./orbit-chip-cloud/animation.md) | Labelled pill chips orbit a focal node on an ellipse |
+| Bar code scan | [`bar-code-scan/animation.md`](./bar-code-scan/animation.md) | Scanline sweeps decoding barcode segments one by one |
 
 (Tag index in [`CATALOG.md`](./CATALOG.md).)
 
@@ -129,16 +134,53 @@ See [`SCHEMA.md`](./SCHEMA.md) for the full field reference and recipes.
 
 ## Creating a new template
 
-1. Make a folder `animations/<name>/` with:
-   - `component.tsx` — a Remotion FC accepting `{ config: TemplateConfig }`. Use only helpers in `animations/_shared/` plus Remotion primitives (`useCurrentFrame`, `interpolate`, `spring`, `Easing`, `Sequence`). **No CSS animations or Tailwind animation classes** (same rule as everywhere else in this pipeline).
-   - `config/defaults.json` — a fully populated `DeepConfig` instance with sensible defaults.
-   - `config/schema.json` — extends the global `schemas/animations.schema.json` with per-template `extras.*` fields and `elements[].custom.*` fields, plus any per-id enum/range constraints. Use `$ref` to the shared schema to layer.
-   - `animation.md` — same section structure as the existing template(s): one-paragraph description, "When to use", "Quick start" snippet, "All fields" table (recognized `elements[].id` list with per-id docs), "Customization recipes", "Pitfalls", "To preview".
-   - `preview/preview.tsx` — a 90-frame (3s @ 30fps) composition rendered by the preview step. Must exercise at least one element override + one theme override + one extras value.
+1. Make a folder `animations/<name>/` matching the [Template folder standard](#template-folder-standard) below.
 2. Add the template row to [`CATALOG.md`](./CATALOG.md).
 3. Re-publish to a fresh scaffold (or re-run `scripts/publish_animations.py <video-dir>`) and run `python3 pipeline.py status <title>` to verify the new template shows in the animations index.
 
 If a template's `.tsx` is modified in the per-video copy, those changes will be lost on next scaffold — author templates in the repo-root `animations/` only.
+
+## Template folder standard
+
+Every template folder **must** conform to this exact layout (no extra source files):
+
+```
+<template-name>/                 kebab-case folder name
+├── animation.md                  template manual: element ids, extras, recipes, pitfalls, preview
+├── component.tsx                 the Remotion FC (named export, never default)
+├── config/
+│   ├── defaults.json             fully populated DeepConfig instance
+│   └── schema.json               per-template JSON schema extending ../schemas/animations.schema.json
+└── preview/
+    └── preview.tsx                90-frame (3s @ 30fps) preview composition
+```
+
+**Naming rules**
+
+| Element | Rule | Example |
+|---|---|---|
+| Folder name | `kebab-case` | `right-wrong-card` |
+| Component file | always `component.tsx` (lowercase, fixed name) | — |
+| Exported component | `export const <PascalCaseOfFolder>: React.FC<<Name>Props>` (named `const`, never `default export`) | `export const RightWrongCard: React.FC<RightWrongCardProps>` |
+| Props interface | `<Name>Props` | `RightWrongCardProps` |
+| Preview file | always `preview/preview.tsx` (fixed path) | — |
+| Preview exports | `PREVIEW_DEFAULT_PROPS` + `Preview: React.FC` (both named) | — |
+| Config files | always `config/defaults.json` + `config/schema.json` (fixed names) | — |
+
+**What does NOT belong in the template folder:**
+
+- **Scaffolded preview project files** (`package.json`, `Root.tsx`, `remotion.config.ts`, `tsconfig.json`, `node_modules/`). Standalone preview rendering is driven by `scripts/preview_animations.py`, which scaffolds its own throwaway project into `videos/<title>/.animation-previews/` — do not bake one into the template.
+- **Scratch render output** (`frames-*/` directories, `out-*.mp4`, debug `.cjs` scripts, frame PNGs). These are working material, not part of the published template; the `.gitignore` already excludes `animations/*/preview/preview.mp4`, `animations/*/preview/frames-*/`, and `animations/*/preview/*.cjs` so accidental scratch is kept out of the repo, but don't commit it on purpose either.
+- **Secondary preview variants** (`preview-prop.tsx`, `preview-<variant>.tsx`). If you need to exercise multiple configurations, put them as comments or alternative `PREVIEW_DEFAULT_PROPS` blocks inside the single `preview/preview.tsx`. One preview per template.
+- **Render outputs named anything other than `preview.mp4`**. The render artifact (when present — it is gitignored and regenerated by the pipeline) is always `preview/preview.mp4`. No template-name prefix, no version suffix.
+
+**File contents detail**
+
+- `component.tsx` — a Remotion FC accepting `{ config: TemplateConfig }` (plus optional `styles`/`fontSizes` for per-video `styles.ts` injection). Use only helpers in `animations/_shared/` plus Remotion primitives (`useCurrentFrame`, `interpolate`, `spring`, `Easing`, `Sequence`). **No CSS animations or Tailwind animation classes** (same rule as everywhere else in this pipeline).
+- `config/defaults.json` — a fully populated `DeepConfig` instance with sensible defaults. Must validate against `config/schema.json`.
+- `config/schema.json` — extends the global `schemas/animations.schema.json` with per-template `extras.*` fields and `elements[].custom.*` fields, plus any per-id enum/range constraints. Use `$ref` to the shared schema to layer.
+- `animation.md` — same section structure as the existing template(s): one-paragraph description, "When to use", "Quick start" snippet, "All fields" table (recognized `elements[].id` list with per-id docs), "Customization recipes", "Pitfalls", "To preview".
+- `preview/preview.tsx` — a 90-frame (3s @ 30fps) composition rendered by the preview step. Must exercise at least one element override + one theme override + one extras value. Exports `PREVIEW_DEFAULT_PROPS` (the canonical example config) and `Preview: React.FC` (the composition component).
 
 ## Files in this folder
 
