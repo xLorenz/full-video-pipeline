@@ -9,3 +9,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Animation template scratch dirs (not part of the standard layout)
+animations/*/preview/frames-*/
