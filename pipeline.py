@@ -341,8 +341,13 @@ def cmd_complete(args):
                         expected_artifacts=artifacts)
         sys.exit(4)
 
-    # Also validate the pipeline state against schemas as a precondition
-    ok, errs = validate_project(title, step=step_num)
+    # Also validate the pipeline state against schemas as a precondition.
+    # Step 3 (script writing) passes --strict so Phase-1 content findings —
+    # including AI-ism warnings from check_phase1_aiisms — hard-block Phase-2
+    # voiceover generation. Prevents TTS from baking AI-sounding narration
+    # into audio that can't be unwound without re-rendering.
+    strict = (step_num == 3)
+    ok, errs = validate_project(title, step=step_num, strict=strict)
     if not ok:
         print("VALIDATION FAILED — refusing to mark complete:")
         print(errs)
@@ -774,17 +779,25 @@ def load_scenes(title):
 # Validation helper
 # ---------------------------------------------------------------------------
 
-def validate_project(title, step=0):
+def validate_project(title, step=0, strict=False):
     """Run scripts/validate.py on this video's scenes/state. Returns (ok, errors).
 
     When ``step`` > 0, validate.py also runs ``check_step_requirements`` for that
     step number (scene/voiceover/duration/render-level gates). Pass the step that
     was just completed (post-check) or current_step - 1 (pre-gate).
+
+    When ``strict`` is True, ``--strict`` is forwarded so Phase-1 content
+    warnings (SCRIPT.md structure, pattern interrupts, CTA, duration drift, and
+    AI-ism findings) are promoted to errors (exit 7). Used by ``complete``
+    Step 3 to hard-block Phase-2 voiceover generation when AI-isms are present
+    — prevents TTS from baking AI-sounding narration into audio.
     """
     argv = [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
             str(video_dir(title))]
     if step and step > 0:
         argv += ["--step", str(step)]
+    if strict:
+        argv += ["--strict"]
     p = subprocess.run(
         argv,
         capture_output=True, text=True, cwd=REPO_ROOT,
@@ -1276,6 +1289,25 @@ def cmd_validate(args):
     sys.exit(p.returncode)
 
 
+def cmd_lint_script(args):
+    """Lint scenes.json voiceover_text for AI-isms / banned phrases.
+
+    Runs scripts/validate.py with --step 3 --strict so every AI-ism finding
+    is an error (exit 7). Designed for the iterative write -> lint -> fix
+    loop during Phase 1, before `complete <title>` advances the pipeline.
+    """
+    title = sanitize_title(args.title)
+    if not video_dir(title).exists():
+        print(f"ERROR: Video directory not found: {video_dir(title)}")
+        sys.exit(2)
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
+         str(video_dir(title)), "--step", "3", "--strict"],
+        cwd=REPO_ROOT,
+    )
+    sys.exit(p.returncode)
+
+
 # ---------------------------------------------------------------------------
 # CLEAN subcommand — manual disk recovery for a single video
 # ---------------------------------------------------------------------------
@@ -1648,6 +1680,9 @@ def main():
     validate_p = sub.add_parser("validate", help="Validate scenes.json + pipeline_state.json against schemas")
     validate_p.add_argument("title", help="Video title")
 
+    lint_p = sub.add_parser("lint-script", help="Lint scenes.json voiceover_text for AI-isms / banned phrases")
+    lint_p.add_argument("title", help="Video title")
+
     preview_p = sub.add_parser("preview", help="Quick low-res smoke render of scene 1")
     preview_p.add_argument("title", help="Video title")
 
@@ -1685,6 +1720,8 @@ def main():
         cmd_status(args)
     elif args.command == "validate":
         cmd_validate(args)
+    elif args.command == "lint-script":
+        cmd_lint_script(args)
     elif args.command == "preview":
         cmd_preview(args)
     elif args.command == "preview-frame":

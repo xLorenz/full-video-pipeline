@@ -154,6 +154,67 @@ def _parse_ts(s):
     return int(m.group(1)) * 60 + int(m.group(2))
 
 
+def check_phase1_aiisms(video_dir, data):
+    """Scan per-scene ``voiceover_text`` for AI-isms / banned phrases.
+
+    Returns ``(errors, warnings)``. ``errors`` is always empty in v1 — strict
+    promotion is handled by the existing ``--strict`` (exit 7) channel at the
+    call site, mirroring how ``check_phase1_content``'s warnings flow.
+
+    Only ``voiceover_text`` per scene is scanned (the exact spoken words TTS
+    will say). ``SCRIPT.md`` markdown (visual descriptions, Pattern Interrupt
+    Log, Retention Risk Map) is intentionally skipped — those sections aren't
+    spoken and would generate false positives.
+
+    Rules live in ``scripts/_ai_isms.py`` (banned phrases, openers, em-dash
+    threshold). Each finding carries a category + rewrite suggestion so the
+    agent sees what to fix, not just what failed.
+    """
+    import _ai_isms
+
+    scenes = data.get("scenes", [])
+    warnings = []
+
+    for s in scenes:
+        sid = s.get("id", "?")
+        vo = s.get("voiceover_text") or ""
+        if not vo:
+            continue  # schema/step-requirements already flags missing vo
+        low = vo.lower()
+
+        # Banned substring phrases (anywhere in the scene's voiceover).
+        for phrase, cat, suggestion in _ai_isms.BANNED_PHRASES:
+            if phrase in low:
+                warnings.append(
+                    f"Scene {sid}: {cat} phrase \"{phrase}\" "
+                    f"-> {suggestion}"
+                )
+
+        # Banned openers (start of the first non-whitespace line only).
+        first_line = vo.lstrip().split("\n", 1)[0].strip()[:80].lower()
+        for opener, cat in _ai_isms.OPENERS_TO_AVOID:
+            if first_line.startswith(opener):
+                warnings.append(
+                    f"Scene {sid}: opener \"{opener}\" ({cat}) "
+                    f"-> rewrite the opening"
+                )
+
+        # Em-dash overuse (only in scenes with enough spoken words to plausibly
+        # contain a real aside — very short scenes are exempt).
+        n_em = len(_ai_isms.EM_DASH_RE.findall(vo))
+        n_words = len(_ai_isms.WORD_RE.findall(vo))
+        if (n_words >= _ai_isms.EM_DASH_MIN_WORDS
+                and n_em >= _ai_isms.EM_DASH_THRESHOLD):
+            warnings.append(
+                f"Scene {sid}: {n_em} em-dashes in {n_words} words "
+                f"(threshold {_ai_isms.EM_DASH_THRESHOLD} em-dashes "
+                f"in >= {_ai_isms.EM_DASH_MIN_WORDS} words) "
+                f"-> too many for spoken language; rewrite as short sentences"
+            )
+
+    return [], warnings
+
+
 def check_phase1_content(video_dir, data):
     """Phase-1 script/structure checks. Returns (errors, warnings)."""
     errors, warnings = [], []
@@ -287,10 +348,15 @@ def main():
                     exit_code = 5
 
             # Phase-1 content checks (script structure, pattern interrupts, CTA,
-            # duration drift). Hard failures add to all_errors (exit 6);
-            # warnings print separately and only fail under --strict (exit 7).
+            # duration drift) + AI-ism lint (banned phrases / openers / em-dash
+            # overuse on scenes.json voiceover_text). Hard failures add to
+            # all_errors (exit 6); warnings print separately and only fail under
+            # --strict (exit 7) — shared by both phase-1 checkers.
             if step >= 3:
                 p1_errors, p1_warnings = check_phase1_content(video_dir, data)
+                ai_errors, ai_warnings = check_phase1_aiisms(video_dir, data)
+                p1_errors += ai_errors
+                p1_warnings += ai_warnings
                 if p1_errors:
                     all_errors.extend(f"(phase-1) {e}" for e in p1_errors)
                     if exit_code == 0:
