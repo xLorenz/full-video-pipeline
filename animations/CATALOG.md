@@ -15,6 +15,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Rolling digit counter | [`rolling-digit-counter/`](./rolling-digit-counter/animation.md) | `stat` `number` `scoreboard` `count-up` | Slot-machine tumbling numeral columns snap to target |
 | Orbit chip cloud | [`orbit-chip-cloud/`](./orbit-chip-cloud/animation.md) | `relationship` `orbit` `pill` `cloud` | Labelled pill chips orbit a focal node on an ellipse |
 | Bar code scan | [`bar-code-scan/`](./bar-code-scan/animation.md) | `sequence` `decode` `barcode` `scan` | Scanline sweeps decoding barcode segments one by one |
+| Glitch rip | [`glitch-rip/`](./glitch-rip/animation.md) | `glitch` `broadcast` `crt` `opener` | Broadcast-style glitch bursts over hero text (RGB split, slice tears, scanlines) |
 
 ## By tag
 
@@ -38,6 +39,10 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `decode` — `bar-code-scan`
 - `barcode` — `bar-code-scan`
 - `scan` — `bar-code-scan`
+- `glitch` — `glitch-rip`
+- `broadcast` — `glitch-rip`
+- `crt` — `glitch-rip`
+- `opener` — `kinetic-title-mosaic`, `glitch-rip`
 
 ## Status
 
