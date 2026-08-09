@@ -83,7 +83,7 @@
         },
         "activePath": {
           "type": "array",
-          "description": "Activation envelope: waypoints {at, v} of the lens's uActive over the composition. v = 0 lens off, 1 fully on; at is composition progress (0-1). Smoothstepped between waypoints. Default: on for the whole composition. 'Shatter at 60% and hold' = [{at: 0, v: 0}, {at: 0.6, v: 1}]; 'then reform at 80%' adds {at: 0.8, v: 0}",
+          "description": "Activation envelope: waypoints {at, v} of the lens's uActive over the composition. v = 0 lens off, 1 fully on; at is composition progress (0-1). Smoothstepped between waypoints. Default: on for the whole composition. 'Nothing until a shatter at 60%' = [{at: 0, v: 0}, {at: 0.6, v: 0}, {at: 0.62, v: 1}] (hold v at 0 until the trigger, then step up — the step is eased). 'Then reform at 80%' appends {at: 0.8, v: 0}. For a grow-in over the whole composition instead, {at: 0, v: 0} to {at: 1, v: 1} ramps from start to end",
           "items": {
             "type": "object",
             "additionalProperties": false,
