@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/bend.schema.json",
+  "title": "BendRip instance",
+  "description": "Per-template schema for bend. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it applies a folding-pages treatment to arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by bend itself — content is passed as `children` to <BendRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zone": {"type": "number", "minimum": 8, "maximum": 600, "default": 240, "description": "Height of the folded region at each edge in CSS pixels"},
+        "angle": {"type": "number", "minimum": 1, "maximum": 160, "default": 80, "description": "Maximum fold angle in degrees, reached away from the scroll ends. 90 is a cube edge"},
+        "rounding": {"type": "number", "minimum": 0, "maximum": 600, "default": 150, "description": "Radius in CSS pixels of the circular arc that rounds each fold crease. 0 keeps a sharp cube edge. Clamped to the zone height"},
+        "perspective": {"type": "number", "minimum": 50, "maximum": 3000, "default": 700, "description": "Perspective focal length in CSS pixels. Smaller values pinch the folded edges harder"},
+        "direction": {"type": "string", "enum": ["in", "out"], "default": "in", "description": "\"out\" folds the edges away from the viewer like the outside of a cube, \"in\" tilts them toward the viewer"},
+        "ease": {"type": "number", "minimum": 1, "maximum": 1200, "default": 240, "description": "Scroll distance in CSS pixels over which an edge flattens near its scroll end"},
+        "top": {"type": "boolean", "default": true, "description": "Bend the top edge"},
+        "bottom": {"type": "boolean", "default": true, "description": "Bend the bottom edge"},
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0}
+      }
+    }
+  }
+}

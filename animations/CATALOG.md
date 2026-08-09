@@ -20,6 +20,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Flame wrap | [`flame-wrap/`](./flame-wrap/animation.md) | `fire` `flame` `burn` `title-card` `opener` | Border of WebGL fire around arbitrary content (tongues, rim glow, sparks, smoke) |
 | VHS | [`vhs/`](./vhs/animation.md) | `vhs` `crt` `retro` `tape` `treatment` | Worn-tape CRT treatment over the whole frame (wave, jitter, chroma bleed, grain, scanlines) |
 | Droplets | [`droplets/`](./droplets/animation.md) | `rain` `glass` `refraction` `overlay` `treatment` | Rain runs down the glass and refracts the content behind it (drops, trails, fog, tint) |
+| Bend | [`bend/`](./bend/animation.md) | `folding` `pages` `paper` `cube` `scroll` `treatment` | Full-frame page-fold: the scene scrolls on the face of a cube, top/bottom edges folding over virtual creases |
 
 ## By tag
 
@@ -58,7 +59,12 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`, `droplets`
+- `treatment` — `vhs`, `droplets`, `bend`
+- `folding` — `bend`
+- `pages` — `bend`
+- `paper` — `bend`
+- `cube` — `bend`
+- `scroll` — `bend`
 - `rain` — `droplets`
 - `glass` — `droplets`
 - `refraction` — `droplets`

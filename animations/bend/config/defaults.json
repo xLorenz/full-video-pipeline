@@ -1,0 +1,1 @@
+{"$schema": "./schema.json", "instanceId": "bend.defaults", "theme": {}, "global": {"speed": 1, "delayOffset": 0, "easing": "ease-out-cubic"}, "elements": [], "extras": {"zone": 240, "angle": 80, "rounding": 150, "perspective": 700, "direction": "in", "ease": 240, "top": true, "bottom": true, "fadeInFrames": 0, "fadeOutFrames": 0}}
