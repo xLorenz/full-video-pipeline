@@ -462,11 +462,6 @@ async function captureAndDraw(
     new Uint8Array([0, 0, 0, 0]),
   );
 
-  const contentMaxX = Math.min(
-    1,
-    Math.max(0.05, content.clientWidth / Math.max(output.clientWidth, 1)),
-  );
-
   // html-in-canvas capture, stateful across frames: a Remotion render
   // lives on ONE page (React re-renders per frame, no fresh page load),
   // so the layoutSubtree canvas and the moved scene are set up once and
@@ -532,6 +527,17 @@ async function captureAndDraw(
   // runs (Remotion only lays out at screenshot time, so the first frame
   // needs the settle), then a fresh paint of the scene is requested.
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  // The scene's horizontal band, measured only NOW — before the settle
+  // the page is not laid out, clientWidth reads 0, and uMaxX would clamp
+  // to its minimum, restricting the treatment to a sliver of the frame.
+  // Falls back to the full band if it still reads 0.
+  const contentMaxX = (() => {
+    const measured =
+      content.clientWidth / Math.max(output.clientWidth || content.clientWidth, 1);
+    return Math.min(1, Math.max(0.05, measured || 1));
+  })();
+
   const painted = await waitForPaint(st.layout);
   if (!painted) {
     if (needSetup) {
