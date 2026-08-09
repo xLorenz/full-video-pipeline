@@ -22,6 +22,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Droplets | [`droplets/`](./droplets/animation.md) | `rain` `glass` `refraction` `overlay` `treatment` | Rain runs down the glass and refracts the content behind it (drops, trails, fog, tint) |
 | Bend | [`bend/`](./bend/animation.md) | `folding` `pages` `paper` `cube` `scroll` `treatment` | Full-frame page-fold: the scene scrolls on the face of a cube, top/bottom edges folding over virtual creases |
 | Shatter | [`shatter/`](./shatter/animation.md) | `glass` `shards` `refraction` `treatment` | Full-frame glass-shard lens: tiles lift, tip and float over the void, refracting the content beneath |
+| Blaze | [`blaze/`](./blaze/animation.md) | `fire` `heat` `flames` `sparks` `smoke` `treatment` | Full-frame procedural fire: sparks, smoke and glow rise from the bottom, heat-distorting and darkening the content beneath |
 
 ## By tag
 
@@ -53,14 +54,14 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `code-rain` — `glyph-rain`
 - `cyberpunk` — `glyph-rain`
 - `terminal` — `glyph-rain`
-- `fire` — `flame-wrap`
+- `fire` — `flame-wrap`, `blaze`
 - `flame` — `flame-wrap`
 - `burn` — `flame-wrap`
 - `title-card` — `flame-wrap`
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`, `droplets`, `bend`, `shatter`
+- `treatment` — `vhs`, `droplets`, `bend`, `shatter`, `blaze`
 - `folding` — `bend`
 - `pages` — `bend`
 - `paper` — `bend`
@@ -70,6 +71,10 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `glass` — `droplets`, `shatter`
 - `refraction` — `droplets`, `shatter`
 - `shards` — `shatter`
+- `heat` — `blaze`
+- `flames` — `blaze`
+- `sparks` — `blaze`
+- `smoke` — `blaze`
 - `overlay` — `droplets`
 
 ## Status

@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/blaze.schema.json",
+  "title": "BlazeRip instance",
+  "description": "Per-template schema for blaze. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it burns arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by blaze itself — content is passed as `children` to <BlazeRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "height": {"type": "number", "minimum": 0.02, "maximum": 1, "default": 0.97, "description": "Height of the fire zone as a fraction of the frame height, rising from the bottom. Clamped to a 0.02 minimum"},
+        "distortion": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.6, "description": "Heat-distortion strength: how strongly the fire zone bends the content beneath it (0 to 3)"},
+        "distortionScale": {"type": "number", "minimum": 0.05, "maximum": 2, "default": 0.5, "description": "Spatial scale of the heat-distortion noise. Lower = larger, softer ripples"},
+        "speed": {"type": "number", "minimum": 0, "maximum": 10, "default": 1, "description": "Animation speed multiplier. Fire time advances at `speed` seconds per second of composition time; 0 freezes the fire"},
+        "sparks": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.5, "description": "Brightness of the rising spark layer (0 disables sparks entirely)"},
+        "sparkDensity": {"type": "number", "minimum": 0.05, "maximum": 5, "default": 1.5, "description": "Density of the spark cells — higher packs more sparks into the same area"},
+        "sparkSize": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 1, "description": "Size of the individual sparks"},
+        "layers": {"type": "integer", "minimum": 1, "maximum": 10, "default": 4, "description": "Depth layers of sparks (1 to 10) — more layers give more parallax and density"},
+        "smoke": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.5, "description": "Intensity of the drifting fbm smoke column (0 disables smoke)"},
+        "glow": {"type": "number", "minimum": 0, "maximum": 5, "default": 1.5, "description": "Warm glow intensity at the base of the fire"},
+        "sparkColor": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"type": "number", "minimum": 0, "maximum": 1},
+          "default": [1, 0.4, 0.05],
+          "description": "Color of the sparks as [r, g, b] in 0-1 range"
+        },
+        "smokeColor": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"type": "number", "minimum": 0, "maximum": 1},
+          "default": [1, 0.43, 0.1],
+          "description": "Color of the smoke and base glow as [r, g, b] in 0-1 range"
+        },
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 0, "description": "Treatment fade-in over the first N frames: the fire grows in as a canvas-opacity tape instead of popping over the page"},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 0, "description": "Treatment fade-out over the last N frames (canvas opacity)"}
+      }
+    }
+  }
+}
