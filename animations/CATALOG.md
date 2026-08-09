@@ -18,6 +18,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Glitch rip | [`glitch-rip/`](./glitch-rip/animation.md) | `glitch` `broadcast` `crt` `opener` | Broadcast-style glitch bursts over hero text (RGB split, slice tears, scanlines) |
 | Glyph rain | [`glyph-rain/`](./glyph-rain/animation.md) | `matrix` `code-rain` `cyberpunk` `terminal` `opener` | Matrix-style glyph rain over arbitrary content (parallax layers, mutation, head glow) |
 | Flame wrap | [`flame-wrap/`](./flame-wrap/animation.md) | `fire` `flame` `burn` `title-card` `opener` | Border of WebGL fire around arbitrary content (tongues, rim glow, sparks, smoke) |
+| VHS | [`vhs/`](./vhs/animation.md) | `vhs` `crt` `retro` `tape` `treatment` | Worn-tape CRT treatment over the whole frame (wave, jitter, chroma bleed, grain, scanlines) |
 
 ## By tag
 
@@ -43,7 +44,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `scan` — `bar-code-scan`
 - `glitch` — `glitch-rip`
 - `broadcast` — `glitch-rip`
-- `crt` — `glitch-rip`
+- `crt` — `glitch-rip`, `vhs`
 - `opener` — `kinetic-title-mosaic`, `glitch-rip`, `glyph-rain`, `flame-wrap`
 - `matrix` — `glyph-rain`
 - `code-rain` — `glyph-rain`
@@ -53,6 +54,10 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `flame` — `flame-wrap`
 - `burn` — `flame-wrap`
 - `title-card` — `flame-wrap`
+- `vhs` — `vhs`
+- `retro` — `vhs`
+- `tape` — `vhs`
+- `treatment` — `vhs`
 
 ## Status
 

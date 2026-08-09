@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/vhs.schema.json",
+  "title": "VHSRip instance",
+  "description": "Per-template schema for vhs. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it applies a full-frame worn-tape CRT treatment to arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by vhs itself — content is passed as `children` to <VHSRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "speed": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 0.5, "description": "Playback speed of the tape artifacts. 1 is normal speed"},
+        "wave": {"type": "number", "minimum": 0, "maximum": 3, "default": 1, "description": "Strength of the slow horizontal tape wave"},
+        "jitter": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.25, "description": "Strength of the fine per-line horizontal jitter"},
+        "crease": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.1, "description": "Strength of the travelling tape crease band"},
+        "switching": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.05, "description": "Strength of the head-switching noise at the bottom"},
+        "switchingHeight": {"type": "number", "minimum": 0.001, "maximum": 0.2, "default": 0.02, "description": "Height of the head-switching band as a fraction of the screen"},
+        "bloom": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "description": "Strength of the horizontal glow bleed (expensive — 11 texture taps/pixel)"},
+        "aberration": {"type": "number", "minimum": 0, "maximum": 20, "default": 2, "description": "RGB channel misalignment in CSS pixels"},
+        "acBeat": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "Strength of the slow brightness beat rolling down the frame"},
+        "grain": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.1, "description": "Amount of animated static grain"},
+        "scanlines": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.1, "description": "Intensity of the CRT scanline overlay"},
+        "vignette": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Darkening toward the frame corners"},
+        "barrel": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "CRT tube curvature bending the frame inward. 0 disables. Requires an opaque background in the wrapped scene for the bezel color"},
+        "saturation": {"type": "number", "minimum": 0, "maximum": 2, "default": 1, "description": "1 keeps the content's colors, 0 is grayscale"},
+        "exposure": {"type": "number", "minimum": 0, "maximum": 3, "default": 1, "description": "Extra brightness multiplier applied at the end"},
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0}
+      }
+    }
+  }
+}
