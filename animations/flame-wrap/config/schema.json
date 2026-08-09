@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/flame-wrap.schema.json",
+  "title": "FlameWrapRip instance",
+  "description": "Per-template schema for flame-wrap. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it wraps arbitrary `children` passed by the caller with a border of WebGL fire, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by flame-wrap itself — content is passed as `children` to <FlameWrapRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {"type": "string", "description": "Flame base color as #RRGGBB"},
+        "intensity": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.5},
+        "height": {"type": "number", "minimum": 24, "maximum": 500, "default": 170},
+        "spread": {"type": "number", "minimum": 8, "maximum": 120, "default": 8},
+        "radius": {"type": "number", "minimum": 0, "maximum": 200, "default": 40, "description": "Corner radius of the burning outline — match the wrapped content's border-radius"},
+        "speed": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 0.25},
+        "scale": {"type": "number", "minimum": 0.05, "maximum": 1, "default": 0.75},
+        "turbulence": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5},
+        "turbulenceScale": {"type": "number", "minimum": 0.2, "maximum": 3, "default": 0.5},
+        "turbulenceReach": {"type": "number", "minimum": 4, "maximum": 200, "default": 25},
+        "sparks": {"type": "number", "minimum": 0, "maximum": 3, "default": 1.5},
+        "sparkSize": {"type": "number", "minimum": 0.2, "maximum": 3, "default": 0.35},
+        "sparkDensity": {"type": "number", "minimum": 0.3, "maximum": 2.5, "default": 1},
+        "sparkSpeed": {"type": "number", "minimum": 0.1, "maximum": 3, "default": 1},
+        "rim": {"type": "number", "minimum": 0, "maximum": 3, "default": 2.5},
+        "melt": {"type": "number", "minimum": 0, "maximum": 20, "default": 4.5},
+        "distortion": {"type": "number", "minimum": 0, "maximum": 32, "default": 10, "description": "Content heat-shimmer — content-branch only; no-op under headless rendering"},
+        "smoke": {"type": "number", "minimum": 0, "maximum": 2, "default": 1.5},
+        "ember": {"type": "number", "minimum": 0, "maximum": 2, "default": 2, "description": "Ember line on burnt edges — content-branch only; no-op under headless rendering"},
+        "scorch": {"type": "number", "minimum": 0, "maximum": 2, "default": 0, "description": "Charred band on content edges — content-branch only; no-op under headless rendering"},
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0}
+      }
+    }
+  }
+}
