@@ -33,18 +33,24 @@ export type { ElementOverride };
  *   1. No pointer, no `requestAnimationFrame` loop, no observers.
  *      Upstream drives a cursor lens (pointermove + exponential
  *      smoothing + pointerleave); a render has no cursor, so the port
- *      SWEEPS the lens deterministically across the frame:
- *      `progress = clamp01(frame / durationInFrames)` moves `uPointer.x`
- *      from -0.25 to 1.25 (y fixed at mid-screen) while the page scrolls
- *      beneath it. Frame N always produces exactly the same pixels —
- *      deterministic, seek-safe.
- *   2. `uActive` is driven by the treatment envelope
- *      (fadeInFrames/fadeOutFrames, smoothstepped) instead of the
- *      pointer's presence: the lens grows in at the scene start and
- *      shrinks out at the end, so no shards pop. `time` (the floating
- *      tile wobble) advances deterministically at `floatSpeed` per
- *      second of composition time, wrapped at the upstream TIME_WRAP —
- *      no real wall clock involved.
+ *      drives the lens from a waypoint PATH instead: `lensPath` is a
+ *      list of `{ x, y, at }` stops — normalized screen position over
+ *      composition progress — that the lens follows deterministically,
+ *      smoothstepped between stops. Defaults to a left-to-right sweep;
+ *      a single point (or two identical points) makes a STATIC lens.
+ *      Frame N always produces exactly the same pixels — deterministic,
+ *      seek-safe.
+ *   2. `uActive` is driven by a waypoint ENVELOPE — `activePath`, a
+ *      list of `{ at, v }` activation stops, smoothstepped between —
+ *      instead of the pointer's presence flag. The lens can grow in at
+ *      any progress, hold, and shrink out again: "shatter at 60% and
+ *      hold" is `[{at:0,v:0},{at:0.6,v:1}]`, "then reform at 80%" adds
+ *      `{at:0.8,v:0}`. `scrollTo` picks how much of the page's scroll
+ *      distance the composition covers (and in which direction); 0
+ *      pins the page still. `time` (the floating tile wobble) advances
+ *      deterministically at `floatSpeed` per second of composition
+ *      time, wrapped at the upstream TIME_WRAP — no real wall clock
+ *      involved.
  *   3. Content capture via the native html-in-canvas mechanism (the
  *      same `ctx.drawElementImage` + layoutSubtree path the upstream
  *      component uses, and the same one vhs/droplets/bend rely on): the
@@ -69,9 +75,9 @@ export type { ElementOverride };
  * Options come from `config.extras` (all optional, schema-bounded in
  * config/schema.json): radius, softness, tileSize, shards, corner, lift,
  * tilt, scatter, perspective, gapColor, shadow, shading, refraction,
- * dispersion, floatSpeed, strength, baseStrength, fadeInFrames,
- * fadeOutFrames. The upstream `followSpeed` option is dropped — there
- * is no pointer to follow in a render.
+ * dispersion, floatSpeed, strength, baseStrength, lensPath, activePath,
+ * scrollTo. The upstream `followSpeed` option is dropped — there is no
+ * pointer to follow in a render.
  *
  * Performance:
  *   - One WebGL2 context, one shader compile, one full-frame draw per
@@ -465,11 +471,100 @@ interface ShatterParams {
   floatSpeed: number;
   strength: number;
   baseStrength: number;
+  /** Lens center waypoints `{ x, y, at }` over composition progress. */
+  lensPath: LensStop[];
+  /** uActive envelope waypoints `{ at, v }` over composition progress. */
+  activePath: ActiveStop[];
+  /** Scroll coverage in [-1, 1]: 1 = top to bottom, -1 = bottom to
+   *  top, 0 = page pinned still, |v| < 1 covers a fraction. */
+  scrollTo: number;
+}
+
+/** A lens stop: normalized screen position (y CSS-style, 0 = top) at a
+ * composition progress. */
+interface LensStop {
+  x: number;
+  y: number;
+  at: number;
+}
+
+/** An activation stop: uActive value at a composition progress. */
+interface ActiveStop {
+  at: number;
+  v: number;
 }
 
 /** Upstream wraps the float time at PI * 800; the port reproduces the
  * wrap so long compositions never lose the wobble phase coherence. */
 const TIME_WRAP = Math.PI * 800;
+
+/** The default lens path — a straight horizontal sweep across the
+ * frame, mid-screen, matching the classic cursor demo. */
+const DEFAULT_LENS_PATH: LensStop[] = [
+  { x: -0.25, y: 0.5, at: 0 },
+  { x: 1.25, y: 0.5, at: 1 },
+];
+
+/** The default activation envelope — the lens is fully active for the
+ * whole composition (its path handles any entrance). */
+const DEFAULT_ACTIVE_PATH: ActiveStop[] = [{ at: 0, v: 1 }];
+
+/** Evaluate a waypoint path at `progress` with smoothstep timing
+ * between stops, clamped at both ends. */
+function pathAt<T extends { at: number }>(
+  path: T[],
+  progress: number,
+  pick: (stop: T) => number,
+): number {
+  if (path.length === 1) return pick(path[0]);
+  if (progress <= path[0].at) return pick(path[0]);
+  const last = path[path.length - 1];
+  if (progress >= last.at) return pick(last);
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    if (progress >= a.at && progress <= b.at) {
+      const span = Math.max(b.at - a.at, 1e-6);
+      const s = (progress - a.at) / span;
+      const e = s * s * (3 - 2 * s);
+      return pick(a) * (1 - e) + pick(b) * e;
+    }
+  }
+  return pick(last);
+}
+
+/** Parse a lens waypoint list from config, clamped and sorted by `at`.
+ * Falls back to the default sweep when missing or empty. */
+function parseLensPath(raw: unknown): LensStop[] {
+  const list = Array.isArray(raw) ? (raw as unknown[]) : [];
+  const path = list
+    .map((stop, i) => {
+      const o = (stop ?? {}) as Record<string, unknown>;
+      return {
+        x: Math.min(1.5, Math.max(-0.5, Number(o.x ?? (i === 0 ? -0.25 : 1.25)))),
+        y: Math.min(1.5, Math.max(-0.5, Number(o.y ?? 0.5))),
+        at: Math.min(1, Math.max(0, Number(o.at ?? (i / Math.max(list.length - 1, 1))))),
+      };
+    })
+    .sort((a, b) => a.at - b.at);
+  return path.length > 0 ? path : DEFAULT_LENS_PATH;
+}
+
+/** Parse an activation waypoint list from config, clamped and sorted by
+ * `at`. Falls back to always-on when missing or empty. */
+function parseActivePath(raw: unknown): ActiveStop[] {
+  const list = Array.isArray(raw) ? (raw as unknown[]) : [];
+  const path = list
+    .map((stop, i) => {
+      const o = (stop ?? {}) as Record<string, unknown>;
+      return {
+        at: Math.min(1, Math.max(0, Number(o.at ?? (i / Math.max(list.length - 1, 1))))),
+        v: Math.min(1, Math.max(0, Number(o.v ?? 1))),
+      };
+    })
+    .sort((a, b) => a.at - b.at);
+  return path.length > 0 ? path : DEFAULT_ACTIVE_PATH;
+}
 
 /**
  * Capture `element`'s current painted HTML (scrolled to the frame's
@@ -484,7 +579,9 @@ async function captureAndDraw(
   content: HTMLElement,
   p: ShatterParams,
   progress: number,
-  activeEnv: number,
+  lensX: number,
+  lensY: number,
+  active: number,
   time: number,
   compWidth: number,
   compHeight: number,
@@ -659,13 +756,16 @@ async function captureAndDraw(
   // texture always reflects the current scroll position. (A translate
   // transform does not — it is compositor-level, and in headless Chrome
   // the html-in-canvas record only rebuilds when the content's painted
-  // appearance changes.) If the content is not scrollable (shorter than
-  // the frame), scrollTop stays 0 — the lens still sweeps over the
-  // static page.
+  // appearance changes.) `scrollTo` shapes the pass: 1 scrolls top to
+  // bottom, -1 bottom to top, |v| < 1 covers a fraction, 0 pins the
+  // page still (scrollTop stays 0 — the lens still works over the
+  // static page).
   content.style.overflow = "auto";
   const scrollable = content.scrollHeight - content.clientHeight;
-  const t = progress * Math.max(scrollable, 0);
-  if (scrollable > 1) {
+  let t = 0;
+  if (scrollable > 1 && p.scrollTo !== 0) {
+    const dist = Math.min(Math.abs(p.scrollTo), 1) * scrollable;
+    t = p.scrollTo > 0 ? progress * dist : scrollable - progress * dist;
     content.scrollTop = t;
   }
 
@@ -706,11 +806,10 @@ async function captureAndDraw(
   gl.bindTexture(gl.TEXTURE_2D, contentTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, st.layout);
 
-  // The deterministic lens: a straight horizontal sweep across the
-  // frame, mid-screen, matching the sweep speed of the scroll pass so
-  // the shatter wave reads as one continuous motion.
-  const sweepX = -0.25 + progress * 1.5;
-  const pointerY = 0.5;
+  // The lens position comes from the configured path (evaluated at this
+  // frame's progress); y is CSS-style (0 = top), the shader's uPointer
+  // is y-up, so flip it.
+  const pointerY = 1 - lensY;
 
   gl.useProgram(program);
   gl.activeTexture(gl.TEXTURE0);
@@ -730,15 +829,14 @@ async function captureAndDraw(
   gl.uniform1f(uniforms.uRefract, Math.max(p.refraction, 0));
   gl.uniform1f(uniforms.uDispersion, Math.min(Math.max(p.dispersion, 0), 1));
   gl.uniform1f(uniforms.uTime, time);
-  gl.uniform2f(uniforms.uPointer, sweepX, pointerY);
-  gl.uniform1f(uniforms.uActive, activeEnv);
+  gl.uniform2f(uniforms.uPointer, lensX, pointerY);
+  gl.uniform1f(uniforms.uActive, active);
   gl.uniform1f(uniforms.uRadius, Math.max(p.radius, 0.01));
   gl.uniform1f(uniforms.uSoftness, p.softness);
   gl.uniform1f(uniforms.uStrength, p.strength);
   gl.uniform1f(uniforms.uBase, p.baseStrength);
   gl.uniform1f(uniforms.uMaxX, contentMaxX);
-  gl.uniform2f(uniforms.uScroll, 0, scrollable > 1 ? t * dpr : 0);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.uniform2f(uniforms.uScroll, 0, scrollable > 1 ? t * dpr : 0);  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
   gl.disable(gl.BLEND);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -782,37 +880,25 @@ export const ShatterRip: React.FC<ShatterRipProps> = ({
       floatSpeed: Math.min(20, Math.max(0, Number(extras.floatSpeed ?? 2))),
       strength: Math.min(1, Math.max(0, Number(extras.strength ?? 1))),
       baseStrength: Math.min(1, Math.max(0, Number(extras.baseStrength ?? 0))),
+      lensPath: parseLensPath(extras.lensPath),
+      activePath: parseActivePath(extras.activePath),
+      scrollTo: Math.min(1, Math.max(-1, Number(extras.scrollTo ?? 1))),
     };
   }, [extras]);
-  const fadeInF = Math.max(0, Math.round(Number(extras.fadeInFrames ?? 0)));
-  const fadeOutF = Math.max(0, Math.round(Number(extras.fadeOutFrames ?? 0)));
 
-  // Scroll + lens sweep — deterministic: the composition plays one full
-  // pass, from the top of the content to the bottom, while the lens
-  // travels across the frame.
+  // Progress, lens position and activation — deterministic: every value
+  // is a pure function of `frame / durationInFrames` through the
+  // configured waypoint paths.
   const progress = Math.min(1, Math.max(0, frame / durationInFrames));
+  const lensX = pathAt(p.lensPath, progress, (stop) => stop.x);
+  const lensY = pathAt(p.lensPath, progress, (stop) => stop.y);
+  const active = pathAt(p.activePath, progress, (stop) => stop.v);
 
   // Float time advances at `floatSpeed` per second of composition time
   // (upstream: delta * floatSpeed with delta = 1/fps in a render),
   // wrapped at the upstream TIME_WRAP. The wobble only scales lifted
   // tiles, so an idle frame's static time is irrelevant.
   const time = (frame * p.floatSpeed) / Math.max(fps, 1) % TIME_WRAP;
-
-  // The lens's uActive envelope: grows in over the fade-in and shrinks
-  // over the fade-out, smoothstepped — the upstream cursor's presence
-  // becomes a deterministic ramp, so shards never pop at scene bounds.
-  const activeEnv = (() => {
-    let e = 1;
-    if (fadeInF > 0 && frame < fadeInF) {
-      const x = frame / fadeInF;
-      e = Math.min(e, x * x * (3 - 2 * x));
-    }
-    if (fadeOutF > 0 && frame > durationInFrames - fadeOutF) {
-      const x = Math.max(0, (durationInFrames - frame) / fadeOutF);
-      e = Math.min(e, x * x * (3 - 2 * x));
-    }
-    return Math.max(0, Math.min(1, e));
-  })();
 
   const outputRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -835,7 +921,9 @@ export const ShatterRip: React.FC<ShatterRipProps> = ({
       content,
       p,
       progress,
-      activeEnv,
+      lensX,
+      lensY,
+      active,
       time,
       compWidth,
       compHeight,
@@ -843,7 +931,7 @@ export const ShatterRip: React.FC<ShatterRipProps> = ({
     )
       .catch((err) => console.error("Shatter capture failed:", err))
       .finally(() => continueRender(handle));
-  }, [p, progress, activeEnv]);
+  }, [p, progress, lensX, lensY, active, time]);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "transparent" }}>

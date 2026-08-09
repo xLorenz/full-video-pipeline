@@ -67,8 +67,40 @@
         "floatSpeed": {"type": "number", "minimum": 0, "maximum": 20, "default": 2, "description": "Speed of the floating tile motion. 0 freezes the tiles"},
         "strength": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "How fully tiles lift inside the lens (0 to 1)"},
         "baseStrength": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Lift amount across the whole screen, outside the lens (0 to 1)"},
-        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0, "description": "Frames over which the lens (uActive) grows in at the start"},
-        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0, "description": "Frames over which the lens (uActive) shrinks out at the end"}
+        "lensPath": {
+          "type": "array",
+          "description": "Lens path: waypoints {x, y, at} the lens follows over the composition. x/y are normalized screen positions (y is CSS-style: 0 = top, 1 = bottom; x outside 0-1 moves the lens off-frame for enter/exit). at is composition progress (0-1). The lens moves between waypoints with smoothstep timing. Default: a left-to-right sweep across the composition. A static lens = two identical waypoints. Empty/missing falls back to the default sweep",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "at"],
+            "properties": {
+              "x": {"type": "number", "minimum": -0.5, "maximum": 1.5, "description": "Normalized horizontal lens center (0-1 across the frame; outside the frame for enter/exit)"},
+              "y": {"type": "number", "minimum": -0.5, "maximum": 1.5, "description": "Normalized vertical lens center, CSS y-down (0 = top, 1 = bottom)"},
+              "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which the lens reaches this waypoint"}
+            }
+          }
+        },
+        "activePath": {
+          "type": "array",
+          "description": "Activation envelope: waypoints {at, v} of the lens's uActive over the composition. v = 0 lens off, 1 fully on; at is composition progress (0-1). Smoothstepped between waypoints. Default: on for the whole composition. 'Shatter at 60% and hold' = [{at: 0, v: 0}, {at: 0.6, v: 1}]; 'then reform at 80%' adds {at: 0.8, v: 0}",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "v"],
+            "properties": {
+              "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which the envelope reaches this value"},
+              "v": {"type": "number", "minimum": 0, "maximum": 1, "description": "uActive value at this waypoint (0 = lens off, 1 = fully on)"}
+            }
+          }
+        },
+        "scrollTo": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 1,
+          "description": "How much of the page's scroll distance the composition covers: 1 scrolls top to bottom, -1 bottom to top, |v| < 1 covers a fraction, 0 pins the page still (the lens still works over a static page)"
+        }
       }
     }
   }

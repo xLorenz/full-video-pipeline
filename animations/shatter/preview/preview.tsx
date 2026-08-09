@@ -276,9 +276,10 @@ const PageScene: React.FC = () => {
  * Exercises the full-frame children model: `<ShatterRip>` wraps a tall
  * `<PageScene>` and the composition plays one pass — the page scrolls
  * while the lens sweeps from the left edge to the right edge,
- * shattering the spread and letting it reform behind itself. Defaults
- * from upstream, `fadeInFrames`/`fadeOutFrames: 8` so the lens grows
- * in and out smoothly at the scene bounds.
+ * shattering the spread and letting it reform behind itself. The
+ * default lens sweep is spelled out as an explicit `lensPath`, and the
+ * `activePath` envelope grows the lens in over the first 8 frames and
+ * shrinks it out over the last 8 (the old fadeIn/fadeOut behavior).
  */
 export const PREVIEW_DEFAULT_PROPS = {
   config: {
@@ -313,8 +314,17 @@ export const PREVIEW_DEFAULT_PROPS = {
       floatSpeed: 2,
       strength: 1,
       baseStrength: 0,
-      fadeInFrames: 8,
-      fadeOutFrames: 8,
+      lensPath: [
+        { x: -0.25, y: 0.5, at: 0 },
+        { x: 1.25, y: 0.5, at: 1 },
+      ],
+      activePath: [
+        { at: 0, v: 0 },
+        { at: 8 / 90, v: 1 },
+        { at: 82 / 90, v: 1 },
+        { at: 1, v: 0 },
+      ],
+      scrollTo: 1,
     },
   },
   styles: { colors: PREVIEW_COLORS, fonts: PREVIEW_FONTS },
