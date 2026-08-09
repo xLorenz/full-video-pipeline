@@ -53,8 +53,11 @@ export type { ElementOverride };
  *      the paint record is drawn into the canvas backing store with
  *      `drawElementImage` — an origin-clean bitmap, so it can be
  *      uploaded straight into the GL texture with `texImage2D`. Per-
- *      frame inline styles are included, so entrance animations are
- *      captured as-is. The texture keeps its mipmap chain
+ *      frame inline styles are included — animated transforms are
+ *      captured cleanly; per-element opacity fades are not (headless
+ *      Chrome fades sub-fully-opaque content out of the record over
+ *      rebuilds; see the animation.md pitfall). The texture keeps its
+ *      mipmap chain
  *      (`generateMipmap` per upload), matching upstream's sampler.
  *   4. Full-frame treatment: like vhs/droplets, BendRip fills the
  *      composition (`AbsoluteFill` root) and processes everything the
@@ -346,6 +349,7 @@ async function captureAndDraw(
   compWidth: number,
   compHeight: number,
   stateRef: React.MutableRefObject<CaptureState | null>,
+  foldEnv: number,
 ): Promise<void> {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const width = Math.max(1, Math.round(compWidth * dpr));
@@ -589,8 +593,8 @@ async function captureAndDraw(
   gl.uniform1f(uniforms.uAngle, Math.min(Math.max(p.angle, 1), 160) * (Math.PI / 180));
   gl.uniform1f(uniforms.uPersp, Math.max(p.perspective, 50) / h);
   gl.uniform1f(uniforms.uDir, p.direction === "in" ? -1 : 1);
-  gl.uniform1f(uniforms.uTopAmt, topAmt);
-  gl.uniform1f(uniforms.uBotAmt, botAmt);
+  gl.uniform1f(uniforms.uTopAmt, topAmt * foldEnv);
+  gl.uniform1f(uniforms.uBotAmt, botAmt * foldEnv);
   gl.uniform1f(uniforms.uMaxX, contentMaxX);
   gl.uniform1f(uniforms.uPxY, 1.5 / h);
   gl.uniform1f(uniforms.uPxX, 1.5 / w);
@@ -652,6 +656,24 @@ export const BendRip: React.FC<BendRipProps> = ({
     return Math.max(0, Math.min(1, f));
   })();
 
+  // The fold itself grows in with the fade-in (and shrinks with the
+  // fade-out), eased — otherwise the video would open on a fully folded
+  // bottom edge crossfading over the flat DOM, which reads as the page
+  // "fading out" while the bend pops in. The envelope mirrors the fade
+  // but is a smoothstep, so the crease settles in softly.
+  const foldEnv = (() => {
+    let e = 1;
+    if (fadeInF > 0 && frame < fadeInF) {
+      const x = frame / fadeInF;
+      e = Math.min(e, x * x * (3 - 2 * x));
+    }
+    if (fadeOutF > 0 && frame > durationInFrames - fadeOutF) {
+      const x = Math.max(0, (durationInFrames - frame) / fadeOutF);
+      e = Math.min(e, x * x * (3 - 2 * x));
+    }
+    return Math.max(0, Math.min(1, e));
+  })();
+
   const outputRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const captureStateRef = useRef<CaptureState | null>(null);
@@ -660,7 +682,7 @@ export const BendRip: React.FC<BendRipProps> = ({
   // React each frame, so this layout effect re-runs every frame. The
   // capture setup (layoutSubtree canvas, the moved scene) is stateful
   // across frames — the texture is refreshed with each frame's freshly
-  // painted DOM (scroll position and entrance animations included). The
+  // painted DOM (scroll position and transform animations included). The
   // render is held (delayRender) until the capture + draw completes, so
   // the frame screenshot always contains the treatment.
   useLayoutEffect(() => {
@@ -668,24 +690,33 @@ export const BendRip: React.FC<BendRipProps> = ({
     const content = contentRef.current;
     if (!output || !content) return;
     const handle = delayRender();
-    captureAndDraw(output, content, p, progress, compWidth, compHeight, captureStateRef)
+    captureAndDraw(
+      output,
+      content,
+      p,
+      progress,
+      compWidth,
+      compHeight,
+      captureStateRef,
+      foldEnv,
+    )
       .catch((err) => console.error("Bend capture failed:", err))
       .finally(() => continueRender(handle));
-  }, [p, progress, tapeFade]);
+  }, [p, progress, tapeFade, foldEnv]);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "transparent" }}>
       <AbsoluteFill style={{ opacity: 1 }}>
         {/* The scene. Its current DOM is captured into the fold texture
-             each frame (scroll transform + entrance animations included);
+             each frame (scroll position + transform animations included;
+             per-element opacity fades are not — see animation.md);
              if the capture or WebGL fails, this DOM is what the viewer
-             sees — untreated. Overflow is hidden: the frame-driven
-             "scroll" is a translate applied by the driver, not a scroll
-             container (scroll containers with invisible content paint
-             partial records in headless Chrome). */}
+             sees — untreated. The driver turns the content div into the
+             scroll container (overflow auto, scrollTop per frame) like
+             upstream, so the captured record shows the scrolled page. */}
         <div
           ref={contentRef}
-          style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
+          style={{ position: "relative", width: "100%", height: "100%" }}
         >
           {children}
         </div>

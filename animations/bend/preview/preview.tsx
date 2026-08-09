@@ -79,12 +79,7 @@ const PhotoBlock: React.FC<{
  */
 const PageScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const in1 = interpolate(frame, [6, 22], [0.1, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.out(Easing.cubic),
-  });
-  const in2 = interpolate(frame, [12, 30], [0.1, 1], {
+  const rise = interpolate(frame, [6, 22], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
@@ -108,7 +103,6 @@ const PageScene: React.FC = () => {
           justifyContent: "space-between",
           padding: "34px 0",
           borderBottom: `2px solid ${PREVIEW_COLORS.ink}`,
-          opacity: in1,
         }}
       >
         <div
@@ -135,7 +129,7 @@ const PageScene: React.FC = () => {
       </div>
 
       {/* headline */}
-      <div style={{ padding: "64px 0 8px 0", opacity: in1, transform: `translateY(${(1 - in1) * 30}px)` }}>
+      <div style={{ padding: "64px 0 8px 0", transform: `translateY(${(1 - rise) * 30}px)` }}>
         <div
           style={{
             fontFamily: "Inter, system-ui, sans-serif",
@@ -156,7 +150,6 @@ const PageScene: React.FC = () => {
             fontFamily: "Inter, system-ui, sans-serif",
             fontSize: 26,
             color: PREVIEW_COLORS.muted,
-            opacity: in2,
           }}
         >
           A magazine spread scrolling on the face of a cube — the top and
@@ -308,7 +301,7 @@ export const PREVIEW_DEFAULT_PROPS = {
       ease: 260,
       top: true,
       bottom: true,
-      fadeInFrames: 4,
+      fadeInFrames: 8,
     },
   },
   styles: { colors: PREVIEW_COLORS, fonts: PREVIEW_FONTS },
