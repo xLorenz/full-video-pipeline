@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/radial-gauge.schema.json",
+  "title": "RadialGauge instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "enum": ["value", "label", "prefix", "suffix"]},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetValue"],
+      "properties": {
+        "targetValue": {"type": "number"},
+        "gaugeMax": {"type": "number", "minimum": 0.0001, "maximum": 1e15, "default": 100},
+        "decimals": {"type": "integer", "minimum": 0, "maximum": 4, "default": 0},
+        "durationSeconds": {"type": "number", "minimum": 0.5, "maximum": 30, "default": 1.6},
+        "countUp": {"type": "boolean", "default": true},
+        "showValue": {"type": "boolean", "default": true},
+        "prefix": {"type": "string", "default": ""},
+        "suffix": {"type": "string", "default": ""},
+        "thousandSeparator": {"type": "string", "enum": [",", ".", ""], "default": ""},
+        "valueFontRole": {"type": "string", "enum": ["heading", "mono"], "default": "heading"},
+        "maxFontPx": {"type": "number", "minimum": 8, "maximum": 1000, "default": 200},
+        "rowGapPx": {"type": "number", "minimum": 0, "maximum": 400, "default": 24},
+        "ringSizePx": {"type": "number", "minimum": 120, "maximum": 1200, "default": 560},
+        "strokeWidthPx": {"type": "number", "minimum": 8, "maximum": 160, "default": 44},
+        "segments": {"type": "integer", "enum": [1, 4], "default": 1},
+        "showTrack": {"type": "boolean", "default": true},
+        "capDot": {"type": "boolean", "default": true},
+        "arcColor": {"type": ["string", "null"], "default": null},
+        "trackColor": {"type": ["string", "null"], "default": null},
+        "arcEasing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName", "default": "ease-out-cubic"},
+        "pop": {"type": "boolean", "default": true},
+        "anticipationFrames": {"type": "integer", "minimum": 0, "maximum": 120, "default": 6},
+        "anticipationScale": {"type": "number", "minimum": 0.1, "maximum": 1, "default": 0.92},
+        "landPunch": {"type": "boolean", "default": true},
+        "landPunchScale": {"type": "number", "minimum": 1, "maximum": 1.5, "default": 1.02},
+        "landPunchDurationFrames": {"type": "integer", "minimum": 1, "maximum": 60, "default": 7},
+        "holdAfterLandFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 24},
+        "labelAfterLand": {"type": "boolean", "default": true}
+      }
+    }
+  }
+}

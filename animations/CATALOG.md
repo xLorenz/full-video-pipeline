@@ -13,6 +13,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Kinetic title mosaic | [`kinetic-title-mosaic/`](./kinetic-title-mosaic/animation.md) | `typography` `opener` `title` `kinetic` | Multi-word kinetic typography with per-word motion variants |
 | Radial pulse rings | [`radial-pulse-rings/`](./radial-pulse-rings/animation.md) | `emphasis` `radar` `transmission` `focal` | Concentric pulse rings emit from a focal node |
 | Rolling digit counter | [`rolling-digit-counter/`](./rolling-digit-counter/animation.md) | `stat` `number` `scoreboard` `count-up` | Slot-machine tumbling numeral columns snap to target |
+| Radial gauge | [`radial-gauge/`](./radial-gauge/animation.md) | `stat` `number` `gauge` `progress` `percent` | Arc gauge sweeps to a fraction with a count-up in the center and a cap-dot signature |
 | Orbit chip cloud | [`orbit-chip-cloud/`](./orbit-chip-cloud/animation.md) | `relationship` `orbit` `pill` `cloud` | Labelled pill chips orbit a focal node on an ellipse |
 | Bar code scan | [`bar-code-scan/`](./bar-code-scan/animation.md) | `sequence` `decode` `barcode` `scan` | Scanline sweeps decoding barcode segments one by one |
 | Glitch rip | [`glitch-rip/`](./glitch-rip/animation.md) | `glitch` `broadcast` `crt` `opener` | Broadcast-style glitch bursts over hero text (RGB split, slice tears, scanlines) |
@@ -39,7 +40,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `radar` — `radial-pulse-rings`
 - `transmission` — `radial-pulse-rings`
 - `focal` — `radial-pulse-rings`, `orbit-chip-cloud`
-- `stat` — `count-up-stat`, `rolling-digit-counter`
+- `stat` — `count-up-stat`, `rolling-digit-counter`, `radial-gauge`
 - `scoreboard` — `rolling-digit-counter`
 - `relationship` — `orbit-chip-cloud`
 - `orbit` — `orbit-chip-cloud`
@@ -89,6 +90,8 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `zoom` — `magnify`
 - `cursor` — `magnify`
 - `inspect` — `magnify`
+- `gauge` — `radial-gauge`
+- `progress` — `radial-gauge`
 
 ## Status
 

@@ -1,0 +1,41 @@
+{
+  "instanceId": "radial-gauge.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [
+    { "id": "value",  "text": "0", "delay": 8,  "duration": 24, "color": null, "hidden": false },
+    { "id": "label",  "text": "",  "delay": 30, "duration": 16, "color": null, "hidden": false },
+    { "id": "prefix", "text": "",  "hidden": false },
+    { "id": "suffix", "text": "",  "hidden": false }
+  ],
+  "extras": {
+    "targetValue": 78,
+    "gaugeMax": 100,
+    "decimals": 0,
+    "durationSeconds": 1.6,
+    "countUp": true,
+    "showValue": true,
+    "prefix": "",
+    "suffix": "%",
+    "thousandSeparator": "",
+    "valueFontRole": "heading",
+    "maxFontPx": 200,
+    "rowGapPx": 24,
+    "ringSizePx": 560,
+    "strokeWidthPx": 44,
+    "segments": 1,
+    "showTrack": true,
+    "capDot": true,
+    "arcColor": null,
+    "trackColor": null,
+    "arcEasing": "ease-out-cubic",
+    "pop": true,
+    "anticipationFrames": 6,
+    "anticipationScale": 0.92,
+    "landPunch": true,
+    "landPunchScale": 1.02,
+    "landPunchDurationFrames": 7,
+    "holdAfterLandFrames": 24,
+    "labelAfterLand": true
+  }
+}
