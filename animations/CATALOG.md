@@ -23,6 +23,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Bend | [`bend/`](./bend/animation.md) | `folding` `pages` `paper` `cube` `scroll` `treatment` | Full-frame page-fold: the scene scrolls on the face of a cube, top/bottom edges folding over virtual creases |
 | Shatter | [`shatter/`](./shatter/animation.md) | `glass` `shards` `refraction` `treatment` | Full-frame glass-shard lens: tiles lift, tip and float over the void, refracting the content beneath |
 | Blaze | [`blaze/`](./blaze/animation.md) | `fire` `heat` `flames` `sparks` `smoke` `treatment` | Full-frame procedural fire: sparks, smoke and glow rise from the bottom, heat-distorting and darkening the content beneath |
+| Decrypt reveal | [`decrypt-reveal/`](./decrypt-reveal/animation.md) | `decrypt` `cipher` `encrypt` `secret` `terminal` `mono` `treatment` | Full-frame shape-matched cipher covers the page; a traveling decrypt circle reveals the real content with a flickering, aberrated edge |
 
 ## By tag
 
@@ -61,7 +62,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`, `droplets`, `bend`, `shatter`, `blaze`
+- `treatment` — `vhs`, `droplets`, `bend`, `shatter`, `blaze`, `decrypt-reveal`
 - `folding` — `bend`
 - `pages` — `bend`
 - `paper` — `bend`
@@ -75,6 +76,12 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `flames` — `blaze`
 - `sparks` — `blaze`
 - `smoke` — `blaze`
+- `decrypt` — `decrypt-reveal`
+- `cipher` — `decrypt-reveal`
+- `encrypt` — `decrypt-reveal`
+- `secret` — `decrypt-reveal`
+- `terminal` — `decrypt-reveal`
+- `mono` — `decrypt-reveal`
 - `overlay` — `droplets`
 
 ## Status

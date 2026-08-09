@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/decrypt-reveal.schema.json",
+  "title": "DecryptRip instance",
+  "description": "Per-template schema for decrypt-reveal. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it encrypts arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by decrypt-reveal itself — content is passed as `children` to <DecryptRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "radius": {"type": "number", "minimum": 1, "maximum": 2000, "default": 400, "description": "Decrypt radius around the cursor in CSS pixels. The circle reveals real content wherever it passes"},
+        "softness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "description": "Feather of the decrypt edge as a fraction of the radius (0 to 1)"},
+        "cell": {"type": "integer", "minimum": 4, "maximum": 40, "default": 10, "description": "Glyph cell height in CSS pixels. Smaller cells = finer, denser cipher (and slower rendering)"},
+        "aspect": {"type": "number", "minimum": 0.35, "maximum": 1.25, "default": 0.75, "description": "Width of a glyph cell relative to its height (0.35 to 1.25)"},
+        "charset": {"type": "string", "default": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "description": "Characters the cipher is written in. Order does not matter, shapes are matched automatically. Max 255 glyphs"},
+        "colored": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "How much glyphs keep the color of the UI beneath them, 0 is monochrome (0 to 1)"},
+        "color": {"type": "string", "default": "#4ade80", "description": "Cipher color as any CSS color. Used for monochrome glyphs and the decrypt edge tint"},
+        "brightness": {"type": "number", "minimum": 0.2, "maximum": 3, "default": 1, "description": "Brightness of the cipher glyphs (0.2 to 3)"},
+        "legibility": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "Minimum contrast the cipher keeps against the background, so subtle UI stays readable while encrypted (0 to 1)"},
+        "contrast": {"type": "number", "minimum": 0.3, "maximum": 3, "default": 1, "description": "Contrast of the glyph shape matching. Higher picks bolder characters (0.3 to 3)"},
+        "exposure": {"type": "number", "minimum": 0.2, "maximum": 3, "default": 1, "description": "Exposure applied to the UI before it is matched to glyphs (0.2 to 3)"},
+        "scramble": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.1, "description": "Fraction of idle cipher cells that keep mutating (0 to 1)"},
+        "scrambleSpeed": {"type": "number", "minimum": 0, "maximum": 30, "default": 6, "description": "Cipher mutations per second (0 to 30)"},
+        "edgeWidth": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.2, "description": "Width of the decrypting flicker band as a fraction of the radius (0 to 1)"},
+        "edgeFlicker": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "How violently characters flicker while they decrypt (0 to 1)"},
+        "edgeGlow": {"type": "number", "minimum": 0, "maximum": 3, "default": 2, "description": "Brightness surge of glyphs on the decrypt wavefront (0 to 3)"},
+        "edgeTint": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.75, "description": "How strongly the wavefront tints toward the cipher color (0 to 1)"},
+        "aberration": {"type": "number", "minimum": 0, "maximum": 200, "default": 10, "description": "Chromatic aberration of the revealed UI at the decrypt edge in CSS pixels"},
+        "passthrough": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.15, "description": "How much of the real UI shows through the cipher (0 to 1). 0 keeps the page fully encrypted"},
+        "threshold": {"type": "number", "minimum": 0.005, "maximum": 1, "default": 0.025, "description": "Contrast against the background above which a cell counts as UI and earns a glyph"},
+        "background": {"type": "string", "default": "#000000", "description": "Color of the backdrop behind the content, as any CSS color. Used to tell UI pixels apart from empty space. Match this to the scene's backdrop color"},
+        "smoothing": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.2, "description": "Seconds the decrypt circle takes to catch up with the path (exponential damping). 0 tracks the lensPath exactly; higher feels more damped"},
+        "lensPath": {
+          "type": "array",
+          "description": "Decrypt circle path: waypoints {x, y, at} the circle follows over the composition. x/y are normalized screen positions (y is CSS-style: 0 = top, 1 = bottom; x outside 0-1 moves the circle off-frame for enter/exit). at is composition progress (0-1). The circle moves between waypoints with smoothstep timing, damped by `smoothing` like a cursor. Default: a left-to-right sweep across the composition. A static circle = two identical waypoints. Empty/missing falls back to the default sweep",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "at"],
+            "properties": {
+              "x": {"type": "number", "minimum": -0.5, "maximum": 1.5, "description": "Normalized horizontal circle center (0-1 across the frame; outside the frame for enter/exit)"},
+              "y": {"type": "number", "minimum": -0.5, "maximum": 1.5, "description": "Normalized vertical circle center, CSS y-down (0 = top, 1 = bottom)"},
+              "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which the circle reaches this waypoint"}
+            }
+          }
+        },
+        "activePath": {
+          "type": "array",
+          "description": "Activation envelope: waypoints {at, v} of the decrypt circle's activation over the composition. v = 0 fully encrypted, 1 decrypt circle on; at is composition progress (0-1). Smoothstepped between waypoints and damped by `smoothing`. Default: on for the whole composition. 'Nothing until a reveal at 60%' = [{at: 0, v: 0}, {at: 0.6, v: 0}, {at: 0.62, v: 1}] (hold v at 0 until the trigger, then step up — the step is eased)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "v"],
+            "properties": {
+              "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which the envelope reaches this value"},
+              "v": {"type": "number", "minimum": 0, "maximum": 1, "description": "Activation value at this waypoint (0 = fully encrypted, 1 = decrypt circle on)"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
