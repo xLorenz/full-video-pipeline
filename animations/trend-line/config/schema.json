@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/trend-line.schema.json",
+  "title": "TrendLine instance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "enum": ["title", "label"]},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 24,
+          "items": {"type": "number"}
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 24,
+          "items": {"type": "string"}
+        },
+        "yMin": {"type": ["number", "null"], "default": null},
+        "yMax": {"type": ["number", "null"], "default": null},
+        "drawSeconds": {"type": "number", "minimum": 0.5, "maximum": 8, "default": 1.8},
+        "drawEasing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName", "default": "ease-out-cubic"},
+        "drawDelayFrames": {"type": "integer", "minimum": 0, "maximum": 120, "default": 10},
+        "showArea": {"type": "boolean", "default": true},
+        "areaOpacity": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.32},
+        "showDots": {"type": "boolean", "default": true},
+        "dotPop": {"type": "boolean", "default": true},
+        "dotSizePx": {"type": "number", "minimum": 2, "maximum": 32, "default": 10},
+        "lineWidthPx": {"type": "number", "minimum": 2, "maximum": 24, "default": 6},
+        "showGrid": {"type": "boolean", "default": true},
+        "xLabels": {"type": "boolean", "default": true},
+        "yLabels": {"type": "boolean", "default": true},
+        "showGoal": {"type": "boolean", "default": false},
+        "goalValue": {"type": ["number", "null"], "default": null},
+        "goalLabel": {"type": "string", "default": "GOAL"},
+        "endCountUp": {"type": "boolean", "default": true},
+        "endCountUpSeconds": {"type": "number", "minimum": 0.3, "maximum": 6, "default": 0.9},
+        "valueFormat": {"type": "string", "enum": ["int", "decimals1", "decimals2", "percent", "compact"], "default": "int"},
+        "lineColor": {"type": ["string", "null"], "default": null},
+        "gridColor": {"type": ["string", "null"], "default": null},
+        "holdAfterDrawFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 24},
+        "labelAfterDraw": {"type": "boolean", "default": true}
+      }
+    }
+  }
+}

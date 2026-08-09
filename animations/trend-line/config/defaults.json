@@ -1,0 +1,37 @@
+{
+  "instanceId": "trend-line.defaults",
+  "theme": {},
+  "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
+  "elements": [
+    { "id": "title", "text": "", "delay": 6, "duration": 14, "color": null, "hidden": false },
+    { "id": "label", "text": "", "delay": 40, "duration": 16, "color": null, "hidden": false }
+  ],
+  "extras": {
+    "points": [12, 24, 18, 33, 41, 38, 52],
+    "labels": ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL"],
+    "yMin": null,
+    "yMax": null,
+    "drawSeconds": 1.8,
+    "drawEasing": "ease-out-cubic",
+    "drawDelayFrames": 10,
+    "showArea": true,
+    "areaOpacity": 0.32,
+    "showDots": true,
+    "dotPop": true,
+    "dotSizePx": 10,
+    "lineWidthPx": 6,
+    "showGrid": true,
+    "xLabels": true,
+    "yLabels": true,
+    "showGoal": true,
+    "goalValue": 50,
+    "goalLabel": "GOAL",
+    "endCountUp": true,
+    "endCountUpSeconds": 0.9,
+    "valueFormat": "int",
+    "lineColor": null,
+    "gridColor": null,
+    "holdAfterDrawFrames": 24,
+    "labelAfterDraw": true
+  }
+}
