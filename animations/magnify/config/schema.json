@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/magnify.schema.json",
+  "title": "Magnify instance",
+  "description": "Per-template schema for magnify. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it magnifies arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by magnify itself — content is passed as `children` to <Magnify>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "size": {"type": "number", "minimum": 20, "maximum": 600, "default": 140, "description": "Lens radius in CSS pixels"},
+        "zoom": {"type": "number", "minimum": 1, "maximum": 4, "default": 1.5, "description": "Magnification inside the lens (1 to 4)"},
+        "color": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"type": "number", "minimum": 0, "maximum": 1},
+          "default": [0.8, 0.8, 0.8],
+          "description": "HUD accent color as [r, g, b] in 0-1 range. Tints the reticle, readout, and ripple outline"
+        },
+        "follow": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.25, "description": "How quickly the lens follows the cursor script (0 to 1). 1 snaps to the eased path"},
+        "hud": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.8, "description": "Overall HUD intensity (0 to 1). 0 hides every reticle element"},
+        "ring": {"type": "boolean", "default": true, "description": "Show the outer ring"},
+        "crosshair": {"type": "boolean", "default": true, "description": "Show the crosshair lines through the center"},
+        "ticks": {"type": "boolean", "default": true, "description": "Show the tick marks around the ring"},
+        "brackets": {"type": "boolean", "default": true, "description": "Show the corner brackets inside the lens"},
+        "dot": {"type": "boolean", "default": true, "description": "Show the center dot"},
+        "grid": {"type": "boolean", "default": false, "description": "Show a faint measurement grid inside the lens"},
+        "readout": {"type": "boolean", "default": true, "description": "Show the data readout beside the lens (X/Y/zoom/size + blinking dot)"},
+        "aberration": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.8, "description": "Chromatic aberration split inside the lens (0 to 3). 0 disables it"},
+        "haze": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.2, "description": "Dreamy insight haze inside the lens (0 to 1). Softens and lifts the magnified content"},
+        "ripples": {"type": "boolean", "default": true, "description": "Emit a ripple across the page on click"},
+        "rippleSpeed": {"type": "number", "minimum": 50, "maximum": 3000, "default": 900, "description": "How fast the ripple wavefront travels, in CSS pixels per second"},
+        "rippleWidth": {"type": "number", "minimum": 0.5, "maximum": 20, "default": 2, "description": "Thickness of the colored ripple outline in CSS pixels"},
+        "rippleBendWidth": {"type": "number", "minimum": 1, "maximum": 600, "default": 100, "description": "Width of the band the ripple bends, in CSS pixels"},
+        "rippleBend": {"type": "number", "minimum": 0, "maximum": 200, "default": 20, "description": "How many CSS pixels the ripple bends the page"},
+        "rippleGlow": {"type": "number", "minimum": 0, "maximum": 2, "default": 1, "description": "Strength of the colored ripple outline (0 to 2). 0 hides it"},
+        "rippleLife": {"type": "number", "minimum": 0.1, "maximum": 5, "default": 1.4, "description": "Seconds a ripple lives before it fades out"},
+        "cursor": {
+          "type": "object",
+          "description": "The scripted cursor: the lens's scene-time script. `start` is where the cursor sits when the composition begins (normalized 0-1 of the frame; values outside the frame are allowed for enter/exit). `enter`/`leave` are the composition progress (0-1) at which the lens fades in and out (damped, like a real cursor). `moves` is the ordered list of moves — each has a destination (`to` with absolute x/y, or relative dx/dy offsets from the previous arrival), an arrival time (`at`, composition progress), an optional `start` (progress the move begins — default: the previous move's `at`, or 0 for the first), an optional `ease` (one of the global easingName names) or `bezier` ([x1,y1,x2,y2] cubic-bezier, overrides ease) for the non-linear movement between positions, and an optional `click` that fires when the cursor reaches the position. `clicks` is an optional list of standalone clicks (independent of moves) — each with `at` (composition progress), `hold` (seconds held), `release` (seconds to ease the magnification back), `count` (repeats: 2 = double-click), `zoom` (magnification multiplier while held), `ripple` (emit the ripple ring). A click presses the lens: the magnification punches up while held and the ripple bends the page",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "x": {"type": "number", "minimum": -1, "maximum": 2, "default": 0.5, "description": "Normalized horizontal cursor start (0-1 across the frame)"},
+                "y": {"type": "number", "minimum": -1, "maximum": 2, "default": 0.5, "description": "Normalized vertical cursor start, CSS y-down (0 = top, 1 = bottom)"}
+              }
+            },
+            "enter": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Composition progress (0-1) at which the lens fades in (presence ramps up damped, like a real cursor entering the page)"},
+            "leave": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "Composition progress (0-1) at which the lens fades out"},
+            "moves": {
+              "type": "array",
+              "description": "The ordered cursor moves. List order IS the chain order (relative moves resolve against the previous arrival) — keep `at` increasing. The cursor holds at `start` until the first move, holds at each arrival until the next move's `start`, and holds at the final arrival to the end. Missing/empty = a static cursor at `start`",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["to", "at"],
+                "properties": {
+                  "to": {
+                    "type": "object",
+                    "description": "Destination: absolute x/y (normalized 0-1 of the frame; outside 0-1 moves the cursor off-frame) OR relative dx/dy (offsets from the previous arrival; absolute wins on conflict; a missing axis keeps the previous value)",
+                    "additionalProperties": false,
+                    "properties": {
+                      "x": {"type": "number", "minimum": -1, "maximum": 2, "description": "Absolute horizontal destination (0-1 across the frame)"},
+                      "y": {"type": "number", "minimum": -1, "maximum": 2, "description": "Absolute vertical destination, CSS y-down (0 = top, 1 = bottom)"},
+                      "dx": {"type": "number", "minimum": -2, "maximum": 2, "description": "Relative horizontal offset from the previous arrival (fraction of the frame width)"},
+                      "dy": {"type": "number", "minimum": -2, "maximum": 2, "description": "Relative vertical offset from the previous arrival (fraction of the frame height, CSS y-down)"}
+                    }
+                  },
+                  "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which the cursor ARRIVES at this destination"},
+                  "start": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress (0-1) at which this move begins. Default: the previous move's `at` (0 for the first). A gap between the previous `at` and this `start` holds the cursor at the previous arrival — a pause"},
+                  "ease": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName", "description": "The non-linear movement function for this move. Default: ease-out-cubic"},
+                  "bezier": {
+                    "type": "array",
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "items": {"type": "number", "minimum": -1, "maximum": 2},
+                    "description": "Custom cubic-bezier easing [x1, y1, x2, y2] for this move — overrides `ease`. x1/x2 should stay in 0-1; y may overshoot for a springy arrival (e.g. [0.34, 1.56, 0.64, 1])"
+                  },
+                  "click": {
+                    "type": "object",
+                    "description": "A click that fires when the cursor reaches this position (at this move's `at`). Presses the lens: magnification punches up while held and a ripple bends the page",
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress when the click fires. Default: this move's `at` (on arrival)"},
+                      "hold": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.12, "description": "Seconds the press is held"},
+                      "release": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.08, "description": "Seconds to ease the magnification back to `zoom` after release"},
+                      "count": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "Presses: 1 = single click, 2 = double-click, etc."},
+                      "zoom": {"type": "number", "minimum": 1, "maximum": 3, "default": 1.35, "description": "Magnification multiplier while held (punch = zoom x this, clamped to 4)"},
+                      "ripple": {"type": "boolean", "default": true, "description": "Emit the ripple ring on press (requires extras.ripples)"}
+                    }
+                  }
+                }
+              }
+            },
+            "clicks": {
+              "type": "array",
+              "description": "Standalone clicks, independent of the moves — fire at any composition progress (e.g. a double-click mid-move, or a click while the cursor rests). Same shape as a move's nested `click`, but `at` is required",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["at"],
+                "properties": {
+                  "at": {"type": "number", "minimum": 0, "maximum": 1, "description": "Composition progress when the click fires"},
+                  "hold": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.12, "description": "Seconds the press is held"},
+                  "release": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.08, "description": "Seconds to ease the magnification back to `zoom` after release"},
+                  "count": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "Presses: 1 = single click, 2 = double-click, etc."},
+                  "zoom": {"type": "number", "minimum": 1, "maximum": 3, "default": 1.35, "description": "Magnification multiplier while held (punch = zoom x this, clamped to 4)"},
+                  "ripple": {"type": "boolean", "default": true, "description": "Emit the ripple ring on press (requires extras.ripples)"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

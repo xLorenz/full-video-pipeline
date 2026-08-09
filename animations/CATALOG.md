@@ -24,6 +24,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Shatter | [`shatter/`](./shatter/animation.md) | `glass` `shards` `refraction` `treatment` | Full-frame glass-shard lens: tiles lift, tip and float over the void, refracting the content beneath |
 | Blaze | [`blaze/`](./blaze/animation.md) | `fire` `heat` `flames` `sparks` `smoke` `treatment` | Full-frame procedural fire: sparks, smoke and glow rise from the bottom, heat-distorting and darkening the content beneath |
 | Decrypt reveal | [`decrypt-reveal/`](./decrypt-reveal/animation.md) | `decrypt` `cipher` `encrypt` `secret` `terminal` `mono` `treatment` | Full-frame shape-matched cipher covers the page; a traveling decrypt circle reveals the real content with a flickering, aberrated edge |
+| Magnify | [`magnify/`](./magnify/animation.md) | `magnify` `lens` `zoom` `cursor` `inspect` `treatment` | Full-frame magnifying lens on a scripted cursor path: clicks ripple the page and punch the zoom |
 
 ## By tag
 
@@ -62,7 +63,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`, `droplets`, `bend`, `shatter`, `blaze`, `decrypt-reveal`
+- `treatment` — `vhs`, `droplets`, `bend`, `shatter`, `blaze`, `decrypt-reveal`, `magnify`
 - `folding` — `bend`
 - `pages` — `bend`
 - `paper` — `bend`
@@ -83,6 +84,11 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `terminal` — `decrypt-reveal`
 - `mono` — `decrypt-reveal`
 - `overlay` — `droplets`
+- `magnify` — `magnify`
+- `lens` — `magnify`
+- `zoom` — `magnify`
+- `cursor` — `magnify`
+- `inspect` — `magnify`
 
 ## Status
 
