@@ -21,6 +21,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | VHS | [`vhs/`](./vhs/animation.md) | `vhs` `crt` `retro` `tape` `treatment` | Worn-tape CRT treatment over the whole frame (wave, jitter, chroma bleed, grain, scanlines) |
 | Droplets | [`droplets/`](./droplets/animation.md) | `rain` `glass` `refraction` `overlay` `treatment` | Rain runs down the glass and refracts the content behind it (drops, trails, fog, tint) |
 | Bend | [`bend/`](./bend/animation.md) | `folding` `pages` `paper` `cube` `scroll` `treatment` | Full-frame page-fold: the scene scrolls on the face of a cube, top/bottom edges folding over virtual creases |
+| Shatter | [`shatter/`](./shatter/animation.md) | `glass` `shards` `refraction` `treatment` | Full-frame glass-shard lens: tiles lift, tip and float over the void, refracting the content beneath |
 
 ## By tag
 
@@ -59,15 +60,16 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`, `droplets`, `bend`
+- `treatment` — `vhs`, `droplets`, `bend`, `shatter`
 - `folding` — `bend`
 - `pages` — `bend`
 - `paper` — `bend`
 - `cube` — `bend`
 - `scroll` — `bend`
 - `rain` — `droplets`
-- `glass` — `droplets`
-- `refraction` — `droplets`
+- `glass` — `droplets`, `shatter`
+- `refraction` — `droplets`, `shatter`
+- `shards` — `shatter`
 - `overlay` — `droplets`
 
 ## Status

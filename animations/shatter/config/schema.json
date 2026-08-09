@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/shatter.schema.json",
+  "title": "ShatterRip instance",
+  "description": "Per-template schema for shatter. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it shatters arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by shatter itself — content is passed as `children` to <ShatterRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "radius": {"type": "number", "minimum": 0.01, "maximum": 2, "default": 0.4, "description": "Radius of the shatter lens, relative to the screen height. The lens sweeps horizontally across the frame during the composition"},
+        "softness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.6, "description": "Edge feather of the lens as a fraction of the radius (0 to 1)"},
+        "tileSize": {"type": "number", "minimum": 24, "maximum": 600, "default": 125, "description": "Tile size in CSS pixels"},
+        "shards": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "Shape irregularity. 0 keeps a perfect square grid, 1 breaks the page into uneven glass shards"},
+        "corner": {"type": "number", "minimum": 0, "maximum": 300, "default": 0, "description": "Corner rounding of fully lifted tiles in CSS pixels"},
+        "lift": {"type": "number", "minimum": 0, "maximum": 600, "default": 30, "description": "How high tiles lift off the page in CSS pixels"},
+        "tilt": {"type": "number", "minimum": 0, "maximum": 3, "default": 2, "description": "How steeply tiles tip out of the page plane (0 to 3)"},
+        "scatter": {"type": "number", "minimum": 0, "maximum": 300, "default": 5, "description": "How far tiles slide sideways while lifted, in CSS pixels"},
+        "perspective": {"type": "number", "minimum": 200, "maximum": 5000, "default": 1500, "description": "Perspective distance in CSS pixels. Lower is more dramatic"},
+        "gapColor": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"type": "number", "minimum": 0, "maximum": 1},
+          "default": [0, 0, 0],
+          "description": "Color of the void behind lifted tiles as [r, g, b] in 0-1 range"
+        },
+        "shadow": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.5, "description": "Opacity of the drop shadows under lifted tiles (0 to 2)"},
+        "shading": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.5, "description": "Strength of the per-tile lighting (0 to 2)"},
+        "refraction": {"type": "number", "minimum": 0, "maximum": 2, "default": 1.5, "description": "How strongly lifted shards refract the content beneath them, like glass (0 to 2)"},
+        "dispersion": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.3, "description": "Chromatic fringing of the refraction (0 to 1). 0 keeps it color-true"},
+        "floatSpeed": {"type": "number", "minimum": 0, "maximum": 20, "default": 2, "description": "Speed of the floating tile motion. 0 freezes the tiles"},
+        "strength": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "description": "How fully tiles lift inside the lens (0 to 1)"},
+        "baseStrength": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Lift amount across the whole screen, outside the lens (0 to 1)"},
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0, "description": "Frames over which the lens (uActive) grows in at the start"},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0, "description": "Frames over which the lens (uActive) shrinks out at the end"}
+      }
+    }
+  }
+}
