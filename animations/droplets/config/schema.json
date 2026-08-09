@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://full-video-pipeline/animations/droplets.schema.json",
+  "title": "DropletsRip instance",
+  "description": "Per-template schema for droplets. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it applies a rainy-glass treatment to arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["extras"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "instanceId": {"type": "string"},
+    "theme": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/theme"},
+    "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
+    "elements": {
+      "type": "array",
+      "description": "Currently unused by droplets itself — content is passed as `children` to <DropletsRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": ["string", "null"]},
+          "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
+          "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
+          "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},
+          "position": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/position"},
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fontSize": {"type": ["number", "null"], "minimum": 4, "maximum": 1000},
+              "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
+            }
+          },
+          "color": {"type": ["string", "null"]},
+          "hidden": {"type": "boolean", "default": false},
+          "custom": {"type": "object"}
+        }
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intensity": {"type": "number", "minimum": 0, "maximum": 1.25, "default": 0.5, "description": "How much rain falls, from a light drizzle to a downpour"},
+        "speed": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 1, "description": "Animation speed multiplier. 1 is normal speed"},
+        "scale": {"type": "number", "minimum": 0.01, "maximum": 3, "default": 0.4, "description": "Size of the droplet pattern. Higher means smaller drops"},
+        "dropWidth": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 1, "description": "Width of the droplets and their trails"},
+        "dropLength": {"type": "number", "minimum": 0.05, "maximum": 3, "default": 1, "description": "How elongated the falling droplets are"},
+        "refraction": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.2, "description": "How strongly droplets refract the content behind them"},
+        "blur": {"type": "number", "minimum": 0, "maximum": 8, "default": 0, "description": "Background blur outside the droplets, like a fogged up window (mipmap-sampled — no visible content distortion, just softness)"},
+        "vignette": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Darkens the edges of the canvas"},
+        "fallSpeed": {"type": "number", "minimum": 0, "maximum": 4, "default": 1, "description": "How fast the running drops slide down"},
+        "wiggle": {"type": "number", "minimum": 0, "maximum": 3, "default": 1, "description": "Horizontal wiggle of the running drops"},
+        "staticDrops": {"type": "number", "minimum": 0, "maximum": 3, "default": 0.2, "description": "Multiplier for the small static droplets"},
+        "tint": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}, "minItems": 3, "maxItems": 3, "default": [1, 1, 1], "description": "Tint color layered over the content as [r, g, b] in 0-1 range"},
+        "tintStrength": {"type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "Strength of the tint (0 to 1)"},
+        "fadeInFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0},
+        "fadeOutFrames": {"type": "integer", "minimum": 0, "maximum": 600, "default": 0}
+      }
+    }
+  }
+}

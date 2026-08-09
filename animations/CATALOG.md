@@ -19,6 +19,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Glyph rain | [`glyph-rain/`](./glyph-rain/animation.md) | `matrix` `code-rain` `cyberpunk` `terminal` `opener` | Matrix-style glyph rain over arbitrary content (parallax layers, mutation, head glow) |
 | Flame wrap | [`flame-wrap/`](./flame-wrap/animation.md) | `fire` `flame` `burn` `title-card` `opener` | Border of WebGL fire around arbitrary content (tongues, rim glow, sparks, smoke) |
 | VHS | [`vhs/`](./vhs/animation.md) | `vhs` `crt` `retro` `tape` `treatment` | Worn-tape CRT treatment over the whole frame (wave, jitter, chroma bleed, grain, scanlines) |
+| Droplets | [`droplets/`](./droplets/animation.md) | `rain` `glass` `refraction` `overlay` `treatment` | Rain runs down the glass and refracts the content behind it (drops, trails, fog, tint) |
 
 ## By tag
 
@@ -57,7 +58,11 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `vhs` — `vhs`
 - `retro` — `vhs`
 - `tape` — `vhs`
-- `treatment` — `vhs`
+- `treatment` — `vhs`, `droplets`
+- `rain` — `droplets`
+- `glass` — `droplets`
+- `refraction` — `droplets`
+- `overlay` — `droplets`
 
 ## Status
 
