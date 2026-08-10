@@ -444,10 +444,13 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
                 strokeDasharray="16 12"
               />
             </g>
+            {/* Tag floats ABOVE the line's LEFT end — the right end is where
+                the series lands (final dot + end-value chip), so a right-side
+                tag would sit on top of the graphics. */}
             <text
-              x={CHART_RIGHT - 4}
+              x={CHART_LEFT}
               y={goalY - 14}
-              textAnchor="end"
+              textAnchor="start"
               fill={lineColor}
               fontFamily={monoFamily}
               fontSize={22}
@@ -461,8 +464,9 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
 
         {endCountUp && n > 0 ? (
           <text
-            x={xs(n - 1) + 18}
-            y={ys(points[n - 1]) + 8}
+            x={xs(n - 1)}
+            y={ys(points[n - 1]) - 14}
+            textAnchor="middle"
             fill={lineColor}
             fontFamily={monoFamily}
             fontSize={34}

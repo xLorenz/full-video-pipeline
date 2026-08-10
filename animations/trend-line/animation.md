@@ -18,8 +18,8 @@ Don't use it for: ranked quantities (`data-bars`), a single number (`count-up-st
 - **Draw-on via dash offset, not paths.** The polyline's length is hand-computed (segment sums — no DOM measurement, fully deterministic) and the line reveals through `strokeDasharray`/`strokeDashoffset`. Round caps keep the leading edge a clean dot as it travels.
 - **Arc-length pacing.** Data dots pop the frame the leading edge *reaches* them — paced by cumulative segment length, so uneven Y swings don't desync the dot from the line tip.
 - **Area follows the line.** The gradient area (line color fading to transparent) reveals under a clip rect that advances with the draw — the area can never "lead" the line.
-- **End value — the signature.** Once the line completes, the last value counts up (ease-out-expo) in a bold mono chip beside the final dot. The trend lands as a number. Disable with `endCountUp: false` for pure-line beats.
-- **Goal line is the "here's the target" moment.** `showGoal: true` draws a dashed reference line after the series completes, tagged with `goalLabel` in accent mono. One beat, delayed, never competing with the draw.
+- **End value — the signature.** Once the line completes, the last value counts up (ease-out-expo) in a bold mono chip **centered above the final dot**. The trend lands as a number. Disable with `endCountUp: false` for pure-line beats.
+- **Goal line is the "here's the target" moment.** `showGoal: true` draws a dashed reference line after the series completes, tagged with `goalLabel` in accent mono above the line's **left end** (the right end is where the series lands, so a right-side tag would sit on the graphics). One beat, delayed, never competing with the draw.
 - **Quiet furniture.** Gridlines use `theme.gridLine` at 0.3 opacity; axis labels are the muted mono/body tones. The line is the only saturated element.
 - **Y domain auto-pads.** Default domain = data min/max + 8% pad each side; the goal value is folded into the domain when set. Pin with `yMin`/`yMax` for consistent axis across scenes.
 - **Compact labels.** `valueFormat: "compact"` renders `1.2M` / `48k` style axis + end labels (the shadcn-style formatting).
@@ -116,7 +116,7 @@ Unmatched ids are ignored silently — a warning is logged at preview time.
 |---|---|---|---|
 | `showGoal` | boolean | `false` | Draw the dashed goal/reference line after the series completes. |
 | `goalValue` | number / null | `null` | The value the goal line sits at. Ignored when `showGoal` is false. |
-| `goalLabel` | string | `"GOAL"` | Tag rendered at the right end of the goal line (accent mono). |
+| `goalLabel` | string | `"GOAL"` | Tag rendered above the left end of the goal line (accent mono). |
 | `endCountUp` | boolean | `true` | The last point's value counts up beside the final dot once the line completes. |
 | `endCountUpSeconds` | number 0.3-6 | `0.9` | Duration of the end-value count-up. |
 | `holdAfterDrawFrames` | integer ≥0 | `24` | Sentinel — recommended minimum scene budget AFTER the line completes. The template does NOT fade out; the host scene composes out. |
@@ -165,7 +165,7 @@ Unmatched ids are ignored silently — a warning is logged at preview time.
 - The chart occupies a fixed 1920×1080 layout (title ~top 84, chart band y 250-860, labels below). If your composition is 9:16, this template does not reflow — pair it with a 16:9 background or crop the composition.
 - `valueFormat: "percent"` appends `%` to raw values — it does NOT convert fractions to percents. Pass already-percentage numbers (e.g. `points: [24, 51]`).
 - With `drawEasing: "ease-in-out"` the line pauses at both ends — great for long beats, dead-feeling for short ones. Keep `ease-out-cubic` (or `linear`) for snappy 1.5-2s draws.
-- The end-value chip sits to the right of the last dot — with the last point near the right edge it can crowd the goal tag. Raise the last value or drop `endCountUp` in that layout.
+- The end-value chip sits centered above the last dot, the goal tag above the line's left end — they never crowd each other. With the last value near the domain top the chip can rise above the chart band; pad the domain or drop `endCountUp` for that layout.
 - The template does NOT fade the chart out at end-of-life — compose out via the host scene's `<Sequence>` + transition.
 
 ## To preview
