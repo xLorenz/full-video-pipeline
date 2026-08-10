@@ -172,6 +172,13 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
 
   const polyline = points.map((v, i) => `${xs(i).toFixed(2)} ${ys(v).toFixed(2)}`);
   const pathD = `M ${polyline.join(" L ")}`;
+  // The area needs a CLOSED path down to the chart base — an open
+  // polyline would fill the triangle bounded by the closing chord
+  // between first and last point instead of reaching the x-axis.
+  const areaPathD =
+    n >= 2
+      ? `${pathD} L ${xs(n - 1).toFixed(2)} ${CHART_BOTTOM} L ${xs(0).toFixed(2)} ${CHART_BOTTOM} Z`
+      : pathD;
   const cumLen: number[] = [];
   let totalLen = 0;
   for (let i = 0; i < n; i++) {
@@ -380,7 +387,7 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
 
         {showArea && n >= 2 ? (
           <g clipPath={`url(#clip-${svgId})`}>
-            <path d={pathD} fill={`url(#area-${svgId})`} stroke="none" />
+            <path d={areaPathD} fill={`url(#area-${svgId})`} stroke="none" />
           </g>
         ) : null}
 
