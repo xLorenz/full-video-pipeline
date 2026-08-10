@@ -275,6 +275,17 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
   const labelStep = n > 8 ? 2 : 1;
 
   const goalY = goalIncluded ? ys(goalValue) : CHART_TOP;
+  const goalValueText = goalIncluded ? formatValue(goalValue, valueFormat) : "";
+  // Tag shows the value too — a bare label leaves the line's level unreadable
+  // (the axis only ticks quarter-gridlines). Skip the duplicate when the
+  // label already contains the formatted value.
+  const goalTagText =
+    goalIncluded && goalValueText && !goalLabel.includes(goalValueText)
+      ? `${goalLabel} ${goalValueText}`
+      : goalLabel;
+  // The goal value lands between axis ticks (e.g. 50 between 45 and 60) —
+  // echo it as an accent Y-axis label so the line provably sits at its value.
+  const goalOnGrid = gridLines.some((gv) => Math.abs(gv - goalValue) < 1e-6);
 
   if (n < 2) {
     return (
@@ -457,8 +468,21 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
               fontWeight={700}
               letterSpacing="0.08em"
             >
-              {goalLabel}
+              {goalTagText}
             </text>
+            {!goalOnGrid && goalValueText ? (
+              <text
+                x={CHART_LEFT - 14}
+                y={goalY + 8}
+                textAnchor="end"
+                fill={lineColor}
+                fontFamily={monoFamily}
+                fontSize={22}
+                fontWeight={500}
+              >
+                {goalValueText}
+              </text>
+            ) : null}
           </g>
         ) : null}
 

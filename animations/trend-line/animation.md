@@ -19,7 +19,7 @@ Don't use it for: ranked quantities (`data-bars`), a single number (`count-up-st
 - **Arc-length pacing.** Data dots pop the frame the leading edge *reaches* them — paced by cumulative segment length, so uneven Y swings don't desync the dot from the line tip.
 - **Area follows the line.** The gradient area (line color fading to transparent) reveals under a clip rect that advances with the draw — the area can never "lead" the line.
 - **End value — the signature.** Once the line completes, the last value counts up (ease-out-expo) in a bold mono chip **centered above the final dot**. The trend lands as a number. Disable with `endCountUp: false` for pure-line beats.
-- **Goal line is the "here's the target" moment.** `showGoal: true` draws a dashed reference line after the series completes, tagged with `goalLabel` in accent mono above the line's **left end** (the right end is where the series lands, so a right-side tag would sit on the graphics). One beat, delayed, never competing with the draw.
+- **Goal line is the "here's the target" moment.** `showGoal: true` draws a dashed reference line after the series completes, tagged with `goalLabel` **+ the formatted goal value** in accent mono above the line's **left end** (the right end is where the series lands, so a right-side tag would sit on the graphics). When the goal value doesn't fall on a quarter gridline, an accent Y-axis label echoes the value exactly at the line's height, so the line provably sits at its value. One beat, delayed, never competing with the draw.
 - **Quiet furniture.** Gridlines use `theme.gridLine` at 0.3 opacity; axis labels are the muted mono/body tones. The line is the only saturated element.
 - **Y domain auto-pads.** Default domain = data min/max + 8% pad each side; the goal value is folded into the domain when set. Pin with `yMin`/`yMax` for consistent axis across scenes.
 - **Compact labels.** `valueFormat: "compact"` renders `1.2M` / `48k` style axis + end labels (the shadcn-style formatting).
@@ -116,7 +116,7 @@ Unmatched ids are ignored silently — a warning is logged at preview time.
 |---|---|---|---|
 | `showGoal` | boolean | `false` | Draw the dashed goal/reference line after the series completes. |
 | `goalValue` | number / null | `null` | The value the goal line sits at. Ignored when `showGoal` is false. |
-| `goalLabel` | string | `"GOAL"` | Tag rendered above the left end of the goal line (accent mono). |
+| `goalLabel` | string | `"GOAL"` | Tag rendered above the left end of the goal line, followed by the formatted goal value (accent mono). Skip the appended value by including it in `goalLabel` itself. |
 | `endCountUp` | boolean | `true` | The last point's value counts up beside the final dot once the line completes. |
 | `endCountUpSeconds` | number 0.3-6 | `0.9` | Duration of the end-value count-up. |
 | `holdAfterDrawFrames` | integer ≥0 | `24` | Sentinel — recommended minimum scene budget AFTER the line completes. The template does NOT fade out; the host scene composes out. |
