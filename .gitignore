@@ -12,3 +12,6 @@ __pycache__/
 
 # Animation template scratch dirs (not part of the standard layout)
 animations/*/preview/frames-*/
+
+# Obsidian vault workspace
+.obsidian/
