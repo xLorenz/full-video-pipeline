@@ -645,6 +645,7 @@ function waitForPaint(layout: LayoutCanvas): Promise<boolean> {
       return;
     }
     let settled = false;
+    // eslint-disable-next-line prefer-const -- timer IS reassigned below; eslint scope-analysis false positive.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
       if (settled) return;
@@ -1398,3 +1399,7 @@ export const DecryptRip: React.FC<DecryptRipProps> = ({
     </AbsoluteFill>
   );
 };
+// Barrel-name alias: publish_animations.py derives the exported component name
+// from the folder (decrypt-reveal) and the auto-generated index.ts re-exports DecryptReveal.
+// Keep both names available so previews (DecryptRip) and the barrel (DecryptReveal) compile.
+export const DecryptReveal = DecryptRip;

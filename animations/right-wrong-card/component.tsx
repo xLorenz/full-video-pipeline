@@ -447,7 +447,7 @@ export const RightWrongCard: React.FC<RightWrongCardProps> = ({
     // Glow
     const glowC = winnerGlowColor || winnerColor;
     const glowProg = card.isWinner && card.winnerGlowPx > 0 && card.stampStyle !== "none"
-      ? interpolate(pvT, [BORDER_DELAY / POST_DUR, 1], [0, 1], { extrapolateLeft: "clamp" })
+      ? interpolate(pvT, [Math.min(BORDER_DELAY / POST_DUR, 0.999), 1], [0, 1], { extrapolateLeft: "clamp" })
       : 0;
     const glowPeak = interpolate(glowProg, [0, 0.4, 1], [0, 0, 0.55], { extrapolateLeft: "clamp" });
     const glowRest = card.isWinner && glowProg >= 1 ? 0.16 : 0;

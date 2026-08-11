@@ -295,6 +295,7 @@ function waitForPaint(layout: LayoutCanvas): Promise<boolean> {
       return;
     }
     let settled = false;
+    // eslint-disable-next-line prefer-const -- timer IS reassigned below; eslint scope-analysis false positive.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
       if (settled) return;

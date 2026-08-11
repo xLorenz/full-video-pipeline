@@ -686,3 +686,7 @@ export const FlameWrapRip: React.FC<FlameWrapRipProps> = ({
     </div>
   );
 };
+// Barrel-name alias: publish_animations.py derives the exported component name
+// from the folder (flame-wrap) and the auto-generated index.ts re-exports FlameWrap.
+// Keep both names available so previews (FlameWrapRip) and the barrel (FlameWrap) compile.
+export const FlameWrap = FlameWrapRip;

@@ -481,3 +481,7 @@ export const GlyphRainRip: React.FC<GlyphRainRipProps> = ({
     </AbsoluteFill>
   );
 };
+// Barrel-name alias: publish_animations.py derives the exported component name
+// from the folder (glyph-rain) and the auto-generated index.ts re-exports GlyphRain.
+// Keep both names available so previews (GlyphRainRip) and the barrel (GlyphRain) compile.
+export const GlyphRain = GlyphRainRip;

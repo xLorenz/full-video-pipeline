@@ -343,7 +343,7 @@ export const KineticTitleMosaic: React.FC<KineticTitleMosaicProps> = ({
           // parents under Remotion's headless rasterizer.
           position: "relative",
           display: "inline-flex",
-          flexDirection: accentSide === "below" ? "column" : "column-reverse",
+          flexDirection: "column",
           alignItems: "flex-start",
           gap: `${eyebrowGapEm}em`,
         }}

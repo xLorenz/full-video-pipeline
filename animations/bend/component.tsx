@@ -281,6 +281,7 @@ function waitForPaint(layout: LayoutCanvas): Promise<boolean> {
       return;
     }
     let settled = false;
+    // eslint-disable-next-line prefer-const -- timer IS reassigned below; eslint scope-analysis false positive.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
       if (settled) return;
@@ -737,3 +738,7 @@ export const BendRip: React.FC<BendRipProps> = ({
     </AbsoluteFill>
   );
 };
+// Barrel-name alias: publish_animations.py derives the exported component name
+// from the folder (bend) and the auto-generated index.ts re-exports Bend.
+// Keep both names available so previews (BendRip) and the barrel (Bend) compile.
+export const Bend = BendRip;

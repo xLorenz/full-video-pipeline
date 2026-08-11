@@ -400,6 +400,7 @@ function waitForPaint(layout: LayoutCanvas): Promise<boolean> {
       return;
     }
     let settled = false;
+    // eslint-disable-next-line prefer-const -- timer IS reassigned below; eslint scope-analysis false positive.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
       if (settled) return;
@@ -869,3 +870,7 @@ export const BlazeRip: React.FC<BlazeRipProps> = ({
     </AbsoluteFill>
   );
 };
+// Barrel-name alias: publish_animations.py derives the exported component name
+// from the folder (blaze) and the auto-generated index.ts re-exports Blaze.
+// Keep both names available so previews (BlazeRip) and the barrel (Blaze) compile.
+export const Blaze = BlazeRip;
