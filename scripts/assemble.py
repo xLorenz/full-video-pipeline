@@ -22,6 +22,8 @@ Usage:
 Output:
     versions/<title>-v<N>.mp4  (auto-incremented version)
     voiceover_aligned.mp3      (concatenated audio track)
+    sfx_aligned.mp3            (sound-effects track, only when cues exist)
+    bgm_aligned.mp3            (music-bed track, only when BGM is active)
 """
 
 import json
@@ -83,8 +85,14 @@ def detect_mismatch(scenes_dir, scenes):
     return False, "all scenes consistent"
 
 
-def atomic_replace_temp(output_file, cmd):
-    """Run ffmpeg to a temp file, then os.replace to output_file on success."""
+def atomic_replace_temp(output_file, cmd, pre_commit=None):
+    """Run ffmpeg to a temp file, then os.replace to output_file on success.
+
+    pre_commit: optional callable(tmp_path) -> bool. When given, it runs on the
+    finished temp file BEFORE the atomic rename; returning False unlinks the temp
+    and aborts the publish (used by the SFX/BGM loudness assertions so a failed
+    stitch never leaves a published version on disk).
+    """
     tmp = str(output_file) + ".tmp"
     ext = Path(output_file).suffix.lstrip(".")
     fmt = {"mp4": "mp4", "mp3": "mp3"}.get(ext, ext)
@@ -93,6 +101,9 @@ def atomic_replace_temp(output_file, cmd):
     if result.returncode != 0 or not Path(tmp).exists():
         if Path(tmp).exists():
             Path(tmp).unlink()
+        return False
+    if pre_commit is not None and not pre_commit(Path(tmp)):
+        Path(tmp).unlink(missing_ok=True)
         return False
     os.replace(tmp, output_file)
     return True
@@ -188,6 +199,44 @@ def main():
         audio_size = aligned_audio.stat().st_size / (1024 * 1024)
         print(f"  Created voiceover_aligned.mp3 ({audio_size:.1f} MB)")
 
+        # Step 1.5: Build SFX/BGM tracks (no-op fast path when no cues/BGM configured)
+        print("\n--- Step 1.5: Generating SFX/BGM tracks ---")
+        sfx_gen = [sys.executable, str(Path(__file__).resolve().parent / "generate_sfx.py"),
+                   str(video_dir)]
+        sfx_res = pl.run_cmd(sfx_gen, check=False)
+        if sfx_res.returncode != 0:
+            print("ERROR: SFX/BGM generation failed (see messages above)")
+            sys.exit(1)
+        sfx_track = video_dir / "sfx_aligned.mp3"
+        bgm_track = video_dir / "bgm_aligned.mp3"
+        have_sfx = sfx_track.exists()
+        have_bgm = bgm_track.exists()
+        if have_sfx:
+            print(f"  SFX track present ({sfx_track.stat().st_size / 1024 / 1024:.1f} MB)")
+        if have_bgm:
+            print(f"  BGM track present ({bgm_track.stat().st_size / 1024 / 1024:.1f} MB)")
+
+        # Voiceover loudness anchor (measured once here, reused by the assertions)
+        vo_peak_db, vo_I = None, None
+        vd_r = subprocess.run(
+            ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "volumedetect", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=30,
+        )
+        m = re.search(
+            r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB", vd_r.stdout + vd_r.stderr)
+        if m:
+            vo_peak_db = float(m.group(1))
+        eb_r = subprocess.run(
+            ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "ebur128", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=30,
+        )
+        ms = re.findall(
+            r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", eb_r.stdout + eb_r.stderr, re.MULTILINE)
+        if ms:
+            vo_I = float(ms[-1])
+        if vo_I is None:
+            print("  WARNING: could not measure voiceover loudness — skipping loudness assertions")
+
         # Step 2: Concat scene videos — copy if matched, else re-encode
         print("\n--- Step 2: Concatenating video streams ---")
         video_concat_list = temp_dir / "video_concat.txt"
@@ -216,16 +265,93 @@ def main():
         versions_dir.mkdir(exist_ok=True)
         next_version = find_next_version(versions_dir, safe_title)
         output_file = versions_dir / f"{safe_title}-v{next_version}.mp4"
-        cmd = (f'ffmpeg -y '
-               f'-i "{temp_video}" '
-               f'-i "{aligned_audio}" '
-               f'-map 0:v:0 -map 1:a:0 '
-               f'-c:v copy '
-               f'-c:a {final_audio_codec} -b:a 192k '
-               f'-shortest '
-               f'-movflags +faststart '
-               f'"{output_file}"')
-        ok = atomic_replace_temp(output_file, cmd)
+        sfx_cfg = cfg.get("sfx", {})
+        bcfg = cfg.get("bgm", {})
+        limit = 10.0 ** (sfx_cfg.get("true_peak_ceiling_db", -1.0) / 20.0)
+
+        def _ffmpeg_measure(cmd, pattern, last=False):
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            text = r.stdout + r.stderr
+            if last:
+                ms = re.findall(pattern, text, re.MULTILINE)
+                return float(ms[-1]) if ms else None
+            m = re.search(pattern, text)
+            return float(m.group(1)) if m else None
+
+        def _pre_commit(tmp_file):
+            """SFX/BGM loudness assertions — run on the tmp file before publishing."""
+            if not (have_sfx or have_bgm):
+                return True
+            final_peak = _ffmpeg_measure(
+                ["ffmpeg", "-i", str(tmp_file), "-filter:a", "volumedetect", "-f", "null", "-"],
+                r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB")
+            final_I = _ffmpeg_measure(
+                ["ffmpeg", "-i", str(tmp_file), "-filter:a", "ebur128", "-f", "null", "-"],
+                r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", last=True)
+            problems = []
+            if final_peak is not None and final_peak > sfx_cfg.get("true_peak_ceiling_db", -1.0):
+                problems.append(
+                    f"final true peak {final_peak:.1f} dB exceeds ceiling "
+                    f"{sfx_cfg['true_peak_ceiling_db']} dB — reduce sfx/bgm cue volumes")
+            if final_I is not None and vo_I is not None \
+                    and final_I > vo_I + sfx_cfg.get("integrated_max_offset_db", 1.5):
+                problems.append(
+                    f"final integrated loudness {final_I:.1f} LUFS is more than "
+                    f"{sfx_cfg['integrated_max_offset_db']} dB above voiceover alone ({vo_I:.1f} LUFS) "
+                    f"— too many overlapping cues or loud beds; reduce volumes")
+            for p in problems:
+                print(f"  ERROR: {p}")
+            if problems:
+                return False
+            if final_I is not None and vo_I is not None:
+                print(f"  Loudness: final {final_I:.1f} LUFS vs voiceover {vo_I:.1f} LUFS "
+                      f"(peak {final_peak:.1f} dB)")
+            return True
+
+        if not (have_sfx or have_bgm):
+            cmd = (f'ffmpeg -y '
+                   f'-i "{temp_video}" '
+                   f'-i "{aligned_audio}" '
+                   f'-map 0:v:0 -map 1:a:0 '
+                   f'-c:v copy '
+                   f'-c:a {final_audio_codec} -b:a 192k '
+                   f'-shortest '
+                   f'-movflags +faststart '
+                   f'"{output_file}"')
+        else:
+            b = (f"threshold={bcfg.get('duck_threshold_db', -25.0)}dB"
+                 f":ratio={bcfg.get('duck_ratio', 8.0)}"
+                 f":attack={bcfg.get('duck_attack_ms', 5.0)}"
+                 f":release={bcfg.get('duck_release_ms', 250.0)}")
+            # dropout_transition=0 is required with normalize=0 on modern ffmpeg.
+            # level=false: this ffmpeg build defaults alimiter to auto-level (level=true),
+            # which pushes quiet mixes up toward full scale instead of merely capping.
+            lim = f"alimiter=limit={limit:.4f}:level=false"
+            if have_sfx and have_bgm:
+                fc = (f"[1:a]asplit=2[vo][sc];"
+                      f"[3:a][sc]sidechaincompress={b}[bgmd];"
+                      f"[vo][2:a][bgmd]amix=inputs=3:normalize=0:duration=longest:dropout_transition=0"
+                      f",{lim}[amx]")
+                inputs = ["-i", str(temp_video), "-i", str(aligned_audio),
+                          "-i", str(sfx_track), "-i", str(bgm_track)]
+            elif have_sfx:   # sfx only — no sidechain needed
+                fc = (f"[1:a][2:a]amix=inputs=2:normalize=0:duration=longest:dropout_transition=0"
+                      f",{lim}[amx]")
+                inputs = ["-i", str(temp_video), "-i", str(aligned_audio), "-i", str(sfx_track)]
+            else:   # bgm only — sidechain needs the asplit on the voiceover
+                fc = (f"[1:a]asplit=2[vo][sc];"
+                      f"[2:a][sc]sidechaincompress={b}[bgmd];"
+                      f"[vo][bgmd]amix=inputs=2:normalize=0:duration=longest:dropout_transition=0"
+                      f",{lim}[amx]")
+                inputs = ["-i", str(temp_video), "-i", str(aligned_audio), "-i", str(bgm_track)]
+            cmd = (f'ffmpeg -y {" ".join(inputs)} '
+                   f'-filter_complex "{fc}" '
+                   f'-map 0:v:0 -map "[amx]" '
+                   f'-c:v copy '
+                   f'-c:a {final_audio_codec} -b:a 192k '
+                   f'-shortest -movflags +faststart '
+                   f'"{output_file}"')
+        ok = atomic_replace_temp(output_file, cmd, pre_commit=_pre_commit)
         if not ok or not output_file.exists():
             print("ERROR: Failed to create final video")
             sys.exit(1)
@@ -234,7 +360,7 @@ def main():
         mean_volume = None
         vd_result = subprocess.run(
             ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=120,
         )
         m = re.search(
             r"mean_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB",
