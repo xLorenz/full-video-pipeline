@@ -6,6 +6,7 @@ Usage:
     ./pipeline.py new <title>            Scaffold a new video project
     ./pipeline.py continue <title>      Run the next incomplete pipeline step
     ./pipeline.py status [title]        Show pipeline state
+    ./pipeline.py sfx <title> [--preview]  Generate SFX/BGM tracks (audition with --preview)
 """
 
 import argparse
@@ -21,6 +22,12 @@ from pathlib import Path
 # Make scripts/ importable so we can use the shared lib + validate.py
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 import _pipeline_lib as pl  # noqa: E402
+
+# Console may be cp1252/latin-1 (e.g. Windows); never crash printing tool output
+try:
+    sys.stdout.reconfigure(errors="replace")
+except (AttributeError, ValueError):
+    pass
 
 # Linux-only guard (WSL reports os.name == "posix" and is fine)
 if os.name != "posix" and os.environ.get("PIPELINE_FORCE_NON_POSIX") != "1":
@@ -218,6 +225,7 @@ def cmd_new(args):
         "width": width,
         "height": height,
         "created_at": now_iso(),
+        "style": None,
         "scenes": [],
         "total_estimated_seconds": 0,
         "total_actual_seconds": 0,
@@ -735,6 +743,22 @@ def run_step_9(title, vdir):
 def run_step_10(title, vdir):
     """Stitching — single ffmpeg pass via assemble.py."""
     print("--- Running Step 10: Stitching (assemble.py) ---")
+
+    # Optional on-demand SFX audition. Triggered by the agent setting
+    # `sfx_preview_requested: true` in pipeline_state.json before `complete` at Step 8
+    # (or directly before a re-stitch). Non-fatal — failures must not block the stitch.
+    state = load_state(title) or {}
+    if state.get("sfx_preview_requested"):
+        print("\n  --- Running optional SFX preview export ---")
+        preview_script = REPO_ROOT / "scripts" / "export_sfx_preview.py"
+        if preview_script.exists():
+            run_cmd([sys.executable, str(preview_script), str(vdir)],
+                    cwd=REPO_ROOT, check=False)
+        else:
+            print("  export_sfx_preview.py not found — skipping preview.")
+        state.pop("sfx_preview_requested", None)
+        save_state(title, state)
+
     cfg = load_pipeline_config(video_dir=vdir)
     template = pl.get_step_command_template("10_stitching", cfg)
     cmd = pl.render_step_command(template, vdir, cfg=cfg)
@@ -998,8 +1022,8 @@ def show_status_for_title(title, show_scenes=False):
             print("\n  (scenes.json has no scenes)")
             return
         print()
-        print(f"  {'ID':<4} {'Title':<32} {'Tgt(s)':<8} {'Frames':<8} {'Status':<10} {'OnDisk'}")
-        print(f"  {'----':<4} {'--------------------------------':<32} {'------':<8} {'------':<8} {'----------':<10} {'------'}")
+        print(f"  {'ID':<4} {'Title':<32} {'Tgt(s)':<8} {'Frames':<8} {'Status':<10} {'OnDisk':<7} {'Sfx'}")
+        print(f"  {'----':<4} {'--------------------------------':<32} {'------':<8} {'------':<8} {'----------':<10} {'------':<7} {'-----'}")
         for s in scenes:
             sid = s.get("id", "?")
             title = str(s.get("title", ""))[:32]
@@ -1012,7 +1036,9 @@ def show_status_for_title(title, show_scenes=False):
             on_disk = "-"
             if sf:
                 on_disk = "yes" if (vdir / sf).exists() else "NO"
-            print(f"  {sid:<4} {title:<32} {tgt_s:<8} {frames_s:<8} {rstatus:<10} {on_disk}")
+            n_cues = len(s.get("sfx") or [])
+            cues_s = f"{n_cues} cues" if n_cues else "-"
+            print(f"  {sid:<4} {title:<32} {tgt_s:<8} {frames_s:<8} {rstatus:<10} {on_disk:<7} {cues_s}")
 
 
 def show_all_statuses():
@@ -1150,6 +1176,21 @@ def cmd_audit(args):
             print("  All scene MP4s present.")
     else:
         print("  (no scenes data)")
+
+    # 6. SFX/BGM track presence (warning-level — doesn't fail the audit)
+    has_cues = any(s.get("sfx") for s in scenes) if scenes else False
+    has_bgm = any(s.get("bgm") is not None for s in scenes) if scenes else False
+    if has_cues or has_bgm:
+        missing_tracks = []
+        if has_cues and not (vdir / "sfx_aligned.mp3").exists():
+            missing_tracks.append("sfx_aligned.mp3")
+        if has_bgm and not (vdir / "bgm_aligned.mp3").exists():
+            missing_tracks.append("bgm_aligned.mp3")
+        if missing_tracks:
+            print(f"  WARNING: sfx tracks missing ({', '.join(missing_tracks)} in scenes.json "
+                  f"but no track files — re-run Step 10 or 'pipeline.py sfx {title}')")
+        else:
+            print("  SFX/BGM tracks present.")
 
     # Summary
     print(f"\n=== Audit summary ===")
@@ -1600,6 +1641,30 @@ def cmd_captions(args):
     sys.exit(p.returncode)
 
 
+def cmd_sfx(args):
+    """Generate SFX/BGM tracks; --preview also exports the audition mp3 + waveform PNG."""
+    title = sanitize_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    if not (vdir / "scenes.json").exists():
+        print(f"ERROR: scenes.json not found at {vdir / 'scenes.json'}")
+        sys.exit(2)
+    gen = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate_sfx.py"), str(vdir)]
+        + (["--force"] if args.force else []),
+        cwd=REPO_ROOT)
+    if gen.returncode != 0:
+        sys.exit(gen.returncode)
+    if args.preview:
+        prev = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "export_sfx_preview.py"), str(vdir)],
+            cwd=REPO_ROOT)
+        sys.exit(prev.returncode)
+    sys.exit(0)
+
+
 # ---------------------------------------------------------------------------
 # RUN subcommand — one-shot new + continue (resume-safe)
 # ---------------------------------------------------------------------------
@@ -1694,6 +1759,13 @@ def main():
     captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
     captions_p.add_argument("title", help="Video title")
 
+    sfx_p = sub.add_parser("sfx", help="Generate SFX/BGM tracks (and preview with --preview)")
+    sfx_p.add_argument("title", help="Video title")
+    sfx_p.add_argument("--preview", action="store_true",
+                       help="Also export sfx_preview.mp3 + waveform PNG for audition")
+    sfx_p.add_argument("--force", action="store_true",
+                       help="Regenerate even when cues are unchanged")
+
     audit_p = sub.add_parser("audit", help="Audit a video project for violations")
     audit_p.add_argument("title", help="Video title")
 
@@ -1728,6 +1800,8 @@ def main():
         cmd_preview_frame(args)
     elif args.command == "captions":
         cmd_captions(args)
+    elif args.command == "sfx":
+        cmd_sfx(args)
     elif args.command == "clean":
         cmd_clean(args)
     elif args.command == "audit":

@@ -13,6 +13,9 @@ __pycache__/
 # Animation template scratch dirs (not part of the standard layout)
 animations/*/preview/frames-*/
 
+# SFX catalog dial-in preview (generated artifact)
+sfx/preview/
+
 # Obsidian vault workspace
 .obsidian/
 
