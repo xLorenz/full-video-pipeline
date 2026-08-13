@@ -4,8 +4,8 @@
     "rise",
     "pad-swell"
   ],
-  "backend": "synth",
-  "recipe": "ambient_swell",
+  "backend": "tone",
+  "recipe": "swell",
   "tags": [
     "ambient",
     "transition"

@@ -4,7 +4,7 @@
     "laser-blip",
     "blip"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "laser",
   "tags": [
     "glitch",

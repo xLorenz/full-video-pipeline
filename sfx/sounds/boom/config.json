@@ -5,8 +5,8 @@
     "bass-drop",
     "deep-boom"
   ],
-  "backend": "synth",
-  "recipe": "sub_boom",
+  "backend": "tone",
+  "recipe": "boom",
   "tags": [
     "impact",
     "emphasis"

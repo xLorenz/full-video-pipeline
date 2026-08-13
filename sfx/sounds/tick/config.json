@@ -4,8 +4,8 @@
     "tick-tock",
     "step"
   ],
-  "backend": "synth",
-  "recipe": "short_tick",
+  "backend": "tone",
+  "recipe": "tick",
   "tags": [
     "ui",
     "accent"

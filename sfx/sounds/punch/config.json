@@ -4,8 +4,8 @@
     "beat-hit",
     "slam"
   ],
-  "backend": "synth",
-  "recipe": "mid_punch",
+  "backend": "tone",
+  "recipe": "punch",
   "tags": [
     "impact"
   ],

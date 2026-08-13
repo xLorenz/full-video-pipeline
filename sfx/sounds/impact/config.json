@@ -4,8 +4,8 @@
     "hit",
     "boom-stamp"
   ],
-  "backend": "synth",
-  "recipe": "low_impact",
+  "backend": "tone",
+  "recipe": "impact",
   "tags": [
     "impact",
     "emphasis"

@@ -3,8 +3,8 @@
   "aliases": [
     "ding-dong"
   ],
-  "backend": "synth",
-  "recipe": "soft_chime",
+  "backend": "tone",
+  "recipe": "chime",
   "tags": [
     "ui",
     "emphasis"

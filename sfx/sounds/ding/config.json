@@ -3,8 +3,8 @@
   "aliases": [
     "bell"
   ],
-  "backend": "synth",
-  "recipe": "bell_ding",
+  "backend": "tone",
+  "recipe": "ding",
   "tags": [
     "ui",
     "emphasis"

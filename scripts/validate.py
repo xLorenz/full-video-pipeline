@@ -304,7 +304,7 @@ def check_sfx(data: dict) -> tuple[list, list]:
     except Exception:
         defs = {}
     if not defs:
-        defs = {r: _MinimalSound(r) for r in sfx.RECIPES}
+        defs = {"__degraded__": _MinimalSound("__degraded__")}
         warnings.append("sfx catalog invalid — running degraded checks (see 'validate --validate-sfx')")
 
     style = data.get("style") or {}

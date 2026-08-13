@@ -4,10 +4,11 @@ How to give the video sound that a) links to the visuals, b) never buries the vo
 c) never fights the tone. You cannot listen — so these rules + the machine checks replace
 your ears.
 
-## Engine note (catalog v3)
-Batch-1 sounds (click, pop, zap, whoosh, whoosh_down, riser, error, glitch_burst, sparkle,
-shimmer) render on the Tone.js/WebAudio engine (`backend: "tone"`) instead of Python synth.
-Design intent, cue grammar, params and the volume law are UNCHANGED — recipes are 1:1 ports.
+## Engine note (catalog v5)
+All 27 cue sounds render on the Tone.js/WebAudio engine (`backend: "tone"`); the Python
+synth engine is removed. The first 22 recipes are 1:1 ports of the v2 designs (success,
+warning, toggle, bounce, stamp are skill-informed originals).
+Design intent, cue grammar, params and the volume law are UNCHANGED.
 Rendering is deterministic: same cue, same seed, byte-identical output.
 
 ## The three rules

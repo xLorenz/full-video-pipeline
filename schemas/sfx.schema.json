@@ -17,12 +17,12 @@
       "description": "Alternate cue spellings the engine accepts (e.g. \"swoosh\" for whoosh)."
     },
     "backend": {
-      "enum": ["synth", "sample", "tone"],
-      "description": "synth = Python procedural recipe; sample = bundled CC0 asset; tone = Tone.js/WebAudio recipe (sfx/sounds/<id>/recipe.mjs)."
+      "enum": ["sample", "tone"],
+      "description": "sample = bundled CC0 asset; tone = Tone.js/WebAudio recipe (sfx/sounds/<id>/recipe.mjs)."
     },
     "recipe": {
       "type": "string",
-      "description": "synth backend: recipe id registered in sfx_catalog.py (PHASE-03/04); tone backend: design name (implementation is sfx/sounds/<id>/recipe.mjs)."
+      "description": "tone backend: design name (implementation is sfx/sounds/<id>/recipe.mjs)."
     },
     "asset": {
       "type": "string",

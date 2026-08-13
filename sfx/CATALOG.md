@@ -3,11 +3,10 @@
 Every sound in `sfx/sounds/`. Read the README first, then pick by task + mood. Each row links
 to the sound's manual (`sfx.md`) with parameters and examples.
 
-**Engine note (catalog v4):** `click`, `pop`, `zap`, `whoosh`, `whoosh_down`, `riser`, `error`,
-`glitch_burst`, `sparkle`, `shimmer` and the five v4 additions (`success`, `warning`, `toggle`,
-`bounce`, `stamp`) render on the Tone.js/WebAudio engine (`backend: "tone"`, recipe
-`sfx/sounds/<id>/recipe.mjs`). Designs are 1:1 ports / skill-informed originals; output is
-byte-for-byte deterministic per cue.
+**Engine note (catalog v5):** every cue sound renders on the Tone.js/WebAudio engine
+(`backend: "tone"`, recipe `sfx/sounds/<id>/recipe.mjs`); the Python synth engine is removed.
+The first 22 recipes are 1:1 ports of the v2 designs; `success`, `warning`, `toggle`,
+`bounce`, `stamp` are skill-informed originals. Output is byte-for-byte deterministic per cue.
 
 ## Master table
 

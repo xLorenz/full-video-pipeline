@@ -4,8 +4,8 @@
     "glass-break",
     "shatter"
   ],
-  "backend": "synth",
-  "recipe": "glass_shatter",
+  "backend": "tone",
+  "recipe": "glass",
   "tags": [
     "organic"
   ],

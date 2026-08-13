@@ -4,8 +4,8 @@
     "scan-sweep",
     "sonar"
   ],
-  "backend": "synth",
-  "recipe": "scan_sweep",
+  "backend": "tone",
+  "recipe": "scan",
   "tags": [
     "riser",
     "glitch"

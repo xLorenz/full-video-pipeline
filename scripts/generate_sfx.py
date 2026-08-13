@@ -2,8 +2,8 @@
 """generate_sfx.py — build sfx_aligned.mp3 + bgm_aligned.mp3 on the absolute timeline.
 
 Pipeline rule served: "render silent, mux at stitch" — SFX/BGM are mixed at
-assemble time, never baked into scene videos. Fully local: synthetic DSP in
-stdlib + bundled CC0 samples; no network, no new dependencies.
+assemble time, never baked into scene videos. Fully local: Tone.js/WebAudio
+recipes (node) + bundled CC0 samples; no network, no new dependencies.
 
 Usage: python3 generate_sfx.py <video_dir> [--force]
 """
@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _pipeline_lib as pl          # noqa: E402
 import sfx_catalog as sfx          # noqa: E402
-import tone_render                 # noqa: E402  (Tone.js/WebAudio backend bridge, PHASE-09)
+import tone_render                 # noqa: E402  (Tone.js/WebAudio engine bridge)
 
 SR = 44100                          # overridden from config at runtime; keep const names SR
 
@@ -196,14 +196,6 @@ def _white(rng, n):
     return [rng.uniform(-1.0, 1.0) for _ in range(n)]
 
 
-def _pink(rng, n):
-    y, out = 0.0, []
-    for _ in range(n):
-        y = 0.98 * y + 0.02 * rng.uniform(-1.0, 1.0)
-        out.append(y * 6.0)
-    return out
-
-
 def _sine(freq, n, phase=0.0):
     return [math.sin(phase + 2.0 * math.pi * freq * i / SR) for i in range(n)]
 
@@ -220,14 +212,6 @@ def _sweep_sine(f0, f1, n, exp_curve=True):
     return out
 
 
-def _lowpass_one_pole(x, fc):
-    w, y, out = math.exp(-2.0 * math.pi * fc / SR), 0.0, []
-    for v in x:
-        y = (1.0 - w) * v + w * y
-        out.append(y)
-    return out
-
-
 def _highpass_one_pole(x, fc):
     w, y, prev, out = math.exp(-2.0 * math.pi * fc / SR), 0.0, 0.0, []
     for v in x:
@@ -237,27 +221,12 @@ def _highpass_one_pole(x, fc):
     return out
 
 
-def _env_attack(x, sec):
-    n = min(len(x), int(sec * SR))
-    if n <= 1:
-        return x
-    return [x[i] * (i / n) for i in range(n)] + list(x[n:])
-
-
 def _env_decay(x, tau_sec, start_at=0, tail=True):
     """Exponential decay with time constant tau applied from start_at to the end."""
     out = list(x)
     for i in range(start_at, len(out)):
         out[i] *= math.exp(-(i - start_at) / (tau_sec * SR))
     return out
-
-
-def _fade_out(x, sec):
-    n = min(len(x), int(sec * SR))
-    if n <= 1:
-        return x
-    f = [(1.0 - i / n) ** 2 for i in range(n)]
-    return list(x[:-n]) + [x[-n + i] * f[i] for i in range(n)]
 
 
 def _normalize(x, peak=0.9):
@@ -283,387 +252,6 @@ def _resample(x, speed):
 
 
 # ---------------------------------------------------------------------------
-# The 20 recipes (§4.8)
-# ---------------------------------------------------------------------------
-
-
-def noise_sweep_up(rng, params):
-    n = int(0.7 * SR)
-    raw = _white(rng, n)
-    out, y = [], 0.0
-    fc0, fc1 = 350.0, 7500.0
-    r = math.log(fc1 / fc0)
-    for i, v in enumerate(raw):
-        t = i / max(1, n - 1)
-        fc = fc0 * math.exp(r * t)                       # exponential cutoff ramp
-        w = math.exp(-2.0 * math.pi * fc / SR)
-        y = (1.0 - w) * v + w * y
-        out.append(y)
-    out = _highpass_one_pole(out, 200.0)
-    out = _env_attack(out, 0.25)                         # push: swell in, release out
-    out = _fade_out(out, 0.18)
-    return _normalize(out, 0.9)
-
-
-def noise_sweep_down(rng, params):
-    n = int(0.7 * SR)
-    raw = _white(rng, n)
-    out, y = [], 0.0
-    fc0, fc1 = 7500.0, 350.0
-    r = math.log(fc1 / fc0)
-    for i, v in enumerate(raw):
-        t = i / max(1, n - 1)
-        fc = fc0 * math.exp(r * t)
-        w = math.exp(-2.0 * math.pi * fc / SR)
-        y = (1.0 - w) * v + w * y
-        out.append(y)
-    out = _highpass_one_pole(out, 200.0)
-    out = _env_attack(out, 0.10)
-    out = _fade_out(out, 0.25)
-    return _normalize(out, 0.9)
-
-
-def tone_noise_riser(rng, params):
-    n = int(1.6 * SR)
-    raw = _white(rng, n)
-    out, y = [], 0.0
-    fc0, fc1 = 150.0, 2600.0
-    r = math.log(fc1 / fc0)
-    for i, v in enumerate(raw):
-        t = i / max(1, n - 1)
-        fc = fc0 * math.exp(r * t)
-        w = math.exp(-2.0 * math.pi * fc / SR)
-        y = (1.0 - w) * v + w * y
-        out.append(y)
-    tone = _sweep_sine(180.0, 950.0, n)
-    out = [0.55 * out[i] + 0.45 * tone[i] for i in range(n)]
-    out = [out[i] * ((i / max(1, n - 1)) ** 1.8) for i in range(n)]   # energy builds
-    out = _fade_out(out, 0.12)
-    return _normalize(out, 0.9)
-
-
-def low_impact(rng, params):
-    n = int(0.8 * SR)
-    body = _env_decay(_sine(90.0, n), 0.22)
-    click_n = int(0.025 * SR)
-    click = [w * 0.5 for w in _white(rng, click_n)]
-    click_3ms = [w * 0.8 for w in _white(rng, int(0.003 * SR))]
-    out = [body[i] for i in range(n)]
-    for i, v in enumerate(click):
-        if i < n:
-            out[i] += v
-    for i, v in enumerate(click_3ms):
-        if i < n:
-            out[i] += v
-    return _normalize(out, 0.9)
-
-
-def soft_thud(rng, params):
-    n = int(0.5 * SR)
-    a = _env_decay(_sine(60.0, n), 0.16)
-    b = _env_decay(_sine(120.0, n), 0.10)
-    return _normalize([a[i] + 0.25 * b[i] for i in range(n)], 0.9)
-
-
-def sub_boom(rng, params):
-    n = int(1.2 * SR)
-    a = _env_decay(_sine(50.0, n), 0.35)
-    b = _env_decay(_sine(25.0, n), 0.5)
-    out = [a[i] + 0.3 * b[i] for i in range(n)]
-    for i, v in enumerate(_white(rng, int(0.002 * SR))):
-        out[i] += v * 0.9
-    return _normalize(out, 0.9)
-
-
-def mid_punch(rng, params):
-    n = int(0.25 * SR)
-    body = _env_decay(_sine(100.0, n), 0.06)
-    out = [body[i] for i in range(n)]
-    for i, v in enumerate(_white(rng, int(0.015 * SR))):
-        out[i] += v * 0.3
-    return _normalize(out, 0.9)
-
-
-def short_tick(rng, params):
-    n = int(0.12 * SR)
-    out = [0.0] * n
-    for i, v in enumerate(_white(rng, int(0.002 * SR))):
-        out[i] += v * 0.6
-    tone = _env_decay(_sine(2000.0, n), 0.02)
-    out = [out[i] + 0.3 * tone[i] for i in range(n)]
-    return _normalize(out, 0.9)
-
-
-def click(rng, params):
-    cutoff = float(params.get("cutoff", 2000.0))
-    q = float(params.get("q", 2.0))
-    n = int(0.05 * SR)
-    out = [0.0] * n
-    tau = q * 0.0015                                    # ring time: q=2 -> 3 ms tail
-    for i in range(n):
-        t = i / SR
-        out[i] = math.sin(2.0 * math.pi * cutoff * t) * math.exp(-t / tau)
-    for i, v in enumerate(_white(rng, int(0.002 * SR))):    # 2 ms attack spike
-        out[i] += v * 0.6
-    return _normalize(out, 0.9)
-
-
-def pop(rng, params):
-    n = int(0.12 * SR)
-    sweep = _sweep_sine(420.0, 80.0, int(0.045 * SR))   # cork-pop pitch drop
-    out = list(sweep) + [0.0] * (n - len(sweep))
-    for i, v in enumerate(_white(rng, int(0.0015 * SR))):
-        out[i] += v * 0.5
-    return _normalize(_env_decay(out, 0.02), 0.9)
-
-
-def zap(rng, params):
-    n = int(0.16 * SR)
-    out = [0.0] * n
-    for i, v in enumerate(_white(rng, int(0.003 * SR))):    # 3 ms onset crackle
-        out[i] += v * 0.9
-    raw = _white(rng, n)
-    lp = _lowpass_one_pole(raw, 7000.0)
-    bp = _highpass_one_pole(lp, 2200.0)
-    for i in range(n):
-        chop = 0.25 + 0.75 * (1.0 if rng.random() < 0.45 else 0.0)   # arc crackle chop
-        out[i] += bp[i] * chop
-    out = _env_decay(out, 0.045)
-    thump = _env_decay(_sweep_sine(220.0, 60.0, int(0.09 * SR)), 0.03)
-    for i, v in enumerate(thump):
-        out[i] += 0.35 * v
-    return _normalize(out, 0.9)
-
-
-def laser(rng, params):
-    n = int(0.22 * SR)
-    sweep = _sweep_sine(900.0, 300.0, n)
-    out = _env_decay(sweep, 0.06)
-    tick = _highpass_one_pole(_white(rng, int(0.005 * SR)), 6000.0)
-    for i, v in enumerate(tick):
-        out[i] += v * 0.4
-    return _normalize(out, 0.9)
-
-
-def bell_ding(rng, params):
-    n = int(1.5 * SR)
-    f0 = 1046.5
-    partials = ((1.0, 1.0, 0.5), (2.0, 0.55, 0.35), (2.76, 0.35, 0.25), (5.4, 0.2, 0.15))
-    out = [0.0] * n
-    for ratio, amp, tau in partials:
-        tone = _env_decay(_sine(f0 * ratio, n), tau)
-        for i in range(n):
-            out[i] += amp * tone[i]
-    return _normalize(_env_attack(out, 0.002), 0.9)
-
-
-def soft_chime(rng, params):
-    n = int(2.0 * SR)
-    f0 = 1568.0
-    partials = ((1.0, 1.0, 0.7), (2.0, 0.4, 0.45), (2.76, 0.3, 0.3))
-    out = [0.0] * n
-    for ratio, amp, tau in partials:
-        tone = _env_decay(_sine(f0 * ratio, n), tau)
-        for i in range(n):
-            out[i] += amp * tone[i]
-    return _normalize(_env_attack(out, 0.002), 0.9)
-
-
-def shimmer(rng, params):
-    n = int(1.2 * SR)
-    f0 = 2093.0
-    partials = ((1.0, 1.0, 0.3), (2.0, 0.5, 0.2), (3.01, 0.4, 0.12))
-    out = [0.0] * n
-    for ratio, amp, tau in partials:
-        tone = []
-        ph = 0.0
-        for i in range(n):
-            t = i / SR
-            f = f0 * ratio * (1.0 + 0.004 * math.sin(2.0 * math.pi * 6.0 * t))  # vibrato
-            ph += 2.0 * math.pi * f / SR
-            tone.append(math.sin(ph))
-        tone = _env_decay(tone, tau)
-        for i in range(n):
-            out[i] += amp * tone[i]
-    return _env_attack(out, 0.002)
-
-
-def scan_sweep(rng, params):
-    n = int(0.5 * SR)
-    tone = _sweep_sine(200.0, 1800.0, n)
-    raw = _white(rng, n)
-    hi, y, prev = [], 0.0, 0.0
-    fc0, fc1 = 400.0, 3500.0
-    for i, v in enumerate(raw):
-        t = i / max(1, n - 1)
-        fc = fc0 + (fc1 - fc0) * t
-        w = math.exp(-2.0 * math.pi * fc / SR)
-        y = w * (y + v - prev)
-        prev = v
-        hi.append(y)
-    out = [0.7 * tone[i] + 0.3 * hi[i] for i in range(n)]
-    return _normalize(_env_attack(out, 0.05), 0.9)
-
-
-def glitch_burst(rng, params):
-    n = int(0.2 * SR)
-    out = [0.0] * n
-    freqs = (220.0, 440.0, 523.25, 659.25, 880.0, 1046.5, 1318.5, 1760.0)
-    pos = int(0.005 * SR)                               # 5 ms silence before the stutter
-    while pos < n - int(0.03 * SR):
-        f = rng.choice(freqs)
-        blip = rng.randint(int(0.002 * SR), int(0.007 * SR))
-        gap = rng.randint(int(0.001 * SR), int(0.009 * SR))
-        amp = rng.uniform(0.35, 1.0)
-        jump = rng.random() < 0.18                      # mid-blip pitch jumps
-        for k in range(blip):
-            if pos + k >= n:
-                break
-            f_k = f * 2.0 if (jump and k > blip * 0.6) else f
-            sq = 1.0 if math.sin(2.0 * math.pi * f_k * k / SR) >= 0 else -1.0
-            out[pos + k] += amp * 0.4 * sq
-        if rng.random() < 0.12:                         # dropout
-            pos += rng.randint(int(0.010 * SR), int(0.025 * SR))
-        else:
-            pos += blip + gap
-    tail_n = int(0.035 * SR)                            # bit-crushed noise tail
-    tail_start = n - tail_n
-    hold = 0.0
-    for k in range(tail_n):
-        if k % rng.randint(4, 8) == 0:
-            hold = rng.uniform(-1.0, 1.0)
-        out[tail_start + k] += 0.5 * hold
-    return _normalize(out, 0.9)
-
-
-def sparkles(rng, params):
-    n = int(2.0 * SR)
-    out = [0.0] * n
-    for _ in range(5):
-        f0 = 1046.5 * rng.uniform(1.2, 2.2)
-        start = int(rng.uniform(0.0, 0.35) * SR)
-        ding = bell_ding(rng, {})
-        for i, v in enumerate(ding):
-            if start + i < n:
-                out[start + i] += 0.5 * v
-    return _normalize(out, 0.9)
-
-
-def error_buzz(rng, params):
-    n = int(0.7 * SR)
-    out = [0.0] * n
-    ph1, ph2 = 0.0, 0.0
-    r = math.log(160.0 / 520.0)
-    lp_y = 0.0
-    for i in range(n):
-        t = i / max(1, n - 1)
-        f1, f2 = 520.0 * math.exp(r * t), 528.0 * math.exp(r * t)
-        ph1 += 2.0 * math.pi * f1 / SR
-        ph2 += 2.0 * math.pi * f2 / SR
-        saw = ((ph1 % (2.0 * math.pi)) / math.pi - 1.0) * 0.5 \
-            + ((ph2 % (2.0 * math.pi)) / math.pi - 1.0) * 0.5
-        fc = 2500.0 - 1600.0 * t                        # lowpass closes as it falls
-        w = math.exp(-2.0 * math.pi * fc / SR)
-        lp_y = (1.0 - w) * saw + w * lp_y
-        out[i] = lp_y * (1.0 + 0.06 * math.sin(2.0 * math.pi * 28.0 * t))
-    out = [math.tanh(v * 1.6) / math.tanh(1.6) for v in out]
-    out = _env_attack(out, 0.003)
-    out = _fade_out(out, 0.12)
-    return _normalize(out, 0.9)
-
-
-def glass_shatter(rng, params):
-    n = int(1.0 * SR)
-    out = [0.0] * n
-    crack = _env_decay(_highpass_one_pole(_white(rng, int(0.035 * SR)), 2500.0), 0.012)
-    for i, v in enumerate(crack):
-        out[i] += v
-    thump = _env_decay(_sine(180.0, int(0.04 * SR)), 0.012)
-    for i, v in enumerate(thump):
-        out[i] += 0.4 * v
-    for _ in range(90):                                 # shard cascade, dense->sparse
-        t_start = min(rng.expovariate(1.0 / 0.10), 0.7)
-        start = int(t_start * SR)
-        if start >= n:
-            continue
-        f = rng.uniform(1400.0, 7200.0)
-        tau = rng.uniform(0.015, 0.09)
-        amp = rng.uniform(0.06, 0.5) if t_start < 0.15 else rng.uniform(0.03, 0.22)
-        tone = _env_decay(_sine(f, min(n - start, int(0.4 * SR))), tau)
-        for k, v in enumerate(tone):
-            if start + k < n:
-                out[start + k] += amp * v
-    for t_start, f in ((0.28, 3600.0), (0.5, 2800.0), (0.72, 4600.0)):   # late clinks
-        start = int(t_start * SR)
-        tone = _env_decay(_sine(f, n - start), 0.05)
-        for k, v in enumerate(tone):
-            out[start + k] += 0.12 * v
-    return _normalize(out, 0.9)
-
-
-def steady_rain(rng, params):
-    n = int(5.0 * SR)
-    raw = _white(rng, n)
-    lp = _lowpass_one_pole(raw, 4500.0)
-    lp = _lowpass_one_pole(lp, 4500.0)                  # 12 dB/oct hiss rolloff
-    hp = _highpass_one_pole(lp, 500.0)
-    ph = rng.uniform(0.0, 6.28)
-    out = [0.0] * n
-    for i in range(n):
-        t = i / SR
-        flut = (0.75 + 0.25 * math.sin(2.0 * math.pi * 0.21 * t + ph)
-                * math.sin(2.0 * math.pi * 0.13 * t + 1.3))
-        out[i] = hp[i] * flut
-    for _ in range(600):                                # droplet patter
-        start = rng.randint(0, n - 1)
-        f = rng.uniform(1800.0, 6500.0)
-        tau = rng.uniform(0.002, 0.010)
-        amp = rng.uniform(0.02, 0.14)
-        tail = min(int(0.06 * SR), n - start)
-        tone = _env_decay(_sine(f, tail), tau)
-        for k, v in enumerate(tone):
-            out[start + k] += amp * v
-    out = _env_attack(out, 0.4)
-    out = _fade_out(out, 0.5)
-    return _normalize(out, 0.9)
-
-
-def ambient_swell(rng, params):
-    n = int(2.5 * SR)
-    tone = _sweep_sine(180.0, 520.0, n)
-    noise = _lowpass_one_pole(_white(rng, n), 400.0)
-    out = [0.3 * tone[i] + 0.2 * noise[i] for i in range(n)]
-    out = [out[i] * (0.25 + 0.75 * ((i / max(1, n - 1)) ** 1.5)) for i in range(n)]
-    out = _fade_out(out, 0.5)
-    return _normalize(out, 0.9)
-
-
-RECIPE_FUNCS = {
-    "noise_sweep_up": noise_sweep_up,
-    "noise_sweep_down": noise_sweep_down,
-    "tone_noise_riser": tone_noise_riser,
-    "low_impact": low_impact,
-    "soft_thud": soft_thud,
-    "sub_boom": sub_boom,
-    "mid_punch": mid_punch,
-    "short_tick": short_tick,
-    "click": click,
-    "pop": pop,
-    "zap": zap,
-    "laser": laser,
-    "bell_ding": bell_ding,
-    "soft_chime": soft_chime,
-    "shimmer": shimmer,
-    "scan_sweep": scan_sweep,
-    "glitch_burst": glitch_burst,
-    "sparkles": sparkles,
-    "error_buzz": error_buzz,
-    "glass_shatter": glass_shatter,
-    "steady_rain": steady_rain,
-    "ambient_swell": ambient_swell,
-}
-
-
 # ---------------------------------------------------------------------------
 # BGM beds (§4.9)
 # ---------------------------------------------------------------------------
@@ -766,7 +354,13 @@ def tension_riser(rng, sr, duration_sec):
     t = 0.0
     while t < 12.0:
         start = int(t * sr)
-        tick = short_tick(rng, {})
+        tick = [0.0] * int(0.12 * sr)
+        for i, v in enumerate(_white(rng, int(0.002 * sr))):
+            tick[i] += v * 0.6
+        ring = _env_decay(_sine(2000.0, int(0.12 * sr)), 0.02)
+        for i in range(len(tick)):
+            tick[i] += 0.3 * ring[i]
+        tick = _normalize(tick, 0.9)
         for i, v in enumerate(tick):
             if start + i < n:
                 out[start + i] += 0.2 * v
@@ -817,7 +411,7 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
     tail_fade = scfg.get("tail_fade_seconds", 0.5)
     full_scale_db = scfg.get("full_scale_db", -10.0)
 
-    # Batch-render tone-backend cues in a single node invocation (PHASE-09).
+    # Batch-render tone-backend cues in a single node invocation.
     tone_jobs = []
     for cue in resolved_cues:
         sound = defs[cue["sound"]]
@@ -840,11 +434,7 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
         if cue.get("params"):
             params.update(cue["params"])
         rng = random.Random(per_cue_seed(cue["sound"], params, cue["start_abs"]))
-        if sound.backend == "synth":
-            raw = RECIPE_FUNCS[sound.recipe](rng, params)
-            if "pitch" in params:
-                raw = _resample(raw, float(params["pitch"]))
-        elif sound.backend == "tone":
+        if sound.backend == "tone":
             raw = tone_rendered[f"{scene_id}_{i}"]
             if "pitch" in params:
                 raw = _resample(raw, float(params["pitch"]))

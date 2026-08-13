@@ -1,16 +1,15 @@
 # SFX & BGM Catalog
 
 The pipeline's **local sound catalog**: every sound is procedurally synthesized or a bundled
-CC0 sample — no network, no purchases, no attribution needed. Two synth engines exist:
+CC0 sample — no network, no purchases, no attribution needed. One engine + bundled samples:
 
-- `backend: "synth"` — stdlib-only Python DSP, implemented in `scripts/generate_sfx.py`
-  (`RECIPE_FUNCS`). The original engine.
 - `backend: "tone"` — **Tone.js/WebAudio recipes** (`sfx/sounds/<id>/recipe.mjs`), rendered
   offline by the `sfx-render` npm workspace (`node sfx-render/render.js`), bridged from Python
-  via `scripts/tone_render.py`. Batch-1 sounds (click, pop, zap, whoosh, whoosh_down, riser,
-  error, glitch_burst, sparkle, shimmer) run on this engine; designs are 1:1 ports of their
-  v2 Python recipes. Rendering is **deterministic**: same cue → byte-identical output
+  via `scripts/tone_render.py`. All 27 cue sounds run on this engine; the first 22 are 1:1
+  ports of the v2 Python recipes, the last five (success, warning, toggle, bounce, stamp) are
+  skill-informed originals. Rendering is **deterministic**: same cue → byte-identical output
   (`sfx_hash` includes each tone recipe's sha256, so recipe edits re-render automatically).
+- `backend: "sample"` — bundled CC0 assets (rain not needed — `rain` is procedural).
 
 Narration can never be drowned out because the engine measures the voiceover's real loudness
 and applies a fixed dB gain law (see [`SCHEMA.md`](./SCHEMA.md)).
@@ -71,7 +70,6 @@ voiceover automatically.
    `bufferSource`, `onepoleLP/HP`, `onepoleLPSweep`, `sineSweep`, `envAttack/Decay`, `fadeOut`)
    — never `Tone.Noise` (process-level cache breaks per-job RNG) and never long
    `setValueCurveAtTime` curves (tone schedules one ramp event per curve point).
-   `"backend": "synth"` needs a recipe function registered in `scripts/generate_sfx.py`.
 3. Validate the catalog: `python3 scripts/validate.py <any-video-dir> --validate-sfx`
    (tone recipes get `node --check`).
 4. Bump `CATALOG_VERSION` in `scripts/sfx_catalog.py`; regenerate the dial-in preview:

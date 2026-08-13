@@ -2,7 +2,7 @@
 """sfx_catalog.py — the SFX sound registry.
 
 Single source of truth for the sfx/ catalog: sound discovery, config validation,
-id/alias resolution, fuzzy candidates, and the synth recipe registry. No other
+id/alias resolution, and fuzzy candidates. No other
 module hard-codes sound ids, moods, or tags — import from here.
 
 Pipeline rule served: "character certainty by metadata" (moods conformance) and
@@ -23,7 +23,8 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 4   # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
+CATALOG_VERSION = 5   # v5: all 27 cues moved to the tone engine, Python synth engine removed
+                      # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
 
 MOODS = ("serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat", "glitch")
 TAGS = ("transition", "emphasis", "impact", "ui", "organic", "riser", "glitch",
@@ -32,15 +33,6 @@ TAGS = ("transition", "emphasis", "impact", "ui", "organic", "riser", "glitch",
 # Canonical mood list. scenes.schema.json mood / style.mood enum == MOODS − {"glitch"}
 # (see PHASE-01 §1.2). `glitch` is a visual-treatment mood reserved for catalog sounds,
 # not a video or scene mood. Keep this note and the schema enum in lockstep.
-
-# Recipe ids implemented in generate_sfx.py (PHASE-04) — the registry of truth.
-RECIPES = (
-    "noise_sweep_up", "noise_sweep_down", "tone_noise_riser", "low_impact",
-    "soft_thud", "sub_boom", "mid_punch", "short_tick", "click", "pop",
-    "zap", "laser", "bell_ding", "soft_chime", "shimmer", "scan_sweep",
-    "glitch_burst", "sparkles", "error_buzz", "glass_shatter",
-    "steady_rain", "ambient_swell",
-)
 
 # BGM beds implemented in generate_sfx.py — metadata lives here, recipes there.
 BGM_TRACKS = {
@@ -64,8 +56,8 @@ class ParamDef:
 class SoundDef:
     sound: str
     aliases: tuple
-    backend: str                 # "synth" | "sample" | "tone"
-    recipe: str | None = None    # synth only
+    backend: str                 # "sample" | "tone"
+    recipe: str | None = None    # tone only
     asset: str | None = None     # sample only
     tags: tuple = ()
     moods: tuple = ()
@@ -126,11 +118,7 @@ def validate_catalog() -> list[str]:
         except jsonschema.ValidationError as e:
             errors.append(f"{rel}: schema error — {e.message}")
             continue
-        if cfg.get("backend") == "synth":
-            recipe = cfg.get("recipe")
-            if recipe not in RECIPES:
-                errors.append(f"{rel}: unknown recipe '{recipe}' (registry: {', '.join(RECIPES)})")
-        elif cfg.get("backend") == "tone":
+        if cfg.get("backend") == "tone":
             recipe = cfg.get("recipe")
             if not recipe:
                 errors.append(f"{rel}: tone backend requires a 'recipe' name")
@@ -184,7 +172,7 @@ def load_sound_defs() -> dict[str, SoundDef]:
         defs[sound] = SoundDef(
             sound=sound,
             aliases=tuple(cfg.get("aliases") or ()),
-            backend=cfg.get("backend", "synth"),
+            backend=cfg.get("backend", "tone"),
             recipe=cfg.get("recipe"),
             asset=cfg.get("asset"),
             tags=tuple(cfg.get("tags") or ()),
@@ -281,4 +269,4 @@ if __name__ == "__main__":
         for e in errs:
             print("ERROR:", e, file=sys.stderr)
         sys.exit(1)
-    print(f"catalog OK: {len(load_sound_defs())} sounds, {len(RECIPES)} recipes, v{CATALOG_VERSION}")
+    print(f"catalog OK: {len(load_sound_defs())} sounds, v{CATALOG_VERSION}")

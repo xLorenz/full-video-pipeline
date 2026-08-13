@@ -4,8 +4,8 @@
     "rainfall",
     "rain-sound"
   ],
-  "backend": "synth",
-  "recipe": "steady_rain",
+  "backend": "tone",
+  "recipe": "rain",
   "tags": [
     "organic",
     "ambient"

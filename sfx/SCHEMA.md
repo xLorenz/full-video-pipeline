@@ -13,9 +13,8 @@ Short field guide for authoring cues in `scenes.json`. Machine contract:
 Only `sound` and `when` are required. `volume` null → the sound's `default_volume` from its
 `config.json`. `params` values are validated against the sound's param definitions at render.
 
-Sound definitions: `config.json` `backend` is `"synth"` (Python DSP recipe from
-`scripts/generate_sfx.py`), `"sample"` (bundled CC0 asset, SHA-256 checked) or `"tone"`
-(Tone.js/WebAudio recipe at `sfx/sounds/<id>/recipe.mjs`, `node --check`-validated).
+Sound definitions: `config.json` `backend` is `"sample"` (bundled CC0 asset, SHA-256 checked)
+or `"tone"` (Tone.js/WebAudio recipe at `sfx/sounds/<id>/recipe.mjs`, `node --check`-validated).
 For `tone`, `recipe` is a design name; the implementation file is always
 `sfx/sounds/<id>/recipe.mjs` (its sha256 folds into the per-scene `sfx_hash`, so recipe edits
 trigger re-renders).

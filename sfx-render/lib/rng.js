@@ -93,6 +93,19 @@ export function fadeOut(data, seconds, sr) {
   return data;
 }
 
+// Scale to a target peak (matches v2 _normalize; render.js only caps peaks > 0.9).
+export function normalize(data, peak = 0.9) {
+  let m = 0;
+  for (let i = 0; i < data.length; i++) {
+    const a = Math.abs(data[i]);
+    if (a > m) m = a;
+  }
+  if (m <= 1e-9) return data;
+  const g = peak / m;
+  for (let i = 0; i < data.length; i++) data[i] *= g;
+  return data;
+}
+
 // One-pole lowpass with exponentially ramping cutoff fc0 -> fc1 over the array
 // (matches v2 noise_sweep recipes' per-sample filter).
 export function onepoleLPSweep(data, fc0, fc1, sr) {
@@ -105,4 +118,31 @@ export function onepoleLPSweep(data, fc0, fc1, sr) {
     data[i] = y;
   }
   return data;
+}
+
+// One-pole highpass with linearly ramping cutoff fc0 -> fc1 over the array
+// (matches v2 scan_sweep's per-sample hi filter).
+export function onepoleHPSweep(data, fc0, fc1, sr) {
+  let y = 0;
+  let prev = 0;
+  for (let i = 0; i < data.length; i++) {
+    const t = i / Math.max(1, data.length - 1);
+    const fc = fc0 + (fc1 - fc0) * t;
+    const w = Math.exp((-2 * Math.PI * fc) / sr);
+    const v = data[i];
+    y = w * (y + v - prev);
+    prev = v;
+    data[i] = y;
+  }
+  return data;
+}
+
+// Fixed-frequency sine (matches v2 _sine).
+export function sineArray(freq, seconds, sr, phase = 0) {
+  const n = Math.max(1, Math.round(seconds * sr));
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    out[i] = Math.sin(phase + (2 * Math.PI * freq * i) / sr);
+  }
+  return out;
 }

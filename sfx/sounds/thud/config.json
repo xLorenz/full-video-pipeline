@@ -4,8 +4,8 @@
     "thump",
     "knock"
   ],
-  "backend": "synth",
-  "recipe": "soft_thud",
+  "backend": "tone",
+  "recipe": "thud",
   "tags": [
     "impact"
   ],
