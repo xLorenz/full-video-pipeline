@@ -6,7 +6,7 @@ Agent-orchestrated autonomous YouTube video production pipeline. The orchestrato
 
 - Drive everything through `python3 pipeline.py run|continue|complete <title>`. `complete` validates your creative artifacts AND auto-runs the following automated steps (5-6, 9-10, 13) — it is the fast path; `continue` is the manual/debug path.
 - Never manually run `scripts/{render_scene,assemble,render_thumbnail,generate_voiceover,generate_voiceover_pocket,measure_durations}.py` — the orchestrator adds idempotency, atomicity, and logging you would bypass.
-- Never edit step-tracking fields in `videos/<title>/pipeline_state.json` (`current_step`, `attempts`, `last_error`, ...). Sole exception: set `"animations_preview_requested": true` to preview animation templates before `complete` on Step 8.
+- Never edit step-tracking fields in `videos/<title>/pipeline_state.json` (`current_step`, `attempts`, `last_error`, ...). Sole exception: set `"animations_preview_requested": true` to preview animation templates before `complete` on Step 8, or `"sfx_preview_requested": true` to export the SFX audition (mp3 + waveform PNG) at Step 10.
 - `complete --step N --force` skips contracts — always run `python3 pipeline.py audit <title>` right after.
 - The `__PIPELINE_NEXT__` JSON trailer on every command output tells you exactly what to do next (`next_cmd`, `skills_files`, `expected_artifacts`) — parse it instead of prose.
 
@@ -19,6 +19,7 @@ Agent-orchestrated autonomous YouTube video production pipeline. The orchestrato
 ## Structure quirks
 
 - `videos/` is gitignored scratch (one dir per title). Per-video `videos/<title>/pipeline_config.json` is auto-discovered and overrides the repo-root `pipeline_config.json`, which `--config <path>` can also override (three-layer merge).
-- **Audio contract**: scenes render *silent* video; the voiceover is muxed at stitch time by `assemble.py`. Never put the voiceover `<Audio>` in a `SceneXX.tsx` — the `remotion-best-practices` submodule's voiceover guidance is superseded by this rule.
+- **Audio contract**: scenes render *silent* video; the voiceover is muxed at stitch time by `assemble.py`. Never put the voiceover `<Audio>` in a `SceneXX.tsx` — the `remotion-best-practices` submodule's voiceover guidance is superseded by this rule. SFX/BGM cues live in scenes.json and are mixed at stitch time by assemble.py (Step 10); never use the remotion submodule's meme-SFX list.
 - npm workspaces: `remotion-foundation` + `videos/*/remotion` (Remotion pinned to 4.0.484). Completed videos usually have `remotion/node_modules/` deleted by retention cleanup — run `npm install` there before re-rendering. Lint gate before render: `npm run lint` (and `tsc --noEmit`) inside the remotion project.
 - `animations/` is a JSON-data-driven template catalog: customize via `config/` + each template's `animation.md`, **never edit `component.tsx`**. Per-video copies under `remotion/src/components/animations/` are re-published from `animations/` on every scaffold — per-video `.tsx` edits are silently overwritten. Configs are validated against `schemas/animations.schema.json` + the template's own `config/schema.json`.
+- `sfx/` is the sound catalog (procedural synth + CC0 samples): cues in scenes.json reference sound ids/aliases from `sfx/CATALOG.md`. Tone is machine-checked via `moods` vs `style.mood` (warning-level). Never edit generated `videos/<title>/sfx_aligned.mp3` / `bgm_aligned.mp3` by hand — they're rebuilt from cues.

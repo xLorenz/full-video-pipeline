@@ -177,6 +177,37 @@ patterns of its own. Those are **superseded for this pipeline** — render
 silent, mux at stitch. This rule is restated (not duplicated in detail) in
 the Phase 3 reference where you'll actually be writing scene code.
 
+### SFX & BGM (sound effects + background music)
+
+SFX and BGM are NOT baked into scene renders either — they follow the same "render silent,
+mux at stitch" path. Authoring happens at **Step 8** (Remotion coding), where the exact
+animation timings live:
+
+- Each scene's `scenes.json` gets `beats` (named timing points mirroring the scene code's
+  `interpolate()` frames), `sfx` cues, and an optional `bgm` bed override.
+- Cue grammar: `{ "sound": "<id>", "when": "start|mid|end|beat:<name>|<seconds>", "volume": 0..1 }`.
+  A `beat:` reference is the audio-visual link — "whoosh when cards_in happens". If you
+  later nudge the animation timing, update the one `beats` entry; cues follow.
+- Sounds come from the repo-root `sfx/` catalog (CATALOG.md). Every sound has machine-checked
+  `moods`; a cue whose moods clash with the video's `style.mood` triggers a validation
+  WARNING. If you cannot justify a sound's character against the mood, don't use it.
+- Volume is a 0..1 knob — the engine measures the real voiceover peak and places cues 10 dB
+  (volume 1.0) to 20 dB (volume 0) below it, then asserts the final mix never clips and never
+  rises more than 1.5 LUFS over the voiceover. You cannot drown the narration by accident.
+- Cues near a scene's end ring into the next scene (the sfx track is one continuous absolute
+  timeline — nothing is truncated at boundaries) and fade at video end.
+- At stitch time (Step 10) `assemble.py` runs `generate_sfx.py`, which produces
+  `sfx_aligned.mp3` + `bgm_aligned.mp3` and mixes them with the voiceover in the single final
+  encode pass. BGM ducks under the voiceover via sidechain compression. The bed is
+  continuous: repeated tracks flow across scene boundaries with no cuts, it fades in at
+  video start and out at video end, and a track/volume change blends over a 0.5 s
+  equal-power crossfade (`null` per scene = silence).
+- To audition before stitching: set `"sfx_preview_requested": true` in `pipeline_state.json`
+  (same pattern as `animations_preview_requested`) before `complete` at Step 8 — the Step 10
+  run then exports `sfx_preview.mp3` + a waveform PNG with scene/cue markers you can inspect
+  visually. Or run `python3 pipeline.py sfx <title> --preview` any time.
+- Full playbook: `skills/full-video-pipeline/references/sfx-design.md` + `sfx/README.md`.
+
 ## Optional: Captions
 
 After Phase 2 (`complete` auto-runs Steps 5-6), you can generate captions:
@@ -287,6 +318,8 @@ python3 pipeline.py validate my-video          # Standalone schema validation
 python3 pipeline.py validate my-video --step 6 # Step-specific requirements
 python3 pipeline.py preview my-video           # Smoke-render scene 1
 python3 pipeline.py captions my-video          # Generate SRT + populate captions
+python3 pipeline.py sfx my-video               # Generate SFX/BGM tracks (idempotent)
+python3 pipeline.py sfx my-video --preview     # Also export sfx_preview.mp3 + waveform PNG
 python3 pipeline.py audit my-video             # Audit for violations — always run after a --force
 python3 pipeline.py doctor my-video            # System + project diagnostics
 python3 pipeline.py clean my-video             # Free disk space (all safe-to-delete items)

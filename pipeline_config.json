@@ -32,6 +32,13 @@
                         "rules/voiceover.md"
                     ]
                 }
+            },
+            {
+                "name": "full-video-pipeline",
+                "path": "skills/full-video-pipeline",
+                "phases": {
+                    "3": ["references/sfx-design.md"]
+                }
             }
         ]
     },

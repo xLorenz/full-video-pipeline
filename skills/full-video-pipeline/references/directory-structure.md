@@ -11,6 +11,10 @@ videos/{video-title}/
 ├── scenes.json                # Structured scene data (durations, status, files, hashes, visual_notes)
 ├── pipeline_state.json        # Pipeline progress (per-step attempts + last_error) — orchestrator-owned, read via `pipeline.py status`
 ├── voiceover_aligned.mp3      # Concatenated voiceover (created by assemble.py)
+├── sfx_aligned.mp3            # Sound-effects track (created at Step 10 when cues exist)
+├── bgm_aligned.mp3            # Background-music bed track (created at Step 10 when BGM is active)
+├── sfx_preview.mp3            # Audition mix (exported on demand / sfx_preview_requested)
+├── sfx_preview.png            # Waveform + scene/cue markers (same on-demand export)
 ├── {title}.srt                # Optional caption sidecar (Phase 2 captions command)
 ├── remotion/                  # Remotion project (scaffolded per video)
 │   ├── PLAN.md                # Rebuild plan before coding (Step 8)
@@ -44,6 +48,7 @@ full-video-pipeline/
 ├── pipeline_config.json         # Default settings (voice, render, system limits)
 ├── scripts/                     # Orchestrator-invoked helper scripts — don't call these yourself (see Hard rules)
 ├── animations/                  # Animation template catalog (README.md, CATALOG.md, SCHEMA.md)
+├── sfx/                         # SFX + BGM catalog (CATALOG.md, sounds/, CC0 assets/)
 ├── remotion-foundation/         # Template for new Remotion projects
 ├── schemas/                     # JSON schemas for scenes.json + pipeline_state.json
 ├── skills/                      # Script-writing / Remotion / SEO / thumbnail reference skills (submodules)

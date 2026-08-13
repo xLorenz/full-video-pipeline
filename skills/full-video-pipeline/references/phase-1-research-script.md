@@ -69,6 +69,9 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
       "voiceover_file": null,
       "voiceover_hash": null,
       "visual_notes": "",
+      "beats": [],      // Step 8 (Remotion coding) fills named timing points — leave empty now
+      "sfx": [],        // Step 8 (Remotion coding) fills sound cues — leave empty now
+      "bgm": null,      // Step 8 fills {track, volume} — null = use the global default bed
       "transition_in": "cut",
       "transition_out": "fade"
     }
@@ -80,6 +83,9 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
 > `scenes.json` is scaffolded empty by `pipeline.py run`/`new` — you populate
 > the `scenes` array. `complete` validates `SCRIPT.md` exists; `scenes.json`
 > is verified by schema + downstream steps.
+
+> Audio (beats/sfx/bgm) is authored at Step 8, never here — timings must
+> mirror the actual animation code.
 
 ## Validation (Phase 1)
 

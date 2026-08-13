@@ -15,6 +15,8 @@ and duration measurement) auto-run after `complete`.
 - No empty voiceover blocks.
 - Text is clean — no stage directions, no markdown formatting, just spoken words.
 - Scene count in VOICEOVER.md matches scenes.json scene count.
+- SFX/BGM cues are NOT part of this phase — they are authored at Step 8 where animation
+  timings exist (see the Audio Path section in SKILL.md).
 
 ## VOICEOVER.md format
 

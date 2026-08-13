@@ -149,6 +149,26 @@ Then update `scenes.json` with `visual_notes` for each scene based on the style.
 Each scene's `visual_notes` should specify colors (from palette), animations,
 layout, and element positions — detailed enough for Step 8 to implement directly.
 
+### 8b. Author audio: beats, sfx, bgm (Step 8)
+
+After coding each scene you know its exact timing — mirror it into `scenes.json`:
+
+1. **beats** — one entry per animated moment you might want to sound: `{"name": "cards_in", "time": 2.4}`.
+   Names: `^[a-z][a-z0-9_]*$` (lowercase snake). Times are seconds from scene start,
+   converted from the frames you wrote (`frame / fps`).
+2. **sfx** — cues referencing beats or seconds: `{"sound": "whoosh", "when": "beat:cards_in", "volume": 0.5}`.
+   Read `sfx/CATALOG.md` and the sound's `sfx.md` before choosing. Defaults: 1-3 cues per
+   scene max; prefer `beat:` over raw seconds so timing edits stay in one place.
+3. **bgm** — per scene: `{"track": "pulse_light", "volume": 0.6}` or `null` for silence.
+   Omit the key to use the global default bed (`bgm.default_track`).
+4. **style.mood** (top-level scenes.json) — set it from STYLES.md: serious / tense / calm /
+   neutral / playful / humorous / upbeat. Validation warns on mood clashes; the agent-facing
+   rules are in `references/sfx-design.md`.
+5. Optional audition: set `"sfx_preview_requested": true` in `pipeline_state.json` before
+   `complete` — Step 10 will export `sfx_preview.mp3` + `sfx_preview.png` (waveform with
+   scene/cue markers) for you to inspect; iterate cues and re-run
+   `python3 pipeline.py sfx <title> --preview`.
+
 ### 3c. Write `remotion/PLAN.md` (start of Step 8)
 
 Before any code, write the per-video Remotion rebuild plan:
@@ -191,6 +211,7 @@ Follow `skills/remotion-best-practices/skills/remotion/rules/sequencing.md` inst
 Follow `skills/remotion-best-practices/skills/remotion/rules/compositions.md` instructions
 Follow `skills/remotion-best-practices/skills/remotion/rules/effects.md` instructions
 Follow `skills/remotion-best-practices/skills/remotion/rules/voiceover.md` instructions
+Follow `skills/full-video-pipeline/references/sfx-design.md` instructions (SFX/BGM authoring — beats, cues, beds)
 
 **Contracts specific to this pipeline (these two break the automated steps, not just style):**
 
