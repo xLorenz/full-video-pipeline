@@ -1,21 +1,21 @@
 # riser
 
-Long upward tension build: a rising tone layered over band-passed noise, ~2.5-3s of growing
-energy that peaks and releases. Built for pattern interrupts, punch-ins, and reveal moments.
+Long upward tension build, ~1.6s: band-swept noise (150→2.6 kHz, exponential) under a
+rising tone (180→950 Hz), with energy ramping continuously to a peak at the very end and
+a quick ~120 ms release. Rises the whole way — no dips, no hard cut.
 
 Moods: serious, tense, neutral
 
 ## When to use
-- the last seconds before a big reveal / verdict      →  when: "beat:reveal_minus_3s" (author a beat ~3s early)
-- a pattern interrupt ("but here's what nobody tells you")
-- countdown-style builds (with `tension_riser` BGM it stacks — use one, not both)
+- punch-ins, pattern interrupts                when: "start" (or a beat just before the drop)
+- countdown climaxes and reveal pre-rolls
 
 ## When NOT to use
-- without a payoff — a riser that never resolves feels broken
-- in calm, gentle scenes (a riser is inherently tense)
+- in calm scenes — the sweep reads as alarm
+- overlapping a scene change (it belongs to the beat AFTER the cut)
 
 ## Parameters
-None — the character is fixed (use `volume` to control presence).
+None — fixed character (use `volume` to control sting).
 
 ## Examples
-{ "sound": "riser", "when": 2.5, "volume": 0.4 }
+{ "sound": "riser", "when": "beat:climax", "volume": 0.4 }

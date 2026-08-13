@@ -1,23 +1,22 @@
 # pop
 
-Bright small pop, ~0.06s: a sine sweeping 1200→300 Hz with an exponential decay. Chips appear,
-badges land, counters increment — playful but never goofy.
+Bright cork-pop, ~0.12s: a sine pitch-drop 420→80 Hz in 45 ms with a 1.5 ms click at the
+onset. Reads as "something small just appeared".
 
 Moods: playful, upbeat, neutral
 
 ## When to use
-- chips / badges / pills appear                →  when: "beat:<chip_in>"
-- counters increment one by one
-- small celebratory accents (with `sparkle` for bigger moments)
+- chips appear, badges land, bubbles form        when: "beat:chip"
+- count-up completions and reveal pops
 
 ## When NOT to use
-- in serious/tense scenes — a pop undercuts gravity
-- for verdicts or heavy reveals (`impact` is the heavy tool)
+- for heavy impacts (use `impact` / `boom`)
+- under narration louder than the pop (it is small by design)
 
 ## Parameters
 | param | range | default | meaning |
 |---|---|---|---|
-| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (1.3 = tiny higher pop, 0.7 = deeper thump-pop) |
+| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (2.0 = tiny squeak, 0.5 = deep balloon) |
 
 ## Examples
-{ "sound": "pop", "when": "beat:chip_2", "volume": 0.4 }
+{ "sound": "pop", "when": "beat:chip", "volume": 0.45 }

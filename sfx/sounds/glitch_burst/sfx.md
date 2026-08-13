@@ -1,23 +1,24 @@
 # glitch_burst
 
-Digital stutter burst, ~0.4s: a rapid sequence of sliced noise / tone fragments with
-randomized cut points. The signature sound of glitch-rip and VHS treatments.
+Digital stutter burst, ~0.2s: rapid square-wave micro-blips on quantized pitches with
+random dropouts and mid-blip pitch jumps, ending in a bit-crushed noise tail. Corrupted-
+file energy, not melodic beeps.
 
 Moods: glitch, tense, playful, neutral
 
 ## When to use
-- visual glitch moments (glitch-rip / VHS templates)  →  when: "beat:glitch"
-- corrupted-data moments ("deleted", "hacked")
-- signal-loss accents
+- glitch-rip / VHS / corrupted-data templates     when: "beat:glitch"
+- a system that "breaks" for a frame
+- stutter reveals between takes
 
 ## When NOT to use
-- in clean, non-glitchy visuals — a glitch burst with no glitch on screen is a tone error; validation will warn
-- more than 2 per scene (it is deliberately harsh)
+- in calm/emotional beats (it is harsh by design)
+- under narration without a visual glitch to justify it
 
 ## Parameters
 | param | range | default | meaning |
 |---|---|---|---|
-| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (0.7 = chunkier, lower stutter) |
+| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (resample) |
 
 ## Examples
-{ "sound": "glitch_burst", "when": "beat:glitch", "volume": 0.45 }
+{ "sound": "glitch_burst", "when": "beat:glitch", "volume": 0.5 }

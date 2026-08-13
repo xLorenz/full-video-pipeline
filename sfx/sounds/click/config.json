@@ -30,5 +30,5 @@
       "description": "Bandpass Q (sharpness)"
     }
   },
-  "description": "Button/press click \u2014 minimal UI land."
+  "description": "Button/press click \u2014 damped knock at cutoff + 2 ms attack spike."
 }

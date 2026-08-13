@@ -1,23 +1,23 @@
 # whoosh_down
 
-Falling band-passed noise sweep, ~0.7s — the mirror of `whoosh`. "Something leaves, resets, or
-falls away." Slightly edgier than `whoosh`, so it tolerates tense scenes.
+Falling counterpart of `whoosh`, ~0.7s (7.5→0.35 kHz exponential sweep): quick attack,
+then a clean 250 ms release. "Something leaves / resets".
 
 Moods: neutral, tense
 
 ## When to use
-- an element animates off screen / collapses          →  when: "beat:<element_out>"
-- a panel closes, a list resets, a stat drops
-- scene exit (reverse of the entrance whoosh)
+- element exits / collapses                     when: "beat:<element_out>"
+- resets, minimizations, "undo" gestures
+- counterweight to a whoosh-up in the same scene
 
 ## When NOT to use
-- as the only audio in a scene (no narration)
-- to signal arrival — that is `whoosh`'s job (upsweep reads "in", downsweep reads "out")
+- as an intro whoosh (rises are the arrival gesture)
+- more than 2 per scene (clutter)
 
 ## Parameters
 | param | range | default | meaning |
 |---|---|---|---|
-| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (2.0 = quick flick-away, 0.5 = heavy fall) |
+| pitch | 0.5 - 2.0 | 1.0 | pitch multiplier (resample) |
 
 ## Examples
-{ "sound": "whoosh_down", "when": "beat:cards_out", "volume": 0.4 }
+{ "sound": "whoosh_down", "when": "beat:card_out", "volume": 0.5 }

@@ -1,13 +1,14 @@
 # whoosh
 
-Rising band-passed noise sweep, ~0.7s. The "something arrived" transition whoosh.
-Tone-neutral: fits serious explainers and playful videos alike.
+Rising band-passed noise sweep, ~0.7s (350→7.5 kHz, exponential): swells in over 250 ms,
+holds, releases over 180 ms. The "something arrived" transition whoosh. Tone-neutral:
+fits serious explainers and playful videos alike.
 
 Moods: neutral, calm
 
 ## When to use
-- scene opens / a card or element animates onto screen  →  when: "beat:<element_in>"
-- scene transitions (wipe / slide)                      →  when: "start"
+- scene opens / a card or element animates onto screen  when: "beat:<element_in>"
+- scene transitions (wipe / slide)                      when: "start"
 - punch-in of a new visual section
 
 ## When NOT to use

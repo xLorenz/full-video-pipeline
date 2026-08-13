@@ -15,23 +15,23 @@ to the sound's manual (`sfx.md`) with parameters and examples.
 | `boom` | serious, tense, neutral | impact, emphasis | Deep sub boom — big reveals, chapter breaks |
 | `punch` | tense, upbeat, neutral | impact | Sharp mid transient — beats land, words hit |
 | `tick` | neutral, calm | ui, accent | Clean short tick — list items, progress steps |
-| `click` | neutral | ui | Button/press click — minimal UI land |
-| `pop` | playful, upbeat, neutral | ui, accent | Bright small pop — chips appear, badges |
-| `zap` | glitch, tense, playful, neutral | glitch, accent | Electric snap — errors, sci-fi pulses |
+| `click` | neutral | ui | Button/press click — damped knock + attack spike |
+| `pop` | playful, upbeat, neutral | ui, accent | Bright cork-pop — chips appear, badges |
+| `zap` | glitch, tense, playful, neutral | glitch, accent | Electric snap — crackle + arc sizzle |
 | `laser` | tense, playful, glitch, neutral | glitch, accent | Sweeping laser blip — targeting, scanning |
 | `ding` | calm, neutral, serious | ui, emphasis | Bell-like confirm — success moments, milestones |
 | `chime` | calm, neutral | ui, emphasis | Softer bell — completions, gentle success |
 | `shimmer` | calm, playful, upbeat | accent, ambient | High sparkle — magic, bright reveals |
 | `scan` | tense, glitch, neutral | riser, glitch | Frequency sweep — scanning / decoding (barcode-scan templates) |
-| `glitch_burst` | glitch, tense, playful, neutral | glitch | Digital stutter burst — glitch-rip / VHS templates |
+| `glitch_burst` | glitch, tense, playful, neutral | glitch | Digital stutter burst — blips, dropouts, bitcrush |
 | `sparkle` | playful, upbeat, humorous | accent | Random twinkles — celebration moments |
-| `error` | tense, glitch, serious | ui, glitch | Two descending dings — wrong answer, fail states |
+| `error` | tense, glitch, serious | ui, glitch | Descending buzzy fail tone — wrong answer, fail states |
 | `swell` | calm, serious, neutral | ambient, transition | Slow tone+noise swell — emotional bridges |
-| `rain` | calm, tense, serious | organic | Recorded rain bed — tense/ambient scenes |
+| `rain` | calm, tense, serious | organic | Steady procedural rain (5 s field) — tense/ambient scenes |
 | `paper` | calm, neutral | organic | Paper rustle — documents, letters |
 | `footsteps` | tense, serious | organic | Footsteps — approach, walking scenes |
 | `crowd` | serious, tense, upbeat | organic | Room tone of a crowd — statistics "millions of people" |
-| `glass` | tense, glitch, playful | organic | Glass shatter — shatter/glitch-rip templates |
+| `glass` | tense, glitch, playful | organic | Glass shatter — crystalline crack + shard cascade |
 | `door` | tense, serious, calm | organic | Door thud/creak — reveals, entrances |
 | `siren` | serious, tense | organic | Distant siren — warning beats, security |
 | `bubble` | calm, playful | organic | Water bubbles — underwater, droplets template |

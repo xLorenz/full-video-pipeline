@@ -1,21 +1,22 @@
 # glass
 
-Glass break (CC0 sample, ~0.55s). Sharp, bright shatter — the sound for shatter and glitch-rip
-visual treatments.
+Glass shatter, ~1.0s: a high-passed crack burst + low thump at impact, then a dense
+cascade of crystalline shard pings (1.4-7.2 kHz) that thins into a few late clinks.
+Synthesized — no sample files involved.
 
 Moods: tense, glitch, playful
 
 ## When to use
-- shatter template / glass-shard reveals      →  when: "beat:shatter"
-- breaking-through moments ("the illusion breaks")
-- glitch-rip section tears
+- a literal glass / screen / window breaks       when: "beat:break"
+- glitch-rip reveals and broken-UI transitions
+- debris or shatter metaphors in infographics
 
 ## When NOT to use
-- in calm scenes — glass breaks are violent by nature
-- **without a breaking-glass visual** — a glass break with nothing breaking is a tone error; validation will warn
+- as a soft accent — a shatter is a big, violent hit
+- more than once per scene (it covers other audio)
 
 ## Parameters
-None (sample playback; use `volume` to control impact).
+None — fixed character (use `volume` to control sting).
 
 ## Examples
-{ "sound": "glass", "when": "beat:shatter", "volume": 0.4 }
+{ "sound": "glass", "when": "beat:break", "volume": 0.45 }

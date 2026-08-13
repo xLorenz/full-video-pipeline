@@ -4,8 +4,8 @@
     "rainfall",
     "rain-sound"
   ],
-  "backend": "sample",
-  "asset": "rain_01.mp3",
+  "backend": "synth",
+  "recipe": "steady_rain",
   "tags": [
     "organic",
     "ambient"
@@ -16,7 +16,7 @@
     "serious"
   ],
   "default_volume": 0.35,
-  "max_tail_seconds": 4.0,
+  "max_tail_seconds": 5.0,
   "params": {},
-  "description": "Steady recorded rain. Use for tense/reflective ambience. Does not 'fit' playful videos."
+  "description": "Steady procedural rain (5 s field). Use for tense/reflective ambience; place cues every 5 s for longer rain."
 }

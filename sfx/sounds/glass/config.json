@@ -4,8 +4,8 @@
     "glass-break",
     "shatter"
   ],
-  "backend": "sample",
-  "asset": "glass_01.mp3",
+  "backend": "synth",
+  "recipe": "glass_shatter",
   "tags": [
     "organic"
   ],
@@ -17,5 +17,5 @@
   "default_volume": 0.4,
   "max_tail_seconds": 1.0,
   "params": {},
-  "description": "Glass shatter \u2014 shatter/glitch-rip templates."
+  "description": "Glass shatter \u2014 crystalline crack + shard cascade."
 }

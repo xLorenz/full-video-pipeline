@@ -1,21 +1,20 @@
 # swell
 
-Slow tone+noise swell, ~3.5s: a soft chord pad with noise rising and receding. Emotional
-bridges, reflective moments, "and then everything changed" transitions.
+Slow tone+noise swell, ~2.5s: a warm 180→520 Hz tone under deep low-passed noise, rising
+smoothly to a peak then releasing over 0.5s. Emotional bridges.
 
 Moods: calm, serious, neutral
 
 ## When to use
-- emotional transition between sections       →  when: "start" of the next scene
-- reflective pause moments
-- bridge into a conclusion
+- emotional bridges and beat pivots              when: "start"
+- reveal slow-ups before a quiet drop
 
 ## When NOT to use
-- as an alarm — a swell is gentle by design (`riser` is the tense build)
-- when the scene needs a hard cut — a swell implies time passing
+- as a sting — it is a slow gesture, not a hit
+- back-to-back with `riser` (two rising gestures collide)
 
 ## Parameters
-None — fixed character (use `volume` to control warmth).
+None — fixed character (use `volume` to control presence).
 
 ## Examples
-{ "sound": "swell", "when": "start", "volume": 0.3 }
+{ "sound": "swell", "when": "start", "volume": 0.4 }

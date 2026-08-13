@@ -5,7 +5,7 @@
     "fail"
   ],
   "backend": "synth",
-  "recipe": "error_ding",
+  "recipe": "error_buzz",
   "tags": [
     "ui",
     "glitch"
@@ -18,5 +18,5 @@
   "default_volume": 0.5,
   "max_tail_seconds": 1.5,
   "params": {},
-  "description": "Two descending dings \u2014 wrong answer, fail states."
+  "description": "Descending buzzy fail tone \u2014 wrong answers, errors, denials."
 }

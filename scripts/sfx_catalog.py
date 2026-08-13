@@ -23,7 +23,7 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 1   # BUMP whenever any sound def, recipe, or alias changes
+CATALOG_VERSION = 2   # BUMP whenever any sound def, recipe, or alias changes
 
 MOODS = ("serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat", "glitch")
 TAGS = ("transition", "emphasis", "impact", "ui", "organic", "riser", "glitch",
@@ -38,7 +38,8 @@ RECIPES = (
     "noise_sweep_up", "noise_sweep_down", "tone_noise_riser", "low_impact",
     "soft_thud", "sub_boom", "mid_punch", "short_tick", "click", "pop",
     "zap", "laser", "bell_ding", "soft_chime", "shimmer", "scan_sweep",
-    "glitch_burst", "sparkles", "error_ding", "ambient_swell",
+    "glitch_burst", "sparkles", "error_buzz", "glass_shatter",
+    "steady_rain", "ambient_swell",
 )
 
 # BGM beds implemented in generate_sfx.py — metadata lives here, recipes there.
