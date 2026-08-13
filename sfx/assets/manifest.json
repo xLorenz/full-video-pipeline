@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "file": "bubble_01.mp3",
+      "sha256": "6d91bfb910e2ad2d3443042dd8af00ea41a6a7fe288aeb17fb1421109bf55d6c"
+    },
+    {
+      "file": "crowd_01.mp3",
+      "sha256": "460cfac19079651b7042da577cd78f95cea8644cd5ccd1fe5512ae57494044ca"
+    },
+    {
+      "file": "door_01.mp3",
+      "sha256": "fa7962e95c23a322e9b448fb8f23bff907b48dd3e747268a83113021ca0e2130"
+    },
+    {
+      "file": "footsteps_01.mp3",
+      "sha256": "47eea189f2056d5c2dc7f5cddd3317357e31473f496baaf0be9e200bec6e5ed6"
+    },
+    {
+      "file": "glass_01.mp3",
+      "sha256": "02afc073b00510d4722feda59b07ad152f7266cdc42bff18a0a23883cab8a75a"
+    },
+    {
+      "file": "LICENSE.md",
+      "sha256": "858825ee1489ae4a7677ddb7f7f7a09e702206ba5c2e723cd9e615722ddb50ca"
+    },
+    {
+      "file": "manifest.json",
+      "sha256": "a68e36c5d23c1dd7a964106fefca707847f4eb556a5bca90c49985efb98815f3"
+    },
+    {
+      "file": "paper_01.mp3",
+      "sha256": "cd3a6d7b7d63b698669ab5d0bba2669f8f13e76a9959bbbc7043f0885082e4ea"
+    },
+    {
+      "file": "rain_01.mp3",
+      "sha256": "6ad83b3b767ba548c8a45d9c82fef845a06218d3647c2634ad14b1677cff7a49"
+    },
+    {
+      "file": "siren_01.mp3",
+      "sha256": "bcfd3b2d4cc02a3224a63bc650580ae63c49a93259020a848502f404e795668a"
+    }
+  ]
+}

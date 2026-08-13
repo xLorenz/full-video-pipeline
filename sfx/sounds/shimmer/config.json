@@ -1,0 +1,22 @@
+{
+  "sound": "shimmer",
+  "aliases": [
+    "shine",
+    "sparkle-up"
+  ],
+  "backend": "synth",
+  "recipe": "shimmer",
+  "tags": [
+    "accent",
+    "ambient"
+  ],
+  "moods": [
+    "calm",
+    "playful",
+    "upbeat"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "High sparkle \u2014 magic, bright reveals."
+}

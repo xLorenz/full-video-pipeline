@@ -1,0 +1,36 @@
+{
+  "sound": "tick",
+  "aliases": [
+    "tick-tock",
+    "step"
+  ],
+  "backend": "synth",
+  "recipe": "short_tick",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "calm"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {
+    "cutoff": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 8000.0,
+      "default": 3500.0,
+      "description": "Bandpass center Hz"
+    },
+    "q": {
+      "type": "number",
+      "minimum": 2.0,
+      "maximum": 12.0,
+      "default": 7.0,
+      "description": "Bandpass Q (sharpness)"
+    }
+  },
+  "description": "Clean short tick \u2014 list items, progress steps."
+}

@@ -1,0 +1,23 @@
+{
+  "sound": "zap",
+  "aliases": [
+    "zap-sound",
+    "electric"
+  ],
+  "backend": "synth",
+  "recipe": "zap",
+  "tags": [
+    "glitch",
+    "accent"
+  ],
+  "moods": [
+    "glitch",
+    "tense",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Electric snap \u2014 errors, sci-fi pulses."
+}

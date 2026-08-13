@@ -1,0 +1,31 @@
+{
+  "sound": "whoosh",
+  "aliases": [
+    "swoosh",
+    "sweep",
+    "swish",
+    "whoosh-up"
+  ],
+  "backend": "synth",
+  "recipe": "noise_sweep_up",
+  "tags": [
+    "transition",
+    "emphasis"
+  ],
+  "moods": [
+    "neutral",
+    "calm"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Rising band-passed noise sweep, ~0.7s. The 'something arrived' transition whoosh. Tone-neutral."
+}

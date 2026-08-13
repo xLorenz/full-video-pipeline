@@ -1,0 +1,1 @@
+{"sound": "bubble", "aliases": ["bubbles", "water-bubble"], "backend": "sample", "asset": "bubble_01.mp3", "tags": ["organic"], "moods": ["calm", "playful"], "default_volume": 0.4, "max_tail_seconds": 1.0, "params": {}, "description": "Water bubbles \u2014 underwater, droplets template."}

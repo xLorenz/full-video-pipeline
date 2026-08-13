@@ -1,0 +1,20 @@
+{
+  "sound": "siren",
+  "aliases": [
+    "alarm",
+    "warning"
+  ],
+  "backend": "sample",
+  "asset": "siren_01.mp3",
+  "tags": [
+    "organic"
+  ],
+  "moods": [
+    "serious",
+    "tense"
+  ],
+  "default_volume": 0.35,
+  "max_tail_seconds": 3.5,
+  "params": {},
+  "description": "Distant siren \u2014 warning beats, security. Not for playful content."
+}

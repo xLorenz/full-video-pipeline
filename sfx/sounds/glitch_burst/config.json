@@ -1,0 +1,30 @@
+{
+  "sound": "glitch_burst",
+  "aliases": [
+    "glitch",
+    "stutter"
+  ],
+  "backend": "synth",
+  "recipe": "glitch_burst",
+  "tags": [
+    "glitch"
+  ],
+  "moods": [
+    "glitch",
+    "tense",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 0.8,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Digital stutter burst \u2014 glitch-rip / VHS templates."
+}

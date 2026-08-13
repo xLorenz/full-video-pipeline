@@ -1,0 +1,31 @@
+{
+  "sound": "impact",
+  "aliases": [
+    "hit",
+    "boom-stamp",
+    "stamp"
+  ],
+  "backend": "synth",
+  "recipe": "low_impact",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.6,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Hard low hit \u2014 verdicts, stamps, confirmations."
+}

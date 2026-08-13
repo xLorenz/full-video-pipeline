@@ -1,0 +1,36 @@
+{
+  "sound": "ding",
+  "aliases": [
+    "bell"
+  ],
+  "backend": "synth",
+  "recipe": "bell_ding",
+  "tags": [
+    "ui",
+    "emphasis"
+  ],
+  "moods": [
+    "calm",
+    "neutral",
+    "serious"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    },
+    "decay": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0,
+      "default": 0.4,
+      "description": "Bell decay seconds"
+    }
+  },
+  "description": "Bell-like confirm \u2014 success moments, milestones."
+}

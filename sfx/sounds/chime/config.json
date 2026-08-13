@@ -1,0 +1,35 @@
+{
+  "sound": "chime",
+  "aliases": [
+    "ding-dong"
+  ],
+  "backend": "synth",
+  "recipe": "soft_chime",
+  "tags": [
+    "ui",
+    "emphasis"
+  ],
+  "moods": [
+    "calm",
+    "neutral"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 2.5,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    },
+    "decay": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.5,
+      "default": 0.6,
+      "description": "Bell decay seconds"
+    }
+  },
+  "description": "Softer bell \u2014 completions, gentle success."
+}

@@ -1,0 +1,31 @@
+{
+  "sound": "boom",
+  "aliases": [
+    "drop",
+    "bass-drop",
+    "deep-boom"
+  ],
+  "backend": "synth",
+  "recipe": "sub_boom",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.7,
+  "max_tail_seconds": 3.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Deep sub boom \u2014 big reveals, chapter breaks."
+}

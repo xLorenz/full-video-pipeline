@@ -1,0 +1,20 @@
+{
+  "sound": "footsteps",
+  "aliases": [
+    "steps",
+    "walking"
+  ],
+  "backend": "sample",
+  "asset": "footsteps_01.mp3",
+  "tags": [
+    "organic"
+  ],
+  "moods": [
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Three footsteps \u2014 approach, walking scenes."
+}

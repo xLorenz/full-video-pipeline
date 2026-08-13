@@ -1,0 +1,22 @@
+{
+  "sound": "rain",
+  "aliases": [
+    "rainfall",
+    "rain-sound"
+  ],
+  "backend": "sample",
+  "asset": "rain_01.mp3",
+  "tags": [
+    "organic",
+    "ambient"
+  ],
+  "moods": [
+    "calm",
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.35,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Steady recorded rain. Use for tense/reflective ambience. Does not 'fit' playful videos."
+}

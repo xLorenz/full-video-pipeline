@@ -1,0 +1,22 @@
+{
+  "sound": "error",
+  "aliases": [
+    "error-sound",
+    "fail"
+  ],
+  "backend": "synth",
+  "recipe": "error_ding",
+  "tags": [
+    "ui",
+    "glitch"
+  ],
+  "moods": [
+    "tense",
+    "glitch",
+    "serious"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Two descending dings \u2014 wrong answer, fail states."
+}

@@ -1,0 +1,21 @@
+{
+  "sound": "door",
+  "aliases": [
+    "door-close",
+    "door-slam"
+  ],
+  "backend": "sample",
+  "asset": "door_01.mp3",
+  "tags": [
+    "organic"
+  ],
+  "moods": [
+    "tense",
+    "serious",
+    "calm"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Door closing thud \u2014 reveals, entrances."
+}

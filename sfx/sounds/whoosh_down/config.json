@@ -1,0 +1,29 @@
+{
+  "sound": "whoosh_down",
+  "aliases": [
+    "whoosh-down",
+    "swish-down"
+  ],
+  "backend": "synth",
+  "recipe": "noise_sweep_down",
+  "tags": [
+    "transition",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "tense"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Falling band-passed noise sweep \u2014 'something leaves / resets'."
+}

@@ -1,0 +1,31 @@
+{
+  "sound": "laser",
+  "aliases": [
+    "laser-blip",
+    "blip"
+  ],
+  "backend": "synth",
+  "recipe": "laser",
+  "tags": [
+    "glitch",
+    "accent"
+  ],
+  "moods": [
+    "tense",
+    "playful",
+    "glitch",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Sweeping laser blip \u2014 targeting, scanning."
+}

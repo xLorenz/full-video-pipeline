@@ -1,0 +1,22 @@
+{
+  "sound": "crowd",
+  "aliases": [
+    "crowd-murmur",
+    "room-tone"
+  ],
+  "backend": "sample",
+  "asset": "crowd_01.mp3",
+  "tags": [
+    "organic",
+    "ambient"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "upbeat"
+  ],
+  "default_volume": 0.35,
+  "max_tail_seconds": 5.0,
+  "params": {},
+  "description": "Room tone of a crowd \u2014 statistics 'millions of people'."
+}

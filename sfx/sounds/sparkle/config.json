@@ -1,0 +1,21 @@
+{
+  "sound": "sparkle",
+  "aliases": [
+    "twinkle",
+    "magic"
+  ],
+  "backend": "synth",
+  "recipe": "sparkles",
+  "tags": [
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "humorous"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Random twinkles \u2014 celebration moments."
+}

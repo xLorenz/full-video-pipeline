@@ -1,0 +1,29 @@
+{
+  "sound": "thud",
+  "aliases": [
+    "thump",
+    "knock"
+  ],
+  "backend": "synth",
+  "recipe": "soft_thud",
+  "tags": [
+    "impact"
+  ],
+  "moods": [
+    "serious",
+    "calm",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Soft low knock \u2014 card lands, panel drops in."
+}

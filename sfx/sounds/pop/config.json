@@ -1,0 +1,30 @@
+{
+  "sound": "pop",
+  "aliases": [
+    "pop-sound",
+    "bubble-pop"
+  ],
+  "backend": "synth",
+  "recipe": "pop",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Bright small pop \u2014 chips appear, badges."
+}

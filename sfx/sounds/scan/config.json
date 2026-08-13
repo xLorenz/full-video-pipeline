@@ -1,0 +1,22 @@
+{
+  "sound": "scan",
+  "aliases": [
+    "scan-sweep",
+    "sonar"
+  ],
+  "backend": "synth",
+  "recipe": "scan_sweep",
+  "tags": [
+    "riser",
+    "glitch"
+  ],
+  "moods": [
+    "tense",
+    "glitch",
+    "neutral"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Frequency sweep \u2014 scanning / decoding (barcode-scan templates)."
+}

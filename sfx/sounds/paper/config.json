@@ -1,0 +1,20 @@
+{
+  "sound": "paper",
+  "aliases": [
+    "paper-rustle",
+    "page"
+  ],
+  "backend": "sample",
+  "asset": "paper_01.mp3",
+  "tags": [
+    "organic"
+  ],
+  "moods": [
+    "calm",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Paper rustle / page flip \u2014 documents, letters."
+}

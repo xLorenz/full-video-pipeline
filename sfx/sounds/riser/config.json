@@ -1,0 +1,23 @@
+{
+  "sound": "riser",
+  "aliases": [
+    "build",
+    "build-up",
+    "riser-up"
+  ],
+  "backend": "synth",
+  "recipe": "tone_noise_riser",
+  "tags": [
+    "riser",
+    "transition"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 3.0,
+  "params": {},
+  "description": "Long upward tension build (tone + noise) for punch-ins or pattern interrupts."
+}

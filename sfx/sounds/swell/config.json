@@ -1,0 +1,22 @@
+{
+  "sound": "swell",
+  "aliases": [
+    "rise",
+    "pad-swell"
+  ],
+  "backend": "synth",
+  "recipe": "ambient_swell",
+  "tags": [
+    "ambient",
+    "transition"
+  ],
+  "moods": [
+    "calm",
+    "serious",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Slow tone+noise swell \u2014 emotional bridges."
+}

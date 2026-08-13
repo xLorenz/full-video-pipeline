@@ -1,0 +1,29 @@
+{
+  "sound": "punch",
+  "aliases": [
+    "beat-hit",
+    "slam"
+  ],
+  "backend": "synth",
+  "recipe": "mid_punch",
+  "tags": [
+    "impact"
+  ],
+  "moods": [
+    "tense",
+    "upbeat",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    }
+  },
+  "description": "Sharp mid transient \u2014 beats land, words hit."
+}
