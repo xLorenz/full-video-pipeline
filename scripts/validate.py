@@ -16,6 +16,8 @@ Exit codes:
     5  Caption integrity violation (start > end, end > scene_duration)
     6  Phase-1 hard failure (SCRIPT.md or pattern-interrupt log missing)
     7  Phase-1 warning promoted to error by --strict
+    8  SFX/BGM check hard failure (unknown sound/beat/bed)
+    9  SFX/BGM warning promoted to error by --strict
 """
 
 import argparse
@@ -33,6 +35,7 @@ except ImportError:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _pipeline_lib as pl  # noqa: E402
+import sfx_catalog as sfx  # noqa: E402
 
 SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"
 
@@ -277,6 +280,130 @@ def check_phase1_content(video_dir, data):
     return errors, warnings
 
 
+def check_sfx(data: dict) -> tuple[list, list]:
+    """SFX/BGM cue checks against the sfx/ catalog. Returns (errors, warnings).
+
+    Errors (block): unknown sound id (with did-you-mean), unresolved beat reference,
+    duplicate beat names, unknown bgm track.
+    Warnings (judgment): mood conflict vs video/scene mood, cue past scene end,
+    final-scene cue at/after video end.
+    """
+    errors, warnings = [], []
+    scenes = data.get("scenes", [])
+    if not scenes:
+        return errors, warnings
+
+    # Catalog load with degraded fallback: a broken catalog must never crash
+    # validation. Prefer real defs (config.json files) — fall back to the
+    # recipe/bed registries only when the defs themselves cannot load. (The
+    # plan's literal trigger is `validate_catalog()` failing, but manifest-only
+    # breakage would then flag valid sounds like `tick` as unknown — a false
+    # positive; catalog integrity has its own channel, `--validate-sfx`.)
+    try:
+        defs = sfx.load_sound_defs()
+    except Exception:
+        defs = {}
+    if not defs:
+        defs = {r: _MinimalSound(r) for r in sfx.RECIPES}
+        warnings.append("sfx catalog invalid — running degraded checks (see 'validate --validate-sfx')")
+
+    style = data.get("style") or {}
+    video_mood = style.get("mood")
+    n_cues = sum(len(s.get("sfx") or []) for s in scenes)
+    n_beds = sum(1 for s in scenes if isinstance(s.get("bgm"), dict))
+    mood_warnings_armed = bool(video_mood)  # scene mood overrides per scene
+    if not video_mood and not any(s.get("mood") for s in scenes):
+        if n_cues or n_beds:
+            warnings.append("no style.mood set (scenes.json top-level) — mood-conformance warnings are disabled; "
+                            'add "style": {"mood": "..."} at Step 7')
+        mood_warnings_armed = False
+
+    def scene_mood(s):
+        return s.get("mood") or video_mood
+
+    def mood_conflict(sound_moods, mood):
+        return bool(mood) and not (set(sound_moods) & {mood})
+
+    def scene_duration_s(s):
+        return s.get("actual_duration_seconds") or s.get("target_duration_seconds") or 0.0
+
+    for s in scenes:
+        sid = s.get("id", "?")
+        beats = {b.get("name"): b for b in s.get("beats", [])}
+        seen = set()
+        for b in s.get("beats", []):
+            name = b.get("name")
+            if not name:
+                continue
+            if name in seen:
+                errors.append(f"Scene {sid}: duplicate beat name '{name}'")
+            seen.add(name)
+
+        dur = scene_duration_s(s)
+        mood = scene_mood(s)
+        for i, cue in enumerate(s.get("sfx") or []):
+            name = cue.get("sound", "")
+            sound = defs.get(name) or sfx.resolve_sound(name, defs)
+            if sound is None:
+                cands = sfx.fuzzy_candidates(name)
+                msg = f"Scene {sid} cue {i}: unknown sound '{name}'"
+                if cands:
+                    msg += f"\n  did you mean: {', '.join(cands)}?"
+                else:
+                    msg += "\n  no close matches in the catalog (sfx/CATALOG.md)"
+                errors.append(msg)
+                continue
+            if mood_warnings_armed and mood_conflict(sound.moods, mood):
+                cands = _same_mood_candidates(defs, mood, sound.tags)
+                warnings.append(
+                    f"Scene {sid} cue {i}: sound '{name}' (moods: {', '.join(sound.moods)}) "
+                    f"conflicts with scene mood '{mood}' — consider {', '.join(cands) or '(none match)'}")
+            when = cue.get("when")
+            if isinstance(when, (int, float)) and not isinstance(when, bool):
+                if dur > 0 and when > dur:
+                    warnings.append(
+                        f"Scene {sid} cue {i}: when={when}s exceeds scene duration {dur:.2f}s "
+                        f"— cue will continue into the next scene")
+                if s is scenes[-1] and dur > 0 and when >= dur:
+                    warnings.append(
+                        f"Scene {sid} cue {i}: when={when}s is at/after the final scene's end ({dur:.2f}s) "
+                        f"— will start at/after video end (inaudible)")
+            elif isinstance(when, str) and when.startswith("beat:"):
+                bname = when[len("beat:"):]
+                if bname not in beats:
+                    errors.append(f"Scene {sid} cue {i}: beat '{bname}' not defined in this scene's beats")
+
+        bgm = s.get("bgm")
+        if isinstance(bgm, dict):
+            track = bgm.get("track")
+            if track not in sfx.BGM_TRACKS:
+                known = ", ".join(sfx.BGM_TRACKS)
+                errors.append(f"Scene {sid}: bgm.track '{track}' is not a catalogued bed ({known})")
+            elif mood_warnings_armed and mood_conflict(sfx.BGM_TRACKS[track]["moods"], mood):
+                warnings.append(
+                    f"Scene {sid}: bed '{track}' (moods: {', '.join(sfx.BGM_TRACKS[track]['moods'])}) "
+                    f"conflicts with scene mood '{mood}'")
+
+    return errors, warnings
+
+
+def _same_mood_candidates(defs, mood, tags, limit=3):
+    """Up to `limit` catalog sounds whose moods intersect `mood`, sorted by tag
+    overlap with the cue sound's tags (most-shared first)."""
+    cands = [d for d in defs.values() if set(d.moods) & {mood}]
+    cands.sort(key=lambda d: len(set(d.tags) & set(tags)), reverse=True)
+    return [d.sound for d in cands[:limit]]
+
+
+class _MinimalSound:
+    """Degraded-catalog stand-in: known id, no moods/tags/aliases to compare against."""
+    def __init__(self, sound):
+        self.sound = sound
+        self.aliases = ()
+        self.moods = ()
+        self.tags = ()
+
+
 def validate_animations(video_dir: Path) -> list:
     """Validate every animations/ template's defaults.json against its schema.
 
@@ -304,6 +431,8 @@ def main():
                         help="Step number for step-specific requirements (default: 0 = no step checks)")
     parser.add_argument("--validate-animations", action="store_true",
                         help="Also validate every template's defaults.json against its schema + the global animations schema")
+    parser.add_argument("--validate-sfx", action="store_true",
+                        help="Also validate the sfx/ catalog (every sound config against sfx.schema.json + manifest hashes)")
     parser.add_argument("--strict", action="store_true",
                         help="Promote Phase-1 content warnings to errors (exit 7)")
     args = parser.parse_args()
@@ -327,6 +456,10 @@ def main():
         anim_errors = validate_animations(video_dir)
         for e in anim_errors:
             all_errors.append(f"(animations) {e}")
+
+    if args.validate_sfx:
+        for e in sfx.validate_catalog():
+            all_errors.append(f"(sfx) {e}")
 
     exit_code = 1 if all_errors else 0
 
@@ -368,6 +501,23 @@ def main():
                             exit_code = 7
                     else:
                         warnings.extend(p1_warnings)
+
+            # SFX/BGM checks — errors exit 8, warnings exit 9 under --strict.
+            # Step 8 is where beats/sfx are authored; steps >= 8 re-run it
+            # through complete/post-step validation.
+            if step >= 8:
+                sfx_errors, sfx_warnings = check_sfx(data)
+                if sfx_errors:
+                    all_errors.extend(f"(sfx) {e}" for e in sfx_errors)
+                    if exit_code == 0:
+                        exit_code = 8
+                if sfx_warnings:
+                    if args.strict:
+                        all_errors.extend(f"(sfx, --strict) {e}" for e in sfx_warnings)
+                        if exit_code == 0:
+                            exit_code = 9
+                    else:
+                        warnings.extend(sfx_warnings)
 
     if warnings:
         print(f"Phase-1 warnings ({len(warnings)}):")
