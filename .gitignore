@@ -15,3 +15,6 @@ animations/*/preview/frames-*/
 
 # Obsidian vault workspace
 .obsidian/
+
+# Scratch implementation plan (deleted after completion — never commit)
+sfx-implementation-plan/
