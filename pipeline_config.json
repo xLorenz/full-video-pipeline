@@ -89,6 +89,27 @@
         "final_audio_codec": "aac",
         "final_crf": 23
     },
+    "sfx": {
+        "sample_rate": 44100,
+        "full_scale_db": -10.0,
+        "tail_fade_seconds": 0.5,
+        "true_peak_ceiling_db": -1.0,
+        "integrated_max_offset_db": 1.5
+    },
+    "bgm": {
+        "enabled": true,
+        "default_track": "pulse_light",
+        "default_volume": 0.6,
+        "bed_db": -18.0,
+        "duck": true,
+        "duck_threshold_db": -25.0,
+        "duck_ratio": 8.0,
+        "duck_attack_ms": 5.0,
+        "duck_release_ms": 250.0,
+        "fade_out_seconds": 1.0,
+        "fade_in_seconds": 0.5,
+        "crossfade_seconds": 0.5
+    },
     "system": {
         "min_available_ram_mb": 200,
         "min_available_disk_mb": 500,

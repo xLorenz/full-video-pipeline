@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SFX Sound Definition",
+  "description": "Contract for sfx/sounds/<id>/config.json — one file per catalogued sound.",
+  "type": "object",
+  "required": ["sound", "backend", "tags", "moods", "default_volume", "description"],
+  "properties": {
+    "sound": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Canonical id. Also controls cue reference: { \"sound\": \"<id>\" }"
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "description": "Alternate cue spellings the engine accepts (e.g. \"swoosh\" for whoosh)."
+    },
+    "backend": {
+      "enum": ["synth", "sample"],
+      "description": "synth = procedural recipe; sample = bundled CC0 asset."
+    },
+    "recipe": {
+      "type": "string",
+      "description": "synth backend: recipe id registered in sfx_catalog.py (PHASE-03/04)."
+    },
+    "asset": {
+      "type": "string",
+      "description": "sample backend: filename inside sfx/assets/ (must exist and match manifest.json SHA-256)."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Auditory category tags: transition, emphasis, impact, ui, organic, riser, glitch, ambient, accent."
+    },
+    "moods": {
+      "type": "array",
+      "items": {
+        "enum": ["serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat", "glitch"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Which scene moods this sound fits. 'neutral' fits everything. 'glitch' is a visual-treatment mood reserved for catalog sounds — never a video or scene mood."
+    },
+    "default_volume": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Applied when a cue omits volume."
+    },
+    "max_tail_seconds": {
+      "type": "number",
+      "minimum": 0.1,
+      "default": 2.0,
+      "description": "Generated/dried length of the sound; used for video-end tail handling."
+    },
+    "params": {
+      "type": "object",
+      "description": "Optional per-sound parameters. Each value is a param definition.",
+      "additionalProperties": { "$ref": "#/definitions/param" }
+    },
+    "description": {
+      "type": "string",
+      "description": "One line: what it sounds like + when to use. Written for an LLM that cannot listen."
+    }
+  },
+  "definitions": {
+    "param": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["number", "boolean", "string"] },
+        "minimum": { "type": "number", "description": "number only" },
+        "maximum": { "type": "number", "description": "number only" },
+        "default": {},
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

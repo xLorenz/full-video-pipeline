@@ -35,6 +35,17 @@
       "type": ["string", "null"],
       "description": "Path to generated .srt sidecar (relative to video root or absolute)."
     },
+    "style": {
+      "type": ["object", "null"],
+      "description": "Video-wide style metadata, authored at Step 7 alongside STYLES.md.",
+      "properties": {
+        "mood": {
+          "type": "string",
+          "enum": ["serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat"]
+        }
+      },
+      "required": ["mood"]
+    },
     "scenes": {
       "type": "array",
       "items": {
@@ -133,6 +144,37 @@
             "enum": ["cut", "fade", "wipe", "slide"],
             "default": "cut",
             "description": "Transition style exiting this scene"
+          },
+          "mood": {
+            "type": ["string", "null"],
+            "enum": ["serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat"],
+            "description": "Per-scene mood override. If null, the video's top-level style.mood applies."
+          },
+          "beats": {
+            "type": "array",
+            "description": "Named timing points mirroring the scene code's animation frames (Step 8).",
+            "items": {
+              "type": "object",
+              "required": ["name", "time"],
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+                "time": { "type": "number", "minimum": 0, "description": "Seconds from scene start" }
+              }
+            }
+          },
+          "sfx": {
+            "type": "array",
+            "description": "Per-scene sound effect cues, authored at Step 8.",
+            "items": { "$ref": "#/definitions/sfxCue" }
+          },
+          "bgm": {
+            "type": ["object", "null"],
+            "description": "Per-scene music bed. If null, the global config default applies (see bgm.enabled / bgm.default_track).",
+            "properties": {
+              "track": { "type": "string", "description": "Bed id from the sfx/ catalog (bgm section)" },
+              "volume": { "type": "number", "minimum": 0.0, "maximum": 1.0, "description": "Omit to use the global bgm.default_volume." }
+            },
+            "required": ["track"]
           }
         }
       },
@@ -147,6 +189,43 @@
       "type": ["number", "null"],
       "minimum": 0,
       "description": "Sum of all actual durations (null until measured)"
+    }
+  },
+  "definitions": {
+    "sfxCue": {
+      "type": "object",
+      "required": ["sound", "when"],
+      "properties": {
+        "sound": {
+          "type": "string",
+          "description": "Sound id or alias from the sfx/ catalog (e.g. \"whoosh\", \"impact\")"
+        },
+        "when": {
+          "description": "\"start\" | \"mid\" | \"end\" | \"beat:<name>\" | seconds from scene start",
+          "anyOf": [
+            { "enum": ["start", "mid", "end"] },
+            { "type": "string", "pattern": "^beat:[a-z][a-z0-9_]*$" },
+            { "type": "number", "minimum": 0 }
+          ]
+        },
+        "volume": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": null,
+          "description": "0..1 gain knob. null uses the sound's default_volume from the catalog."
+        },
+        "fade_out": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "description": "Optional explicit tail fade, seconds. Overrides the config sfx.tail_fade_seconds for this cue's end-of-video tail-trim only. Implemented in place_cue (PHASE-04 §4.4); when null, the config default applies."
+        },
+        "params": {
+          "type": ["object", "null"],
+          "default": null,
+          "description": "Per-sound parameters validated against the sound's config.json at runtime (PHASE-04)."
+        }
+      }
     }
   }
 }
