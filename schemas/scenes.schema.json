@@ -77,6 +77,10 @@
             "type": ["string", "null"],
             "description": "SHA-256 of (text, voice, rate, volume, pitch). Used to skip unchanged re-generation."
           },
+          "sfx_hash": {
+            "type": ["string", "null"],
+            "description": "SHA-256 of the scene's resolved SFX/BGM state. Gates regeneration (run by generate_sfx.py)."
+          },
           "target_duration_seconds": {
             "type": ["number", "null"],
             "minimum": 0,
