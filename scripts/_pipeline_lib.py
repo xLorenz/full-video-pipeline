@@ -579,6 +579,12 @@ def hash_voiceover(text, voice, rate, volume, pitch) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def hash_sfx(obj) -> str:
+    """SHA-256 of a canonically-serialized object (dict/list/primitive)."""
+    blob = json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 # ---------------------------------------------------------------------------
 # subprocess helper with optional log tee
 # ---------------------------------------------------------------------------
