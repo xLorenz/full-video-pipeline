@@ -4,7 +4,7 @@
     "pop-sound",
     "bubble-pop"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "pop",
   "tags": [
     "ui",

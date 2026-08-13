@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _pipeline_lib as pl          # noqa: E402
 import generate_sfx as g            # noqa: E402  (single source of truth for DSP + timeline)
 import sfx_catalog as sfx           # noqa: E402
+import tone_render                  # noqa: E402  (Tone.js/WebAudio engine bridge, PHASE-09)
 
 
 def _run(cmd, **kw):
@@ -190,11 +191,25 @@ def export_catalog_preview():
     sr = cfg_sfx["sample_rate"]
 
     items = []
+    tone_jobs = []
+    for sound in sorted(defs.values(), key=lambda d: d.sound):
+        params = sfx.param_defaults(sound)
+        if sound.backend == "tone":
+            tone_jobs.append({
+                "id": f"tone-{sound.sound}",
+                "sound": sound.sound,
+                "params": params,
+                "seed_str": g.per_cue_seed(sound.sound, params, 0.0),
+            })
+    tone_rendered = tone_render.render_tone_cues(tone_jobs)
+
     for sound in sorted(defs.values(), key=lambda d: d.sound):
         params = sfx.param_defaults(sound)
         rng = random.Random(int(g.per_cue_seed(sound.sound, params, 0.0)))
         if sound.backend == "synth":
             raw = g.RECIPE_FUNCS[sound.recipe](rng, params)
+        elif sound.backend == "tone":
+            raw = tone_rendered[f"tone-{sound.sound}"]
         else:
             raw = g._normalize(g.decode_to_floats(sfx.ASSETS_DIR / sound.asset), 0.9)
         db = g.cue_gain_db(sound.default_volume, cfg_sfx["full_scale_db"])

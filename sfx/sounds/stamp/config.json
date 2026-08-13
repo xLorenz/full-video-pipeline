@@ -1,0 +1,23 @@
+{
+  "sound": "stamp",
+  "aliases": [
+    "verdict",
+    "stamp-hit"
+  ],
+  "backend": "tone",
+  "recipe": "stamp",
+  "tags": [
+    "emphasis",
+    "impact"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.55,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Authority stamp (~0.25s): low thump 130 to 55 Hz + paper slap + metallic clunk — verdicts, final answers, seals."
+}

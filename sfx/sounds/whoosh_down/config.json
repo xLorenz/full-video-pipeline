@@ -4,7 +4,7 @@
     "whoosh-down",
     "swish-down"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "noise_sweep_down",
   "tags": [
     "transition",

@@ -2,8 +2,7 @@
   "sound": "impact",
   "aliases": [
     "hit",
-    "boom-stamp",
-    "stamp"
+    "boom-stamp"
   ],
   "backend": "synth",
   "recipe": "low_impact",

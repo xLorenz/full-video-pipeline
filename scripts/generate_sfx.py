@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _pipeline_lib as pl          # noqa: E402
 import sfx_catalog as sfx          # noqa: E402
+import tone_render                 # noqa: E402  (Tone.js/WebAudio backend bridge, PHASE-09)
 
 SR = 44100                          # overridden from config at runtime; keep const names SR
 
@@ -815,6 +816,23 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
     scfg = cfg.get("sfx", {})
     tail_fade = scfg.get("tail_fade_seconds", 0.5)
     full_scale_db = scfg.get("full_scale_db", -10.0)
+
+    # Batch-render tone-backend cues in a single node invocation (PHASE-09).
+    tone_jobs = []
+    for cue in resolved_cues:
+        sound = defs[cue["sound"]]
+        if sound.backend == "tone":
+            params = sfx.param_defaults(sound)
+            if cue.get("params"):
+                params.update(cue["params"])
+            tone_jobs.append({
+                "id": f"{cue['scene']}_{cue['cue_index']}",
+                "sound": cue["sound"],
+                "params": params,
+                "seed_str": per_cue_seed(cue["sound"], params, cue["start_abs"]),
+            })
+    tone_rendered = tone_render.render_tone_cues(tone_jobs)
+
     for cue in resolved_cues:
         scene_id, i = cue["scene"], cue["cue_index"]
         sound = defs[cue["sound"]]
@@ -824,6 +842,10 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
         rng = random.Random(per_cue_seed(cue["sound"], params, cue["start_abs"]))
         if sound.backend == "synth":
             raw = RECIPE_FUNCS[sound.recipe](rng, params)
+            if "pitch" in params:
+                raw = _resample(raw, float(params["pitch"]))
+        elif sound.backend == "tone":
+            raw = tone_rendered[f"{scene_id}_{i}"]
             if "pitch" in params:
                 raw = _resample(raw, float(params["pitch"]))
         else:
@@ -938,9 +960,24 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr):
 # ---------------------------------------------------------------------------
 
 
+def _sha256_file(path):
+    """SHA-256 hex of an arbitrary file, None on missing."""
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
 def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, total_sec):
     bcfg = cfg.get("bgm", {})
     scfg = cfg.get("sfx", {})
+    defs = sfx.load_sound_defs()
+    tone_recipes = {}
+    for cue in resolved_cues_for_scene:
+        sound = defs[cue["sound"]]
+        if sound.backend == "tone":
+            rel = f"sfx/sounds/{sound.sound}/recipe.mjs"
+            tone_recipes[rel] = _sha256_file(Path(__file__).resolve().parent.parent / rel)
     return pl.hash_sfx({
         "catalog_version": sfx.CATALOG_VERSION,
         "sfx_config": {"sample_rate": SR, "full_scale_db": scfg.get("full_scale_db", -10.0),
@@ -954,8 +991,9 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
                        "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5)},
         "durations": {str(x["id"]): round(scene_duration(x), 4) for x in all_scenes},
         "total_seconds": round(total_sec, 4),
-        "scene_bgm": scene.get("bgm"),                 # raw override (None / {..} / absent→None)
+        "scene_bgm": scene.get("bgm"),                 # raw override (None / {..} / absent->None)
         "cues": resolved_cues_for_scene,               # scene-relative, sorted by (when, sound)
+        "tone_recipes": tone_recipes,                  # recipe .mjs sha256s (tone backend only)
     })
 
 

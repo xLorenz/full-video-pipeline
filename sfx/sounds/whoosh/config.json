@@ -6,7 +6,7 @@
     "swish",
     "whoosh-up"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "noise_sweep_up",
   "tags": [
     "transition",

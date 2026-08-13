@@ -4,7 +4,7 @@
     "tap",
     "button"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "click",
   "tags": [
     "ui"

@@ -1,0 +1,21 @@
+{
+  "sound": "warning",
+  "aliases": [
+    "warning-sound",
+    "caution"
+  ],
+  "backend": "tone",
+  "recipe": "warning",
+  "tags": [
+    "ui"
+  ],
+  "moods": [
+    "tense",
+    "serious",
+    "neutral"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Double mid-range pulse, falling 750 to 520 Hz (~0.3s) — caution beats, 'careful', attention calls."
+}

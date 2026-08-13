@@ -1,0 +1,23 @@
+{
+  "sound": "success",
+  "aliases": [
+    "success-sound",
+    "confirm",
+    "achievement"
+  ],
+  "backend": "tone",
+  "recipe": "success",
+  "tags": [
+    "ui",
+    "emphasis"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Ascending major-third chime (C5 to E5, ~0.5s) with a bell sparkle partial — correct answers, milestones, positive confirms."
+}

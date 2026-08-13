@@ -4,7 +4,7 @@
     "shine",
     "sparkle-up"
   ],
-  "backend": "synth",
+  "backend": "tone",
   "recipe": "shimmer",
   "tags": [
     "accent",

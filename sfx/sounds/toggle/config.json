@@ -1,0 +1,20 @@
+{
+  "sound": "toggle",
+  "aliases": [
+    "flip",
+    "switch"
+  ],
+  "backend": "tone",
+  "recipe": "toggle",
+  "tags": [
+    "ui"
+  ],
+  "moods": [
+    "neutral",
+    "playful"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Springy flip sweep 300 to 850 Hz with overshoot settle (~0.18s) — before/after flips, switches, mode changes."
+}

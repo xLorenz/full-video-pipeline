@@ -1,0 +1,22 @@
+{
+  "sound": "bounce",
+  "aliases": [
+    "boing",
+    "rubber"
+  ],
+  "backend": "tone",
+  "recipe": "bounce",
+  "tags": [
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "humorous",
+    "neutral"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 1.5,
+  "params": {},
+  "description": "Rubber-ball bounce (~0.7s): 4 decreasing pitch-drop hits settling with a soft strike tick — playful entrances, bouncy moments."
+}

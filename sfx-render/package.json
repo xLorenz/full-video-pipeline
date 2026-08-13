@@ -1,0 +1,15 @@
+{
+  "name": "sfx-render",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Offline Tone.js/WebAudio renderer for the SFX catalog (tone backend)",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "node-web-audio-api": "^2.2.0",
+    "standardized-audio-context": "^25.3.77",
+    "tone": "^14.9.17"
+  }
+}

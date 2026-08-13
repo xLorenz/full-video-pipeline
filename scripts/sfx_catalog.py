@@ -23,7 +23,7 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 2   # BUMP whenever any sound def, recipe, or alias changes
+CATALOG_VERSION = 4   # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
 
 MOODS = ("serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat", "glitch")
 TAGS = ("transition", "emphasis", "impact", "ui", "organic", "riser", "glitch",
@@ -64,7 +64,7 @@ class ParamDef:
 class SoundDef:
     sound: str
     aliases: tuple
-    backend: str                 # "synth" | "sample"
+    backend: str                 # "synth" | "sample" | "tone"
     recipe: str | None = None    # synth only
     asset: str | None = None     # sample only
     tags: tuple = ()
@@ -130,6 +130,14 @@ def validate_catalog() -> list[str]:
             recipe = cfg.get("recipe")
             if recipe not in RECIPES:
                 errors.append(f"{rel}: unknown recipe '{recipe}' (registry: {', '.join(RECIPES)})")
+        elif cfg.get("backend") == "tone":
+            recipe = cfg.get("recipe")
+            if not recipe:
+                errors.append(f"{rel}: tone backend requires a 'recipe' name")
+            import tone_render
+            err = tone_render.check_recipe_syntax(cfg.get("sound"))
+            if err:
+                errors.append(err)
         elif cfg.get("backend") == "sample":
             asset = cfg.get("asset")
             actual = hash_manifest_file(asset) if asset else None
