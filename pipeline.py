@@ -1200,9 +1200,14 @@ def cmd_audit(args):
     # 5. Missing scene MP4s
     scenes = load_scenes(title)
     scenes_dir = vdir / "scenes"
+    ren = pl.load_config(video_dir=vdir).get("retention", {})
+    cleaned_by_retention = ren.get("clean_scene_mp4s_after_stitch", False)
     if scenes:
         missing = [s["id"] for s in scenes if not (scenes_dir / f"scene-{s['id']:02d}.mp4").exists()]
-        if missing:
+        if missing and cleaned_by_retention:
+            print(f"  Scene MP4s for {missing} absent — expected "
+                  f"(clean_scene_mp4s_after_stitch=true); re-stitch requires re-render.")
+        elif missing:
             violations.append(f"MISSING_SCENES: scenes {missing} missing MP4 in {scenes_dir}/")
         else:
             print("  All scene MP4s present.")
@@ -1297,47 +1302,46 @@ def cmd_doctor(args):
         all_ok = False
         print("  RECOMMENDED: fix schema violations shown above.")
 
-    # 4. Bug-pattern checks against the source scripts
-    print("\n=== 4. Source bug-pattern checks ===")
-
-    assemble_path = REPO_ROOT / "scripts" / "assemble.py"
-    thumbnail_path = REPO_ROOT / "scripts" / "render_thumbnail.py"
-
-    if assemble_path.exists():
-        assemble_text = assemble_path.read_text(encoding="utf-8")
-        # 4a. -map flags present in final mux
-        if "-map 0:v:0 -map 1:a:0" in assemble_text:
-            print("  [OK] assemble.py: -map flags present in final mux")
+    # 4. Functional output checks — probe the real artifacts instead of
+    # string-matching implementation source (which breaks on every refactor).
+    print("\n=== 4. Output artifact checks ===")
+    versions_dir = vdir / "versions"
+    mp4s = sorted(versions_dir.glob("*.mp4")) if versions_dir.exists() else []
+    if mp4s:
+        latest = max(mp4s, key=lambda p: p.stat().st_mtime)
+        streams = pl.ffprobe_streams(latest) or []
+        has_v = any(s.get("codec_type") == "video" for s in streams)
+        has_a = any(s.get("codec_type") == "audio" for s in streams)
+        if has_v and has_a:
+            print(f"  [OK] {latest.name}: video+audio streams present")
         else:
             all_ok = False
-            print("  [FAIL] assemble.py: missing -map 0:v:0 -map 1:a:0 in final mux")
-            print("  RECOMMENDED: add '-map 0:v:0 -map 1:a:0' to the final ffmpeg command"
-                  " after the two -i flags and before -c:v copy")
-        # 4b. atomic_replace_temp -f injection
-        if "-f {fmt}" in assemble_text or "'-f {fmt}'" in assemble_text:
-            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
-        elif "-f mp4" in assemble_text and "-f mp3" in assemble_text:
-            print("  [OK] assemble.py: atomic_replace_temp injects -f <ext>")
-        else:
-            all_ok = False
-            print("  [FAIL] assemble.py: atomic_replace_temp missing -f <ext> injection")
-            print("  RECOMMENDED: rewrite atomic_replace_temp to inject"
-                  " -f {fmt} before the temp output path regardless of codec flags")
+            print(f"  [FAIL] {latest.name}: missing streams (video={has_v}, audio={has_a})")
+            print("  RECOMMENDED: re-run Step 10; verify assemble.py mux inputs.")
     else:
-        print("  SKIP: scripts/assemble.py not found")
+        print("  SKIP: no version MP4s yet (Step 10 not run)")
 
-    if thumbnail_path.exists():
-        thumb_text = thumbnail_path.read_text(encoding="utf-8")
-        # 4c. Non-zero frame
-        if "--frame=0" not in thumb_text:
-            print("  [OK] render_thumbnail.py: does not use --frame=0")
+    thumbs = sorted(versions_dir.glob("*thumbnail*.png")) if versions_dir.exists() else []
+    if thumbs:
+        t = max(thumbs, key=lambda p: p.stat().st_mtime)
+        streams = pl.ffprobe_streams(t) or []
+        w = next((s.get("width") for s in streams
+                  if s.get("codec_type") == "video" and s.get("width")), None)
+        if w:
+            print(f"  [OK] {t.name}: decodes as image ({w}px wide)")
         else:
             all_ok = False
-            print("  [FAIL] render_thumbnail.py: uses --frame=0")
-            print("  RECOMMENDED: query composition metadata with"
-                  " npx remotion compositions --json and render at durationInFrames-1 instead")
+            print(f"  [FAIL] {t.name}: not a decodable image")
     else:
-        print("  SKIP: scripts/render_thumbnail.py not found")
+        print("  SKIP: no thumbnail PNG yet (Step 13 not run)")
+
+    tmps = list(versions_dir.glob("*.tmp")) if versions_dir.exists() else []
+    if tmps:
+        all_ok = False
+        print(f"  [FAIL] leftover temp files: {[p.name for p in tmps]} — an atomic write was interrupted")
+        print("  RECOMMENDED: delete the *.tmp files and re-run Step 10/13.")
+    else:
+        print("  No leftover .tmp files.")
 
     # Summary
     print(f"\n=== Doctor summary ===")
