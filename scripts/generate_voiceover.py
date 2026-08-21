@@ -76,13 +76,13 @@ def update_scene_in_scenes_json(video_dir_path, scene_id, audio_rel, duration, v
 
 
 async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pitch,
-                       sem, logpath):
+                       sem, logpath, engine="edge"):
     scene_id = scene["id"]
     text = scene["text"]
     output_file = f"scene-{scene_id:02d}.mp3"
     output_path = os.path.join(voiceover_dir, output_file)
     relative_path = f"voiceover/{output_file}"
-    voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch)
+    voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch, engine=engine)
 
     # Idempotency check: skip if file exists and hash matches.
     if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
@@ -110,7 +110,14 @@ async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pit
             # One retry after backoff (edge-tts is flaky on network)
             print(f"  WARN: first attempt failed ({e}); retrying in 5s...")
             await asyncio.sleep(5)
-            await generate_audio(text, output_path, voice, rate, volume, pitch)
+            try:
+                await generate_audio(text, output_path, voice, rate, volume, pitch)
+            except Exception as e2:
+                err = f"ERROR: Scene {scene_id}: both attempts failed ({e2})"
+                print(err)
+                with open(logpath, "a", encoding="utf-8") as logf:
+                    logf.write(err + "\n")
+                return ("failed", scene_id, voice_hash)
 
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             err = f"ERROR: Audio file not created at {output_path}"
@@ -187,8 +194,9 @@ async def main():
                    f"pitch={pitch} concurrency={concurrency}\n")
 
     sem = asyncio.Semaphore(concurrency)
+    engine = vo.get("engine", "edge")
     tasks = [generate_one(s, voiceover_dir, video_dir, voice, rate, volume, pitch,
-                          sem, log_file) for s in scenes]
+                          sem, log_file, engine=engine) for s in scenes]
     results = await asyncio.gather(*tasks)
 
     # Memory guard during the gather — note this only catches AFTER all tasks finish

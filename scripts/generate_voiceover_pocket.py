@@ -144,7 +144,8 @@ def scene_is_current(scene, existing_idx, voiceover_dir, voice, rate, volume, pi
     existing = existing_idx.get(scene["id"])
     if not existing:
         return False
-    voice_hash = pl.hash_voiceover(scene["text"], voice, rate, volume, pitch)
+    voice_hash = pl.hash_voiceover(scene["text"], voice, rate, volume, pitch,
+                                   engine="pocket")
     return existing.get("voiceover_hash") == voice_hash
 
 
@@ -230,7 +231,7 @@ def generate_one(model, voice_state, scene, voiceover_dir, video_dir,
     wav_path = os.path.join(voiceover_dir, wav_file)
     mp3_path = os.path.join(voiceover_dir, mp3_file)
     relative_path = f"voiceover/{mp3_file}"
-    voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch)
+    voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch, engine="pocket")
 
     # Idempotency check via the shared helper. The decision lives in
     # scene_is_current so main()'s pre-flight pass and generate_one agree.

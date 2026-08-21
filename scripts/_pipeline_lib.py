@@ -632,10 +632,16 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
 # ---------------------------------------------------------------------------
 
 
-def hash_voiceover(text, voice, rate, volume, pitch) -> str:
-    """Return a stable SHA-256 hex of the inputs that affect audio output."""
+def hash_voiceover(text, voice, rate, volume, pitch, engine="edge") -> str:
+    """Return a stable SHA-256 hex of the inputs that affect audio output.
+
+    ``engine`` participates so swapping edge<->pocket always invalidates cached
+    MP3s even when voice/rate strings happen to coincide (pocket ignores
+    rate/pitch but accepts them for hash compatibility).
+    """
     payload = json.dumps(
-        {"text": text, "voice": voice, "rate": rate, "volume": volume, "pitch": pitch},
+        {"text": text, "voice": voice, "rate": rate, "volume": volume,
+         "pitch": pitch, "engine": engine},
         sort_keys=True, ensure_ascii=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
