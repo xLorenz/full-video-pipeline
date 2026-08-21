@@ -9,8 +9,8 @@ total — fastest path for low-RAM boxes.
 
 Safety:
   - Codec/resolution/fps mismatch detected by ffprobe triggers a re-encode
-    fallback (libx264 -crf {render.crf}) instead of -c copy (which would
-    silently produce a broken file).
+    fallback (-c:v {stitching.final_codec} -crf {stitching.final_crf}) instead of
+    -c copy (which would silently produce a broken file).
   - Final MP4 is written atomically (temp + os.replace) so a crash doesn't
     leave a half-written "version".
   - Duration assertion: |final_duration - total_actual_seconds| <= 0.5s,
@@ -144,9 +144,7 @@ def main():
     print(f"  Scenes: {len(scenes)}")
 
     cfg = pl.load_config(video_dir=video_dir)
-    rcfg = cfg.get("render", {})
     scfg = cfg.get("stitching", {})
-    crf = rcfg.get("crf", 28)
     final_codec = scfg.get("final_codec", "libx264")
     final_audio_codec = scfg.get("final_audio_codec", "aac")
     final_crf = scfg.get("final_crf", 23)
@@ -259,8 +257,11 @@ def main():
                 f.write(f"file '{mp4}'\n")
         temp_video = temp_dir / "video_only.mp4"
         if mismatch:
+            # Re-encode at the FINAL delivery CRF (not the per-scene render crf):
+            # this pass produces the delivered file, so it should match the
+            # quality target of the stream-copy path rather than render scratch.
             cmd = (f'ffmpeg -y -f concat -safe 0 -i "{video_concat_list}" '
-                   f'-c:v {final_codec} -preset ultrafast -crf {crf} '
+                   f'-c:v {final_codec} -preset ultrafast -crf {final_crf} '
                    f'-an "{temp_video}"')
         else:
             cmd = (f'ffmpeg -y -f concat -safe 0 -i "{video_concat_list}" '
