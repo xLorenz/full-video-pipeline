@@ -285,12 +285,18 @@ marks Steps 7-8 done, then **auto-runs**:
   `psutil` (RAM/disk checks, orphaned-Chrome cleanup). A failed scene records
   `render_attempts += 1` and `last_render_error`, **does NOT abort the batch**
   — the orchestrator records the failure and continues. Re-running `complete`
-  skips already-rendered scenes and retries only failures. Per-scene logs in
+  skips already-rendered scenes whose Remotion sources are unchanged (each
+  successful render records a `render_hash` over `SceneXX.tsx` + shared
+  project sources — editing a scene's TSX, `lib/styles.ts`, or any shared
+  component makes the next Step 9 re-render just the affected scenes) and
+  retries only failures. Per-scene logs in
   `videos/<title>/logs/step-9-scene-{id}.log`.
 - **Step 10 (Stitching)**: Runs `assemble.py` — concatenates per-scene MP3s
-  into `voiceover_aligned.mp3`, concatenates scene MP4 video streams (copy, no
-  re-encode), muxes audio on video (single ffmpeg pass, `-c:v copy -c:a aac`),
-  auto-increments version `versions/{title}-v1.mp4`, `v2`, etc.
+  into `voiceover_aligned.mp3` with each chunk padded to exactly its rendered
+  frame count (audio timeline == video timeline), concatenates scene MP4 video
+  streams (copy, no re-encode), muxes audio on video (single ffmpeg pass,
+  `-c:v copy -c:a aac`), auto-increments version `versions/{title}-v1.mp4`,
+  `v2`, etc.
 
 The chain stops at the Phase 4 brief (Step 11 is creative). If Step 9 partial-fails
 (some scenes fail), `complete` exits 1 with `fix_and_continue`. To retry just the

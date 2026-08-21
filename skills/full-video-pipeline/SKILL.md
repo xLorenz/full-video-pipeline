@@ -184,7 +184,8 @@ mux at stitch" path. Authoring happens at **Step 8** (Remotion coding), where th
 animation timings live:
 
 - Each scene's `scenes.json` gets `beats` (named timing points mirroring the scene code's
-  `interpolate()` frames), `sfx` cues, and an optional `bgm` bed override.
+  `interpolate()` frames — authored as SECONDS: `time = frame / fps`), `sfx` cues, and an
+  optional `bgm` bed override.
 - Cue grammar: `{ "sound": "<id>", "when": "start|mid|end|beat:<name>|<seconds>", "volume": 0..1 }`.
   A `beat:` reference is the audio-visual link — "whoosh when cards_in happens". If you
   later nudge the animation timing, update the one `beats` entry; cues follow.
