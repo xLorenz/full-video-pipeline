@@ -37,17 +37,27 @@ MAX_TRACK_BYTES = 512 * 1024 * 1024  # 512 MB float buffer guard per track
 # ---------------------------------------------------------------------------
 
 
-def scene_duration(s):
-    """Actual duration (Step 6 value); falls back to target for pre-measure previews."""
+FPS = 30                            # overridden from scenes.json at runtime
+
+
+def scene_duration(s, fps=None):
+    """Frame-exact scene duration (actual_duration_frames / fps) so cue and bed
+    positions share the SAME timeline as the video scenes and assemble.py's
+    frame-padded voiceover. Falls back to raw measured seconds when frames are
+    missing (pre-Step-6 previews), then target seconds."""
+    f = fps if fps else globals().get("FPS", 30)
+    frames = s.get("actual_duration_frames")
+    if frames and f:
+        return float(frames) / float(f)
     return float(s.get("actual_duration_seconds") or s.get("target_duration_seconds") or 0.0)
 
 
-def cumulative_offsets(scenes):
+def cumulative_offsets(scenes, fps=None):
     """{scene_id: absolute_start_seconds}; returns (offsets, video_total_seconds)."""
     off, total, out = 0.0, 0.0, {}
     for s in sorted(scenes, key=lambda x: x["id"]):
         out[s["id"]] = off
-        d = scene_duration(s)
+        d = scene_duration(s, fps)
         off += d
         total += d
     return out, total
@@ -133,26 +143,26 @@ def measure_voiceover(video_dir):
     return peak, integrated
 
 
-def ensure_voiceover_aligned(video_dir, scenes):
-    """Rebuild voiceover_aligned.mp3 when missing (retention cleanup deletes it post-stitch)."""
+def ensure_voiceover_aligned(video_dir, scenes, fps=None):
+    """Rebuild voiceover_aligned.mp3 when missing (retention cleanup deletes it post-stitch).
+
+    Uses the SAME frame-padded concat as assemble.py (pl.voiceover_pad_graph) so
+    the loudness anchor is measured on audio identical to what gets muxed.
+    """
     video_dir = Path(video_dir)
     aligned = video_dir / "voiceover_aligned.mp3"
     if aligned.exists():
         return
     voiceover_dir = video_dir / "voiceover"
+    inputs, graph, missing = pl.voiceover_pad_graph(voiceover_dir, scenes, fps)
+    if missing:
+        print(f"ERROR: Voiceover MP3 missing for scenes: {missing}")
+        sys.exit(1)
     with tempfile.TemporaryDirectory(prefix=".vo_align_", dir=str(video_dir)) as td:
-        tmp = Path(td)
-        lst = tmp / "audio_concat.txt"
-        with open(lst, "w", encoding="utf-8") as f:
-            for s in sorted(scenes, key=lambda x: x["id"]):
-                mp3 = voiceover_dir / f"scene-{s['id']:02d}.mp3"
-                if not mp3.exists():
-                    print(f"ERROR: Voiceover MP3 missing for scene {s['id']}: {mp3}")
-                    sys.exit(1)
-                f.write(f"file '{mp3.resolve().as_posix()}'\n")
-        out_tmp = tmp / "aligned.mp3"
+        out_tmp = Path(td) / "aligned.mp3"
         result = subprocess.run(
-            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(out_tmp)],
+            ["ffmpeg", "-y", *inputs, "-filter_complex", graph,
+             "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "192k", str(out_tmp)],
             capture_output=True, text=True,
         )
         if result.returncode != 0 or not out_tmp.exists():
@@ -450,7 +460,7 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
     return master
 
 
-def render_bgm_track(scenes, offsets, total_sec, cfg, sr):
+def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
     """-> array('f') master buffer or None when disabled or fully silent scenes.
 
     RUNS: consecutive scenes with the same effective (track, volume) render as ONE
@@ -501,7 +511,7 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr):
             continue
         track, vol = tv
         start_abs = offsets[order[a]["id"]]
-        dur = sum(scene_duration(order[k]) for k in range(a, b + 1))
+        dur = sum(scene_duration(order[k], fps) for k in range(a, b + 1))
         if dur <= 0:
             continue
         rng = random.Random(per_cue_seed(track, {"volume": vol}, start_abs))
@@ -561,7 +571,8 @@ def _sha256_file(path):
         return None
 
 
-def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, total_sec):
+def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, total_sec,
+                   fps=None):
     bcfg = cfg.get("bgm", {})
     scfg = cfg.get("sfx", {})
     defs = sfx.load_sound_defs()
@@ -573,6 +584,7 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
             tone_recipes[rel] = _sha256_file(Path(__file__).resolve().parent.parent / rel)
     return pl.hash_sfx({
         "catalog_version": sfx.CATALOG_VERSION,
+        "fps": fps,                                    # timeline basis (frame-exact)
         "sfx_config": {"sample_rate": SR, "full_scale_db": scfg.get("full_scale_db", -10.0),
                         "tail_fade_seconds": scfg.get("tail_fade_seconds", 0.5)},
         "bgm_config": {"enabled": bcfg.get("enabled", True),
@@ -582,7 +594,7 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
                        "fade_out_seconds": bcfg.get("fade_out_seconds", 1.0),
                        "fade_in_seconds": bcfg.get("fade_in_seconds", 0.5),
                        "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5)},
-        "durations": {str(x["id"]): round(scene_duration(x), 4) for x in all_scenes},
+        "durations": {str(x["id"]): round(scene_duration(x, fps), 4) for x in all_scenes},
         "total_seconds": round(total_sec, 4),
         "scene_bgm": scene.get("bgm"),                 # raw override (None / {..} / absent->None)
         "cues": resolved_cues_for_scene,               # scene-relative, sorted by (when, sound)
@@ -648,8 +660,10 @@ def main():
     cfg = pl.load_config(video_dir=video_dir)
     global SR
     SR = int(cfg.get("sfx", {}).get("sample_rate", 44100))
+    global FPS
+    FPS = float(data.get("fps") or 30)
 
-    offsets, total_sec = cumulative_offsets(scenes)
+    offsets, total_sec = cumulative_offsets(scenes, FPS)
     samples_total = int(total_sec * SR)
     if samples_total * 4 > MAX_TRACK_BYTES:
         mb = samples_total * 4 / (1024 * 1024)
@@ -671,7 +685,7 @@ def main():
     for s in sorted(scenes, key=lambda x: x["id"]):
         sid = s["id"]
         beats = {b["name"]: b for b in s.get("beats", [])}
-        dur = scene_duration(s)
+        dur = scene_duration(s, FPS)
         for i, cue in enumerate(s.get("sfx", [])):
             sound_name = cue.get("sound", "")
             sound = sfx.resolve_sound(sound_name, defs)
@@ -738,7 +752,7 @@ def main():
                "params": dict(sorted((c["params"] or {}).items())) if c.get("params") else None}
               for c in per_scene_cues.get(s["id"], [])]
         sc.sort(key=lambda c: (str(c["when"]), c["sound"]))
-        hashes[s["id"]] = build_sfx_hash(s, scenes, sc, cfg, offsets, total_sec)
+        hashes[s["id"]] = build_sfx_hash(s, scenes, sc, cfg, offsets, total_sec, fps=FPS)
 
     unchanged = all(s.get("sfx_hash") == hashes[s["id"]] for s in scenes)
     if unchanged and not args.force:
@@ -752,7 +766,7 @@ def main():
         logf.write(json.dumps({"cues": len(resolved), "force": args.force}) + "\n")
 
     # measure the voiceover anchor
-    ensure_voiceover_aligned(video_dir, scenes)
+    ensure_voiceover_aligned(video_dir, scenes, FPS)
     vo_peak_db, vo_I = measure_voiceover(video_dir)
 
     tmp_dir = video_dir / ".sfx_tmp"
@@ -775,7 +789,7 @@ def main():
             print(f"  Created sfx_aligned.mp3 ({len(resolved)} cues, {total_sec:.1f} s)")
 
         # BGM track
-        bmaster = render_bgm_track(scenes, offsets, total_sec, cfg, SR)
+        bmaster = render_bgm_track(scenes, offsets, total_sec, cfg, SR, fps=FPS)
         if bmaster is None:
             stale = video_dir / "bgm_aligned.mp3"
             if stale.exists():

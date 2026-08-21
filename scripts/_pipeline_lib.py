@@ -566,6 +566,68 @@ def ffprobe_streams(filepath):
 
 
 # ---------------------------------------------------------------------------
+# Frame-exact voiceover concatenation (shared by assemble.py + generate_sfx.py)
+# ---------------------------------------------------------------------------
+
+
+def scene_padded_duration(scene, fps) -> float:
+    """Duration a scene's audio chunk must occupy: exactly its rendered frame
+    count divided by fps (measure_durations stores frames = ceil(vo_s * fps)).
+
+    Falls back to raw measured seconds, then target seconds, when frames are
+    unavailable (pre-Step-6 callers) — those callers get a printed warning.
+    """
+    frames = scene.get("actual_duration_frames")
+    if frames:
+        return float(frames) / float(fps or 30)
+    if not scene.get("_warned_no_frames"):
+        print(f"WARNING: scene {scene.get('id', '?')} has no actual_duration_frames "
+              f"— using raw seconds for audio padding (run Step 6 first)", file=sys.stderr)
+        scene["_warned_no_frames"] = True
+    return float(scene.get("actual_duration_seconds")
+                 or scene.get("target_duration_seconds") or 0.0)
+
+
+def voiceover_pad_graph(voiceover_dir, scenes, fps):
+    """Build inputs + filter graph for a frame-exact voiceover concatenation.
+
+    Each per-scene MP3 is resampled to 44.1 kHz mono, padded with apad to
+    EXACTLY ceil(vo_seconds*fps)/fps seconds, and all chunks are concatenated.
+    This makes the audio timeline identical to the video frame timeline —
+    without it, plain concat of raw-length chunks drifts ~0.5 frame per scene
+    against the ceil'd video scenes, so late-scene narration slides off its
+    visuals and beat-referenced SFX land progressively late.
+
+    Returns (input_args, graph, missing_ids):
+      input_args  — flat ["-i", "<abs posix path>", ...] list for ffmpeg
+      graph       — filter_complex string ending in the [aout] label
+      missing_ids — scene ids whose MP3 is absent (callers decide how to fail)
+    """
+    fps = float(fps or 30)
+    input_args = []
+    pads = []
+    labels = []
+    missing = []
+    ordered = sorted(scenes, key=lambda s: s["id"])
+    for idx, s in enumerate(ordered):
+        mp3 = Path(voiceover_dir) / f"scene-{s['id']:02d}.mp3"
+        if not mp3.exists():
+            missing.append(s["id"])
+            continue
+        dur = scene_padded_duration(s, fps)
+        input_args += ["-i", mp3.resolve().as_posix()]
+        pads.append(
+            f"[{idx}:a]aresample=44100,"
+            f"aformat=sample_fmts=s16:channel_layouts=mono,"
+            f"apad=whole_dur={dur:.6f}[a{idx}];"
+        )
+        labels.append(f"[a{idx}]")
+    n = len(labels)
+    graph = "".join(pads) + "".join(labels) + f"concat=n={n}:v=0:a=1[aout]"
+    return input_args, graph, missing
+
+
+# ---------------------------------------------------------------------------
 # Voiceover hashing (for idempotent generation)
 # ---------------------------------------------------------------------------
 

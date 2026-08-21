@@ -176,26 +176,39 @@ def main():
     temp_dir.mkdir(exist_ok=True)
 
     try:
-        # Step 1: Concat voiceover MP3s (copy, no re-encode — MP3 streams concat cleanly)
-        print("\n--- Step 1: Concatenating voiceover audio ---")
-        audio_concat_list = temp_dir / "audio_concat.txt"
-        with open(audio_concat_list, "w", encoding="utf-8") as f:
-            for s in scenes:
-                mp3 = voiceover_dir / f"scene-{s['id']:02d}.mp3"
-                if not mp3.exists():
-                    print(f"  ERROR: Voiceover MP3 missing for scene {s['id']}: {mp3}")
-                    sys.exit(1)
-                # concat demuxer requires forward slashes & escaping
-                rel = mp3.resolve().as_posix()
-                f.write(f"file '{rel}'\n")
+        # Step 1: Concat voiceover MP3s — frame-padded so the audio timeline is
+        # identical to the video timeline (each chunk occupies exactly its
+        # ceil'd frame count / fps). Plain -c copy concat drifts ~0.5 frame per
+        # scene against the ceil'd video scenes; late narration slides off its
+        # scene and beat-referenced SFX land progressively late.
+        print("\n--- Step 1: Concatenating voiceover audio (frame-padded) ---")
+        fps = data.get("fps", 30)
+        total_frames = sum((s.get("actual_duration_frames") or 0) for s in scenes)
+        vo_inputs, vo_graph, missing_vo = pl.voiceover_pad_graph(voiceover_dir, scenes, fps)
+        if missing_vo:
+            print(f"  ERROR: Voiceover MP3 missing for scenes: {missing_vo}")
+            sys.exit(1)
         aligned_audio = video_dir / "voiceover_aligned.mp3"
         ok = atomic_replace_temp(
             aligned_audio,
-            f'ffmpeg -y -f concat -safe 0 -i "{audio_concat_list}" -c copy "{aligned_audio}"',
+            f'ffmpeg -y {" ".join(vo_inputs)} -filter_complex "{vo_graph}" '
+            f'-map "[aout]" -c:a libmp3lame -b:a 192k "{aligned_audio}"',
         )
         if not ok or not aligned_audio.exists():
             print("ERROR: Failed to create voiceover_aligned.mp3")
             sys.exit(1)
+
+        # Pre-publish sync gate: padded audio must match the video timeline
+        # before anything gets muxed/published (fails BEFORE a version lands).
+        if total_frames > 0:
+            target_dur = total_frames / float(fps)
+            vo_dur = pl.get_audio_duration(aligned_audio)
+            if abs(vo_dur - target_dur) > 0.15:
+                print(f"  ERROR: padded voiceover duration {vo_dur:.2f}s differs from "
+                      f"video timeline {target_dur:.2f}s by more than 0.15s — "
+                      f"padding failed; refusing to stitch")
+                sys.exit(1)
+            print(f"  Sync gate: audio {vo_dur:.2f}s == video timeline {target_dur:.2f}s")
         audio_size = aligned_audio.stat().st_size / (1024 * 1024)
         print(f"  Created voiceover_aligned.mp3 ({audio_size:.1f} MB)")
 
@@ -373,9 +386,13 @@ def main():
             sys.exit(1)
         print(f"  Audio level: {mean_volume:.1f} dB")
 
-        # Duration assertion (tolerance 0.5s for ceil() drift)
-        expected_total = data.get("total_actual_seconds") or sum(
-            (s.get("actual_duration_seconds") or 0) for s in scenes)
+        # Duration sanity check (post-publish, informational — the real sync
+        # gate ran pre-publish in Step 1 against the frame timeline).
+        if total_frames > 0:
+            expected_total = total_frames / float(fps)
+        else:
+            expected_total = data.get("total_actual_seconds") or sum(
+                (s.get("actual_duration_seconds") or 0) for s in scenes)
         actual_dur = pl.get_audio_duration(output_file)
         if abs(actual_dur - expected_total) > 0.5:
             print(f"  WARNING: final duration {actual_dur:.2f}s vs expected "

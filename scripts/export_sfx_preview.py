@@ -108,12 +108,13 @@ def export_video_preview(video_dir):
     with open(scenes_json, "r", encoding="utf-8") as f:
         data = json.load(f)
     scenes = data.get("scenes", [])
-    offsets, total_sec = g.cumulative_offsets(scenes)
+    fps = data.get("fps") or 30
+    offsets, total_sec = g.cumulative_offsets(scenes, fps)
     defs = sfx.load_sound_defs()
     cue_times = []
     for s in sorted(scenes, key=lambda x: x["id"]):
         beats = {b["name"]: b for b in s.get("beats", [])}
-        dur = g.scene_duration(s)
+        dur = g.scene_duration(s, fps)
         for cue in s.get("sfx", []):
             try:
                 rel = g.resolve_when(cue.get("when"), dur, beats)
