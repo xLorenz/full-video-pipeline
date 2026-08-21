@@ -161,7 +161,8 @@ async def main():
         print(f"ERROR: VOICEOVER.md not found at {voiceover_md}", file=sys.stderr)
         sys.exit(2)
 
-    cfg = pl.load_config()
+    # Path() wrapper: load_config treats str as a bare title, not a directory
+    cfg = pl.load_config(video_dir=Path(video_dir))
     vo = cfg.get("voiceover", {})
     sys_cfg = cfg.get("system", {})
     voice = args.voice or vo.get("voice", "en-GB-RyanNeural")

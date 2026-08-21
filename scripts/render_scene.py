@@ -197,7 +197,7 @@ def main():
         print(f"ERROR: remotion directory not found: {remotion_dir}", file=sys.stderr)
         sys.exit(2)
 
-    cfg = pl.load_config()
+    cfg = pl.load_config(video_dir=video_dir)
     r = cfg.get("render", {})
     s = cfg.get("system", {})
     v = cfg.get("video", {})
