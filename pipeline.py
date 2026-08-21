@@ -711,11 +711,43 @@ def run_step_9(title, vdir):
     cfg_step9 = load_pipeline_config(video_dir=vdir)
     tmpl_step9 = pl.get_step_command_template("9_scene_rendering", cfg_step9)
     scenes = load_scenes(title)
+
+    # Source-hash invalidation: a scene with render_status=="rendered" is only
+    # skipped when its Remotion inputs are unchanged. Legacy scenes rendered
+    # before hashes existed are backfilled (NOT force-re-rendered) so future
+    # edits start invalidating from now on.
+    render_hashes = pl.compute_scene_render_hashes(vdir)
+    backfills = []
+    for s in scenes:
+        sid = s["id"]
+        if s.get("render_status") != "rendered":
+            continue
+        current = render_hashes.get(sid)
+        stored = s.get("render_hash")
+        if stored and current and stored == current:
+            print(f"  Scene {sid}: already rendered (source unchanged), skipping")
+        elif not stored:
+            print(f"  Scene {sid}: already rendered (no stored hash — recording), skipping")
+            if current:
+                backfills.append((sid, current))
+        else:
+            print(f"  Scene {sid}: source changed since last render — re-rendering")
+            s["render_status"] = "pending"
+    if backfills:
+        full_path = vdir / "scenes.json"
+        with open(full_path, "r", encoding="utf-8") as f:
+            full = json.load(f)
+        for sid, h in backfills:
+            for s in full.get("scenes", []):
+                if s["id"] == sid:
+                    s["render_hash"] = h
+        pl.save_scenes_full(vdir, full)
+
     failed_scenes = []
     for s in scenes:
         sid = s["id"]
         if s.get("render_status") == "rendered":
-            print(f"  Scene {sid}: already rendered, skipping")
+            # Fresh per the source-hash pre-filter above (its message printed there).
             continue
         print(f"\n  Rendering scene {sid}/{len(scenes)}: {s.get('title', '')}")
         # render_scene.py never raises for render failures; it returns exit 1.

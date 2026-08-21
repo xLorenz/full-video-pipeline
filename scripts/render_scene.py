@@ -157,6 +157,11 @@ def update_scene_status(video_dir_path: Path, scene_id: int,
             if status == "rendered":
                 s["scene_file"] = f"scenes/scene-{scene_id:02d}.mp4"
                 s["last_render_error"] = None
+                # Record the source hash this render was produced from so Step 9
+                # can detect stale scenes when SceneXX.tsx / shared sources change.
+                hashes = pl.compute_scene_render_hashes(video_dir_path)
+                if hashes.get(scene_id):
+                    s["render_hash"] = hashes[scene_id]
             else:
                 s["render_attempts"] = s.get("render_attempts", 0) + 1
                 if error:

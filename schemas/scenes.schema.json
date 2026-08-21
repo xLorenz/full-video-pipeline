@@ -102,6 +102,10 @@
             "default": "pending",
             "description": "Current render progress for this scene"
           },
+          "render_hash": {
+            "type": ["string", "null"],
+            "description": "SHA-256 of the scene's Remotion render inputs (SceneXX.tsx + shared project sources). Gates re-render on source change (set by render_scene.py, checked by Step 9)."
+          },
           "render_attempts": {
             "type": "integer",
             "minimum": 0,

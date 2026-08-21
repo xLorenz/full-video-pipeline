@@ -653,6 +653,47 @@ def hash_sfx(obj) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+def compute_scene_render_hashes(video_dir) -> dict:
+    """{scene_id: sha256} over each scene's Remotion render inputs.
+
+    Per-scene hash = sha256(shared_project_digest + bytes(scenes/SceneXX.tsx)).
+    The shared digest covers every file under remotion/src EXCEPT the
+    per-scene TSX files (lib/, components/, Root.tsx, index.css,
+    SceneMap.generated.ts ...), so editing one scene's TSX invalidates only
+    that scene, while editing styles/config/shared components invalidates all.
+    Returns {} before Step 8 exists (no remotion/src).
+    """
+    src = Path(video_dir) / "remotion" / "src"
+    if not src.is_dir():
+        return {}
+    shared_h = hashlib.sha256()
+    scene_bytes = {}
+    shared_files = []
+    for p in sorted(src.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(src).as_posix()
+        data = p.read_bytes()
+        if rel.startswith("scenes/") and rel.endswith(".tsx"):
+            scene_bytes[rel] = data
+        else:
+            shared_files.append((rel, data))
+    for rel, data in sorted(shared_files):
+        shared_h.update(rel.encode("utf-8"))
+        shared_h.update(data)
+    shared_digest = shared_h.hexdigest().encode("utf-8")
+    out = {}
+    for rel, data in scene_bytes.items():
+        digits = "".join(ch for ch in Path(rel).stem if ch.isdigit())
+        if not digits:
+            continue
+        sh = hashlib.sha256()
+        sh.update(shared_digest)
+        sh.update(data)
+        out[int(digits)] = sh.hexdigest()
+    return out
+
+
 # ---------------------------------------------------------------------------
 # subprocess helper with optional log tee
 # ---------------------------------------------------------------------------
