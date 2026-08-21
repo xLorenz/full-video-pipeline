@@ -507,7 +507,7 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr):
         rng = random.Random(per_cue_seed(track, {"volume": vol}, start_abs))
         loop = _loop_pad(BGM_FUNCS[track](rng, sr, dur))
         seg = apply_gain_db(_tile(loop, int(dur * sr)),
-                            bed_gain_db(vol, bcfg.get("bed_db", -18.0)))
+                            bed_gain_db(vol, bcfg.get("bed_db", -12.0)))
         segs.append((int(start_abs * sr), seg))
 
     if not segs:                                       # all-silent run set → no track
@@ -516,14 +516,17 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr):
     # 4. write into master; equal-power blend where adjacent segments differ
     prev = None                      # (start_sample, samples)
     for start, seg in segs:
-        if prev is not None and start == prev[0] + len(prev[1]):
+        if prev is not None and abs(start - (prev[0] + len(prev[1]))) <= 1:
             X = min(int(xfade * sr), len(prev[1]) // 2, len(seg) // 2)
             if X > 32:               # blend region straddles the boundary
                 for k in range(X):
                     t = k / X
-                    master[prev[0] + len(prev[1]) - X + k] = \
+                    master[start - X + k] = \
                         prev[1][-X + k] * math.cos(t * math.pi / 2.0) + \
                         seg[k] * math.sin(t * math.pi / 2.0)
+                for k in range(X):
+                    t = k / X
+                    master[start + k] = seg[k] * math.sin(t * math.pi / 2.0)
                 for k in range(X, len(seg)):
                     master[start + k] = seg[k]
             else:
@@ -575,7 +578,7 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
         "bgm_config": {"enabled": bcfg.get("enabled", True),
                        "default_track": bcfg.get("default_track", "pulse_light"),
                        "default_volume": bcfg.get("default_volume", 0.6),
-                       "bed_db": bcfg.get("bed_db", -18.0),
+                       "bed_db": bcfg.get("bed_db", -12.0),
                        "fade_out_seconds": bcfg.get("fade_out_seconds", 1.0),
                        "fade_in_seconds": bcfg.get("fade_in_seconds", 0.5),
                        "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5)},

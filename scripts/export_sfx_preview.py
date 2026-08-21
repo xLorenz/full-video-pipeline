@@ -7,8 +7,8 @@ agent can SEE the cue placement it cannot hear. Non-fatal by design when called
 from the Step-10 hook.
 
 --catalog mode: exports a self-contained HTML dial-in preview (one play button
-per catalogued sound, audio embedded as base64 mp3 data URIs) for the human
-authoring loop.
+per catalogued sound AND per BGM bed, audio embedded as base64 mp3 data URIs)
+for the human authoring loop.
 
 Usage: python3 export_sfx_preview.py [<video_dir>] | --catalog
 """
@@ -17,6 +17,7 @@ import base64
 import json
 import math
 import os
+import random
 import subprocess
 import sys
 import tempfile
@@ -233,11 +234,42 @@ def export_catalog_preview():
       </div>
     </div>""")
 
+    # BGM beds: one loop each, rendered at the mix-level bed gain (bed_db −12 dB
+    # rel. voiceover peak, default volume 0.6 — same law as render_bgm_track).
+    bgm_meta = {
+        "pulse_light": "Light kick + airy pad — default safe choice",
+        "pulse_dark": "Deep kick + minor pad — serious/tech content",
+        "ambient_calm": "Drifting chord pad, no percussion — narration-forward",
+        "tension_riser": "Rising tone + accelerating ticks — countdowns, climaxes",
+    }
+    bgm_items = []
+    for track, meta in sorted(sfx.BGM_TRACKS.items()):
+        rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0)))
+        loop = g._loop_pad(g.BGM_FUNCS[track](rng, sr, 0.0))
+        raw = g.apply_gain_db(loop, g.bed_gain_db(0.6, -12.0))
+        wav = out_dir / f".{track}.wav"
+        g.write_wav(wav, raw, sr)
+        mp3 = out_dir / f".{track}.mp3"
+        g.encode_mp3(wav, mp3)
+        b64 = base64.b64encode(mp3.read_bytes()).decode()
+        wav.unlink(missing_ok=True)
+        mp3.unlink(missing_ok=True)
+        moods = ", ".join(meta["moods"])
+        bpm = f"{meta['bpm']} bpm" if meta["bpm"] else "—"
+        bgm_items.append(f"""
+    <div class="sound">
+      <button class="play" data-src="data:audio/mpeg;base64,{b64}">&#9654; {track}</button>
+      <div class="meta">
+        <p class="desc">{bgm_meta[track]}</p>
+        <p><b>moods:</b> {moods} &nbsp; <b>tempo:</b> {bpm} &nbsp; <b>energy:</b> {meta['energy']}</p>
+      </div>
+    </div>""")
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>SFX catalog dial-in preview</title>
+<title>SFX + BGM catalog dial-in preview</title>
 <style>
   body {{ font-family: system-ui, sans-serif; margin: 2rem; background: #0f172a; color: #e2e8f0; }}
   h1 {{ font-size: 1.4rem; }}
@@ -251,9 +283,11 @@ def export_catalog_preview():
 </style>
 </head>
 <body>
-<h1>SFX catalog dial-in preview (engine-rendered, default params)</h1>
+<h1>SFX + BGM catalog dial-in preview (engine-rendered, default params)</h1>
 <button class="stop" id="stopAll">Stop all</button>
 {''.join(items)}
+<h2 style="margin-top:2rem;">BGM beds (mix level, default settings — one loop)</h2>
+{''.join(bgm_items)}
 <script>
   const audio = new Audio();
   document.querySelectorAll('button.play').forEach(b => {{
@@ -273,7 +307,7 @@ def export_catalog_preview():
         f.write(html)
     os.replace(tmp, out)
     print(f"  Created {out.relative_to(Path(__file__).resolve().parent.parent)} "
-          f"({len(defs)} sounds, self-contained)")
+          f"({len(defs)} sounds + {len(bgm_items)} beds, self-contained)")
 
 
 def main():

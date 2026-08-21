@@ -93,5 +93,5 @@ value is a validation error, not a warning.
 
 ## Volume law (for the curious — you never compute this)
 gain_db = full_scale_db + (volume − 1) × 10, all relative to the measured voiceover peak;
-beds sit at bed_db (−18 dB) + the same law. Post-mix asserts: true peak ≤ −1 dBFS, integrated
+beds sit at bed_db (−12 dB) + the same law. Post-mix asserts: true peak ≤ −1 dBFS, integrated
 ≤ voiceover + 1.5 LUFS.

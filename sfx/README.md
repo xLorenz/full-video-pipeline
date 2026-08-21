@@ -54,7 +54,8 @@ catalog and is **not loaded** in Phase 3 briefs.
 Per-scene override: `"bgm": { "track": "ambient_calm", "volume": 0.4 }`. `"bgm": null` inserts
 a silence span. Bed continuity is engine-owned: same (track, volume) flows seamlessly across
 consecutive scenes; changes blend with an equal-power crossfade; the bed ducks under the
-voiceover automatically.
+voiceover automatically. `--catalog` preview includes one-loop auditions of every bed at mix
+level.
 
 ## Aliases
 

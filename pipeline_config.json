@@ -44,19 +44,19 @@
     },
     "steps": {
         "5_voiceover_generation": {
-            "command_template": "python3 scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}"
+            "command_template": "{python} scripts/generate_voiceover.py {video_dir} --voice {voiceover.voice}"
         },
         "6_duration_measurement": {
-            "command_template": "python3 scripts/measure_durations.py {video_dir}"
+            "command_template": "{python} scripts/measure_durations.py {video_dir}"
         },
         "9_scene_rendering": {
-            "command_template": "python3 scripts/render_scene.py {video_dir} {scene_id}"
+            "command_template": "{python} scripts/render_scene.py {video_dir} {scene_id}"
         },
         "10_stitching": {
-            "command_template": "python3 scripts/assemble.py {video_dir}"
+            "command_template": "{python} scripts/assemble.py {video_dir}"
         },
         "13_thumbnail_rendering": {
-            "command_template": "python3 scripts/render_thumbnail.py {video_dir}"
+            "command_template": "{python} scripts/render_thumbnail.py {video_dir}"
         }
     },
     "config_files": {
@@ -107,7 +107,7 @@
         "enabled": true,
         "default_track": "pulse_light",
         "default_volume": 0.6,
-        "bed_db": -18.0,
+        "bed_db": -12.0,
         "duck": true,
         "duck_threshold_db": -25.0,
         "duck_ratio": 8.0,
