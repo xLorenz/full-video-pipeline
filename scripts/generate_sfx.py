@@ -659,9 +659,14 @@ def main():
     # resolve cues per scene (defensive re-validation)
     resolved = []
     bcfg = cfg.get("bgm", {})
-    # A bed runs iff bgm is enabled AND at least one scene does not opt out via "bgm": null
-    # (scenes with no bgm key inherit the default bed).
-    bgm_active = bcfg.get("enabled", True) and any(s.get("bgm") is not None for s in scenes)
+    # A bed runs iff bgm is enabled AND at least one scene does not opt out via
+    # an explicit "bgm": null. Scenes with NO bgm key inherit the default bed
+    # (render_bgm_track treats ABSENT as (default_track, default_volume)), so
+    # they must count as active here too — otherwise cue-less videos relying on
+    # the global default bed exited before any music was rendered.
+    # Sentinel "ABSENT" distinguishes a missing key from an explicit null.
+    bgm_active = bcfg.get("enabled", True) and any(
+        s.get("bgm", "ABSENT") is not None for s in scenes)
     defs = sfx.load_sound_defs()
     for s in sorted(scenes, key=lambda x: x["id"]):
         sid = s["id"]
