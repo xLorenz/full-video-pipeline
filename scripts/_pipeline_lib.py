@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -216,8 +217,8 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
     """Substitute {variables} in a step command template.
 
     Available substitutions:
-      {video_dir}        — the videos/<title> path (string)
-      {python}           — sys.executable of the current interpreter (cross-platform)
+      {video_dir}        — the videos/<title> path (string, shell-quoted)
+      {python}           — sys.executable of the current interpreter (shell-quoted)
       {scene_id}         — integer scene id (only for Step 9)
       {voiceover.voice}  — any dotted config path under the loaded config
       {voiceover.rate}, {voiceover.volume}, {voiceover.pitch}, {voiceover.concurrency}
@@ -226,6 +227,11 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
 
     Unknown {dotted.path} markers resolve by walking the loaded config dict;
     missing leaves render as empty string (with a warning to stderr).
+
+    Values are substituted with shell quoting (shlex.quote on POSIX), so
+    config values containing spaces or shell metacharacters stay one argument.
+    Templates must NOT pre-quote the token themselves ("{token}" would bake
+    literal quote characters into the argument).
     """
     if cfg is None:
         cfg = load_config(video_dir=video_dir)
@@ -235,7 +241,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
 
     # Build a flat substitution map. We support {video_dir}, {python},
     # {scene_id}, and arbitrary {section.key.key} references into the config dict.
-    subs = {"video_dir": vd_str, "python": f'"{sys.executable}"'}
+    subs = {"video_dir": shlex.quote(vd_str), "python": shlex.quote(sys.executable)}
     if scene_id is not None:
         subs["scene_id"] = str(scene_id)
 
@@ -254,7 +260,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
                 print(f"WARNING: render_step_command: unknown token {{{token}}}"
                       f" — substituting empty string", file=sys.stderr)
                 return ""
-        return str(cur)
+        return shlex.quote(str(cur))
 
     return re.sub(r"\{([a-zA-Z_][a-zA-Z0-9_.]*)\}", _resolve, template)
 
@@ -752,7 +758,19 @@ def find_versions_to_prune(versions_dir: Path, safe_title: str, pattern_str: str
 
 
 def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
-    """Run a shell command, stream to stdout, optionally tee to a log file."""
+    """Run a command, capture output, echo it indented, optionally tee to a log.
+
+    ``cmd`` may be a string (executed via the shell) or an argv list — lists
+    are joined with proper quoting first (subprocess's list+shell=True
+    combination is a POSIX trap: only argv[0] becomes the shell command string,
+    so ['python','script.py','dir'] silently ran a bare interactive REPL).
+    """
+    if isinstance(cmd, (list, tuple)):
+        parts = [str(p) for p in cmd]
+        if os.name == "nt":
+            cmd = subprocess.list2cmdline(parts)
+        else:
+            cmd = " ".join(shlex.quote(p) for p in parts)
     print(f"  $ {cmd}")
     log_f = open(logpath, "a", encoding="utf-8") if logpath else None
     try:
