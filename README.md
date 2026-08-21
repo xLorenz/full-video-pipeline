@@ -91,9 +91,10 @@ python3 pipeline.py clean my-video-topic
 
 ```
 full-video-pipeline/
-├── SKILL.md                     # Master orchestrator (agent follows this)
-├── pipeline.py                  # CLI: new, continue, status, validate, preview, captions
-├── pipeline_config.json         # Default settings (voice, render, system limits)
+├── AGENTS.md                       # Agent protocol summary (read skills/full-video-pipeline/SKILL.md first)
+├── pipeline.py                  # CLI: run, new, continue, complete, status, validate, lint-script,
+│                                  #   preview, preview-frame, captions, sfx, audit, doctor, clean
+├── pipeline_config.json         # Default settings (voice, render, system limits, sfx, bgm)
 ├── package.json                 # npm workspace config
 ├── scripts/
 │   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
@@ -106,6 +107,10 @@ full-video-pipeline/
 │   ├── assemble.py                      # Efficient single-pass stitching (atomic, codec-safe)
 │   ├── render_thumbnail.py              # Remotion still render for YouTube thumbnail
 │   ├── generate_captions.py             # SRT sidecar + per-scene caption cues
+│   ├── generate_sfx.py                  # SFX/BGM track builder (absolute timeline, hash-idempotent)
+│   ├── export_sfx_preview.py            # Audition mp3 + waveform PNG / catalog HTML preview
+│   ├── sfx_catalog.py                   # sfx/ catalog loader (defs, moods, aliases, validation)
+│   ├── tone_render.py                   # Tone.js/WebAudio recipe bridge (node side)
 │   ├── publish_animations.py            # Publish templates/animations/ into per-video projects
 │   ├── preview_animations.py            # Render on-demand 3s stubs of every published template
 │   ├── requirements.txt                 # Python deps (edge-tts, jsonschema, psutil)
@@ -119,11 +124,16 @@ full-video-pipeline/
 ├── schemas/
 │   ├── scenes.schema.json
 │   ├── pipeline_state.schema.json
-│   └── animations.schema.json   # Global DeepConfig schema (per-template schemas layer on top)
+│   ├── animations.schema.json   # Global DeepConfig schema (per-template schemas layer on top)
+│   └── sfx.schema.json          # Sound catalog config schema
+├── sfx/                         # Sound catalog: CC0 samples + Tone.js recipes (+ CATALOG.md)
+├── sfx-render/                  # Node/WebAudio offline renderer for tone-backend recipes
 ├── skills/
+│   ├── full-video-pipeline/     # THIS PIPELINE'S SKILL — source of truth (SKILL.md + references/)
 │   ├── claude-youtube/          # Script writing reference (submodule)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
 └── videos/                      # Auto-managed per-video projects (gitignored)
+```
     └── {video-title}/
         ├── SCRIPT.md               # Full script
         ├── VOICEOVER.md            # Parseable voiceover text
@@ -237,6 +247,27 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "final_codec": "libx264",
     "final_audio_codec": "aac",
     "final_crf": 23
+  },
+  "sfx": {
+    "sample_rate": 44100,
+    "full_scale_db": -10.0,
+    "tail_fade_seconds": 0.5,
+    "true_peak_ceiling_db": -1.0,
+    "integrated_max_offset_db": 1.5
+  },
+  "bgm": {
+    "enabled": true,
+    "default_track": "pulse_light",
+    "default_volume": 0.6,
+    "bed_db": -12.0,
+    "duck": true,
+    "duck_threshold_db": -25.0,
+    "duck_ratio": 8.0,
+    "duck_attack_ms": 5.0,
+    "duck_release_ms": 250.0,
+    "fade_out_seconds": 1.0,
+    "fade_in_seconds": 0.5,
+    "crossfade_seconds": 0.5
   },
   "system": {
     "min_available_ram_mb": 200,
@@ -357,8 +388,9 @@ these, use the `edge` engine or call `pocket_tts` directly.
 
 Voiceover is **not** baked into scene MP4s. Scene components render silent video.
 At stitch time, `assemble.py` concatenates the per-scene MP3s into one
-`voiceover_aligned.mp3`, muxes it onto the concatenated scene MP4s in a single
-ffmpeg pass, and writes the result atomically. This:
+`voiceover_aligned.mp3` — each chunk padded to exactly its rendered frame count
+so the audio timeline matches the video timeline — muxes it onto the concatenated
+scene MP4s in a single ffmpeg pass, and writes the result atomically. This:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps a single audio encode pass total (fastest path for low-RAM boxes)
@@ -434,12 +466,16 @@ python3 pipeline.py continue my-video              # Run next step (validates st
 python3 pipeline.py complete my-video              # Validate current creative phase + auto-run next automated steps
 python3 pipeline.py complete my-video --step 7    # Complete a specific step (refused if earlier steps pending)
 python3 pipeline.py complete my-video --step 7 --force  # Out-of-order override (audit/doctor will flag)
-python3 pipeline.py status my-video                # Show specific project (with attempts column)
+python3 pipeline.py status my-video                # Show specific project (with attempts column; add --scenes for per-scene table)
 python3 pipeline.py validate my-video              # Standalone schema validation
 python3 pipeline.py validate my-video --step 6     # Step-specific requirements
+python3 pipeline.py lint-script my-video           # Lint scenes.json voiceover_text for AI-isms (write->lint->fix loop, Phase 1)
 python3 pipeline.py preview my-video               # Smoke-render scene 1
+python3 pipeline.py preview-frame my-video 2 45    # Render a single still (scene 2, MainVideo frame 45) for visual QA
 python3 pipeline.py captions my-video              # Generate SRT + populate captions
-python3 pipeline.py audit my-video                # Audit for violations
+python3 pipeline.py sfx my-video                   # Generate SFX/BGM tracks (idempotent)
+python3 pipeline.py sfx my-video --preview         # Also export sfx_preview.mp3 + waveform PNG
+python3 pipeline.py audit my-video                # Audit for violations (always after a --force)
 python3 pipeline.py doctor my-video                # System + project diagnostics
 python3 pipeline.py clean my-video                 # Free disk space (all safe-to-delete items)
 
