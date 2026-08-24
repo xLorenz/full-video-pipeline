@@ -3,7 +3,8 @@
   "private": true,
   "dependencies": {},
   "optionalDependencies": {
-    "@remotion/compositor-linux-x64-gnu": "4.0.484"
+    "@remotion/compositor-linux-x64-gnu": "4.0.484",
+    "@remotion/compositor-win32-x64-msvc": "4.0.484"
   },
   "workspaces": [
     "remotion-foundation",
