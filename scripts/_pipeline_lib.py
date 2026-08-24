@@ -393,19 +393,19 @@ load_pipeline_config = load_config
 
 
 def init_console():
-    """Make stdout/stderr tolerant of legacy console codecs (cp1252 etc.).
+    """Make stdout/stderr UTF-8 with replacement for legacy consoles (cp1252).
 
-    Step scripts print em-dashes/arrows in diagnostics; when stdout is a pipe
-    under a locale codec (the orchestrator's subprocess pipes on Windows),
-    those prints raise UnicodeEncodeError and kill the child. Idempotent and
-    safe on every platform — called at import time below so every script that
-    imports this library is covered automatically.
+    Step scripts print em-dashes/arrows; when stdout is a pipe under a locale
+    codec those prints raise UnicodeEncodeError and kill the child. Forcing
+    UTF-8 also prevents mojibake when the orchestrator decodes child output as
+    UTF-8. Idempotent and safe on every platform — called at import time below
+    so every script that imports this library is covered automatically.
     """
     for stream_name in ("stdout", "stderr"):
         stream = getattr(sys, stream_name, None)
         if stream is not None and hasattr(stream, "reconfigure"):
             try:
-                stream.reconfigure(errors="replace")
+                stream.reconfigure(encoding="utf-8", errors="replace")
             except (ValueError, AttributeError, OSError):
                 pass
 
