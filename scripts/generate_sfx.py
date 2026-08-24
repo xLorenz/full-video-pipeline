@@ -168,7 +168,7 @@ def ensure_voiceover_aligned(video_dir, scenes, fps=None):
         if result.returncode != 0 or not out_tmp.exists():
             print("ERROR: could not rebuild voiceover_aligned.mp3")
             sys.exit(1)
-        os.replace(out_tmp, aligned)
+        pl.atomic_replace(Path(out_tmp), Path(aligned))
 
 
 # ---------------------------------------------------------------------------
@@ -629,7 +629,7 @@ def encode_mp3(wav, out):
         if Path(tmp).exists():
             Path(tmp).unlink()
         return False
-    os.replace(tmp, out)
+    pl.atomic_replace(Path(tmp), Path(out))
     return out.stat().st_size > 1000
 
 

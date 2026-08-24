@@ -101,7 +101,7 @@ def export_video_preview(video_dir):
         if r.returncode != 0 or not Path(tmp).exists():
             print("ERROR: failed to export preview mix mp3")
             sys.exit(1)
-    os.replace(tmp, out)
+    pl.atomic_replace(Path(tmp), Path(out))
     print(f"  Created {out.name} ({out.stat().st_size / 1024 / 1024:.1f} MB)")
 
     # 3. Waveform PNG with scene boundaries + cue markers
@@ -173,7 +173,7 @@ def build_png(sfx_preview_mp3, scene_ids, offsets, cue_times, total_sec, out_png
                       "-map", f"[img{len(segs) - 1}]", "-frames:v", "1", str(tmp_png)])
             if r.returncode != 0 or not tmp_png.exists():
                 return False
-            os.replace(tmp_png, out_png)
+            pl.atomic_replace(Path(tmp_png), Path(out_png))
             return True
 
         if run_png(True):
@@ -306,7 +306,7 @@ def export_catalog_preview():
     tmp = str(out) + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(html)
-    os.replace(tmp, out)
+    pl.atomic_replace(Path(tmp), Path(out))
     print(f"  Created {out.relative_to(Path(__file__).resolve().parent.parent)} "
           f"({len(defs)} sounds + {len(bgm_items)} beds, self-contained)")
 

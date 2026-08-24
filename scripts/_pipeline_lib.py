@@ -510,12 +510,28 @@ def log_path(title, step, scene_id=None):
 # ---------------------------------------------------------------------------
 
 
+def atomic_replace(src: Path, dst: Path, retries: int = 5):
+    """os.replace with a small retry loop for Windows AV/file-lock races."""
+    import time as _time
+
+    last: Exception | None = None
+    for attempt in range(retries):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as e:
+            last = e
+            _time.sleep(0.05 * (attempt + 1))
+    if last is not None:
+        raise last
+
+
 def _atomic_write_json(path: Path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, path)
+    atomic_replace(tmp, path)
 
 
 def load_scenes(title):

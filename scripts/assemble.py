@@ -105,7 +105,7 @@ def atomic_replace_temp(output_file, cmd, pre_commit=None):
     if pre_commit is not None and not pre_commit(Path(tmp)):
         Path(tmp).unlink(missing_ok=True)
         return False
-    os.replace(tmp, output_file)
+    pl.atomic_replace(Path(tmp), Path(output_file))
     return True
 
 
