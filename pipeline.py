@@ -1243,25 +1243,24 @@ def cmd_doctor(args):
 
     all_ok = True
 
-    # 1. System check
+    # 1. System check (cross-platform Python checker; .sh remains as a shim)
     print("=== 1. System check ===")
-    sys_check = REPO_ROOT / "scripts" / "check_system.sh"
-    if sys_check.exists():
-        try:
-            r = subprocess.run(
-                ["bash", str(sys_check)], capture_output=True, text=True, timeout=30,
-            )
-            print(r.stdout)
-            if r.stderr:
-                print(r.stderr)
-            if r.returncode != 0:
-                all_ok = False
-                print("  FAIL: system check failed — see above.")
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            print("  SKIP: bash not available or timed out on this system")
-    else:
-        print("  SKIP: scripts/check_system.sh not found")
-        print("  RECOMMENDED: run on Linux or WSL for full system diagnostics.")
+    sys_check = REPO_ROOT / "scripts" / "check_system.py"
+    if not sys_check.exists():
+        sys_check = REPO_ROOT / "scripts" / "check_system.sh"
+    try:
+        r = subprocess.run(
+            [sys.executable, str(sys_check)], capture_output=True, text=True,
+            timeout=30, encoding="utf-8", errors="replace",
+        )
+        print(r.stdout)
+        if r.stderr:
+            print(r.stderr)
+        if r.returncode != 0:
+            all_ok = False
+            print("  FAIL: system check failed — see above.")
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"  SKIP: system check could not run ({e})")
 
     # 2. Remotion version drift
     print("\n=== 2. Remotion version check ===")
