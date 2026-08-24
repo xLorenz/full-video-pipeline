@@ -11,12 +11,26 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
+
+
+def shell_quote(value) -> str:
+    """Quote a single argument for the platform's default shell.
+
+    POSIX shells understand shlex.quote's single-quote form; cmd.exe does not
+    treat single quotes as quoting characters, so use subprocess's own
+    MSVC-style quoting there.
+    """
+    value = str(value)
+    if os.name == "nt":
+        return subprocess.list2cmdline([value])
+    return shlex.quote(value)
 
 # ---------------------------------------------------------------------------
 # Step pipeline metadata (single source of truth for scripts + orchestrator)
@@ -228,8 +242,9 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
     Unknown {dotted.path} markers resolve by walking the loaded config dict;
     missing leaves render as empty string (with a warning to stderr).
 
-    Values are substituted with shell quoting (shlex.quote on POSIX), so
-    config values containing spaces or shell metacharacters stay one argument.
+    Values are substituted with shell quoting (platform-aware: shlex.quote on
+    POSIX, MSVC-style via subprocess.list2cmdline on Windows), so config values
+    containing spaces or shell metacharacters stay one argument.
     Templates must NOT pre-quote the token themselves ("{token}" would bake
     literal quote characters into the argument).
     """
@@ -241,7 +256,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
 
     # Build a flat substitution map. We support {video_dir}, {python},
     # {scene_id}, and arbitrary {section.key.key} references into the config dict.
-    subs = {"video_dir": shlex.quote(vd_str), "python": shlex.quote(sys.executable)}
+    subs = {"video_dir": shell_quote_arg(vd_str), "python": shell_quote_arg(sys.executable)}
     if scene_id is not None:
         subs["scene_id"] = str(scene_id)
 
@@ -260,7 +275,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
                 print(f"WARNING: render_step_command: unknown token {{{token}}}"
                       f" — substituting empty string", file=sys.stderr)
                 return ""
-        return shlex.quote(str(cur))
+        return shell_quote_arg(cur)
 
     return re.sub(r"\{([a-zA-Z_][a-zA-Z0-9_.]*)\}", _resolve, template)
 
@@ -375,6 +390,72 @@ load_pipeline_config = load_config
 # ---------------------------------------------------------------------------
 # Paths & sanitization
 # ---------------------------------------------------------------------------
+
+
+def init_console():
+    """Make stdout/stderr tolerant of legacy console codecs (cp1252 etc.).
+
+    Step scripts print em-dashes/arrows in diagnostics; when stdout is a pipe
+    under a locale codec (the orchestrator's subprocess pipes on Windows),
+    those prints raise UnicodeEncodeError and kill the child. Idempotent and
+    safe on every platform — called at import time below so every script that
+    imports this library is covered automatically.
+    """
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (ValueError, AttributeError, OSError):
+                pass
+
+
+# Cover every importer at import time (scripts only need to import the lib).
+init_console()
+
+
+def shell_quote_arg(value) -> str:
+    """Quote a single argument for the current platform's default shell.
+
+    POSIX (/bin/sh via shell=True): shlex.quote. Windows (cmd.exe): the same
+    algorithm subprocess.list2cmdline uses — double quotes only when needed,
+    since cmd.exe treats single quotes as literal characters.
+    """
+    value = str(value)
+    if os.name == "nt":
+        return subprocess.list2cmdline([value])
+    return shlex.quote(value)
+
+
+def resolve_gl_backend(cfg=None) -> str:
+    """GL backend for Remotion renders. Config may pin one explicitly;
+    'auto' (or missing) picks swangle on Linux (software GL, no GPU needed)
+    and angle elsewhere (native ANGLE, Remotion's default)."""
+    cfg = cfg or {}
+    backend = (cfg.get("render", {}) or {}).get("gl_backend", "auto")
+    if backend in (None, "", "auto"):
+        return "swangle" if sys.platform.startswith("linux") else "angle"
+    return backend
+
+
+def resolve_tmpdir(cfg=None, title="") -> Path:
+    """Per-video Remotion temp dir, platform-appropriate.
+    system.temp_dir supports {title}; missing/None/'' -> <OS tmp>/remotion/{title}."""
+    cfg = cfg or {}
+    raw = ((cfg.get("system", {}) or {}).get("temp_dir"))
+    if not raw:
+        base = Path(tempfile.gettempdir()) / "remotion"
+        return base / (title or "")
+    return Path(str(raw).replace("{title}", title or ""))
+
+
+def apply_render_env(tmpdir):
+    """Set temp-dir env vars for Remotion/Node children on any OS."""
+    tmpdir = str(tmpdir)
+    os.environ["TMPDIR"] = tmpdir
+    os.environ["TEMP"] = tmpdir
+    os.environ["TMP"] = tmpdir
+    os.environ["REMOTION_TMPDIR"] = tmpdir
 
 
 def video_dir_path(title):
@@ -774,14 +855,21 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
     print(f"  $ {cmd}")
     log_f = open(logpath, "a", encoding="utf-8") if logpath else None
     try:
+        # Force UTF-8 I/O in child Python processes: step scripts print
+        # em-dashes/arrows that crash under a legacy locale codec (cp1252)
+        # when their stdout is a pipe. Harmless no-op for non-Python children.
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
         result = subprocess.run(
-            cmd, shell=True, cwd=cwd,
+            cmd, shell=True, cwd=cwd, env=env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
         stdout_text = result.stdout.decode("utf-8", errors="replace")
         if stdout_text:
+            enc = getattr(sys.stdout, "encoding", None) or "utf-8"
             for line in stdout_text.rstrip().split("\n"):
-                safe_line = line.encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding)
+                safe_line = line.encode(enc, errors="replace").decode(enc)
                 print(f"  | {safe_line}")
                 if log_f:
                     log_f.write(line + "\n")

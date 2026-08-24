@@ -24,15 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 import _pipeline_lib as pl  # noqa: E402
 
 # Console may be cp1252/latin-1 (e.g. Windows); never crash printing tool output
-try:
-    sys.stdout.reconfigure(errors="replace")
-except (AttributeError, ValueError):
-    pass
-
-# Linux-only guard (WSL reports os.name == "posix" and is fine)
-if os.name != "posix" and os.environ.get("PIPELINE_FORCE_NON_POSIX") != "1":
-    print("ERROR: This pipeline is Linux-only. Use WSL on Windows, or set PIPELINE_FORCE_NON_POSIX=1 to override.", file=sys.stderr)
-    sys.exit(2)
+pl.init_console()
 
 REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
@@ -1503,7 +1495,7 @@ def cmd_preview(args):
     cfg = load_pipeline_config()
     r = cfg.get("render", {})
     node_max_old = r.get("node_max_old_space_size_mb", 384)
-    gl_backend = r.get("gl_backend", "swangle")
+    gl_backend = pl.resolve_gl_backend(cfg)
     timeout_ms = r.get("timeout_ms", 60000)
 
     import os as _os
@@ -1623,7 +1615,7 @@ def cmd_preview_frame(args):
 
     cfg = load_pipeline_config()
     r = cfg.get("render", {})
-    gl_backend = r.get("gl_backend", "swangle")
+    gl_backend = pl.resolve_gl_backend(cfg)
     timeout_ms = r.get("timeout_ms", 60000)
 
     import os as _os

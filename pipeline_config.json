@@ -81,7 +81,7 @@
     },
     "render": {
         "concurrency": 1,
-        "gl_backend": "swangle",
+        "gl_backend": "auto",
         "image_format": "jpeg",
         "jpeg_quality": 80,
         "codec": "h264",
@@ -120,9 +120,7 @@
     "system": {
         "min_available_ram_mb": 200,
         "min_available_disk_mb": 500,
-        "chrome_kill_between_renders": true,
-        "post_render_settle_seconds": 5,
-        "temp_dir": "/tmp/remotion/{title}"
+        "post_render_settle_seconds": 5
     },
     "retention": {
         "keep_versions": 2,

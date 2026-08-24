@@ -2,7 +2,7 @@
 """
 render_scene.py — Renders a single Remotion scene with hardware guardrails.
 
-Replaces render_scene.sh. Linux-only. Uses psutil for RAM/disk checks.
+Cross-platform (Linux + Windows). Uses psutil for RAM/disk checks.
 
 Resumable & non-fatal: on per-scene failure, records render_status="failed",
 render_attempts += 1, last_render_error=<msg>, then continues (does NOT abort
@@ -208,7 +208,7 @@ def main():
     v = cfg.get("video", {})
 
     concurrency     = r.get("concurrency", 1)
-    gl_backend      = r.get("gl_backend", "swangle")
+    gl_backend      = pl.resolve_gl_backend(cfg)
     image_format    = r.get("image_format", "jpeg")
     jpeg_quality    = r.get("jpeg_quality", 80)
     codec           = r.get("codec", "h264")
@@ -218,7 +218,7 @@ def main():
     node_max_old    = r.get("node_max_old_space_size_mb", 384)
     min_ram_mb      = s.get("min_available_ram_mb", 200)
     min_disk_mb     = s.get("min_available_disk_mb", 500)
-    tmpdir          = s.get("temp_dir", "/tmp/remotion/{title}").replace("{title}", video_dir.name)
+    tmpdir          = str(pl.resolve_tmpdir(cfg, video_dir.name))
     post_settle     = s.get("post_render_settle_seconds", 5)
     burn_captions   = v.get("burn_captions", False)
 
@@ -242,10 +242,9 @@ def main():
         update_scene_status(video_dir, scene_id, "failed", "Pre-flight disk check failed")
         sys.exit(1)
 
-    # TMPDIR setup
+    # TMPDIR setup (platform-appropriate, covers both POSIX and Windows temp vars)
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
-    os.environ["TMPDIR"] = tmpdir
-    os.environ["REMOTION_TMPDIR"] = tmpdir
+    pl.apply_render_env(tmpdir)
     os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Orphan cleanup

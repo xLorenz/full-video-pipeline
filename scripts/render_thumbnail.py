@@ -214,12 +214,12 @@ def main():
     r = cfg.get("render", {})
     s = cfg.get("system", {})
 
-    gl_backend = r.get("gl_backend", "swangle")
+    gl_backend = pl.resolve_gl_backend(cfg)
     timeout_ms = r.get("timeout_ms", 60000)
     node_max_old = r.get("node_max_old_space_size_mb", 384)
     min_ram_mb = s.get("min_available_ram_mb", 200)
     min_disk_mb = s.get("min_available_disk_mb", 500)
-    tmpdir = s.get("temp_dir", "/tmp/remotion/{title}").replace("{title}", video_dir.name)
+    tmpdir = str(pl.resolve_tmpdir(cfg, video_dir.name))
     post_settle = s.get("post_render_settle_seconds", 5)
 
     log_file = pl.log_path(video_dir.name, 13)
@@ -248,10 +248,9 @@ def main():
         print(f"ERROR: Low disk space ({int(free)}MB < {min_disk_mb}MB). Aborting.")
         sys.exit(1)
 
-    # TMPDIR setup
+    # TMPDIR setup (platform-appropriate)
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
-    os.environ["TMPDIR"] = tmpdir
-    os.environ["REMOTION_TMPDIR"] = tmpdir
+    pl.apply_render_env(tmpdir)
     os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Build props
