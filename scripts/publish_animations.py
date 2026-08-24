@@ -31,6 +31,12 @@ import sys
 from pathlib import Path
 
 try:
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+except (AttributeError, ValueError, OSError):
+    pass
+
+try:
     import jsonschema
 except ImportError:
     print("ERROR: jsonschema not installed. Run: pip install -r scripts/requirements.txt",

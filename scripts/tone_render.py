@@ -15,6 +15,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+except (AttributeError, ValueError, OSError):
+    pass
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 NODE_BIN = "node"
 RENDER_JS = REPO_ROOT / "sfx-render" / "render.js"
