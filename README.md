@@ -1,6 +1,6 @@
 # Full Video Pipeline
 
-Autonomous YouTube video production pipeline for AI agents. Takes a topic idea and produces a fully rendered video with voiceover, visuals, and audio — end to end. Linux-only.
+Autonomous YouTube video production pipeline for AI agents. Takes a topic idea and produces a fully rendered video with voiceover, visuals, and audio — end to end. Cross-platform (Linux, Windows, macOS).
 
 ## What It Does
 
@@ -25,11 +25,14 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 
 ## Requirements
 
-- Linux
+- Windows 10/11, Linux, or macOS (all tiers tested on Windows + Linux)
 - Node.js 18+
 - Python 3.9+ (Python 3.10+ if using the pocket-tts engine)
 - ffmpeg / ffprobe
 - Git
+
+> **Windows note:** enable long paths before the first clone to avoid `MAX_PATH` errors on deep `node_modules` trees — run an admin PowerShell once:
+> `Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1` and `git config --system core.longpaths true`.
 
 ```bash
 pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
