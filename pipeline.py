@@ -52,7 +52,6 @@ STEP_KEYS = pl.STEP_KEYS
 STEP_NAMES = pl.STEP_NAMES
 CREATIVE_STEPS = pl.CREATIVE_STEPS
 EXPECTED_ARTIFACTS = pl.EXPECTED_ARTIFACTS
-SKIP_STEPS = pl.CREATIVE_STEPS
 
 # ---------------------------------------------------------------------------
 # NEW subcommand
@@ -848,7 +847,8 @@ def validate_project(title, step=0, strict=False):
         argv += ["--strict"]
     p = subprocess.run(
         argv,
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=REPO_ROOT,
     )
     return p.returncode == 0, (p.stdout + p.stderr).strip()
 
@@ -907,7 +907,7 @@ def cmd_continue(args):
     print(f"=== Continuing pipeline: {title} ===")
     print(f"  Next step: {step_num}. {step_name}")
 
-    if step_key in SKIP_STEPS:
+    if step_key in CREATIVE_STEPS:
         # Creative step — guard against wrong-command / stale-artifact confusion.
         arts = EXPECTED_ARTIFACTS.get(step_key, [])
         step_state = state["steps"].get(step_key, {}) or {}
@@ -917,7 +917,7 @@ def cmd_continue(args):
         if step_key in pl.UNVALIDATED_CREATIVE_STEPS:
             # Steps 1, 2: in-context decisions, no files
             _print_creative_brief(step_num, step_key, title)
-        elif state.get("status") == "complete":
+        elif step_state.get("status") == "complete":
             # Step already complete — find_next_step shouldn't have picked it; safety net.
             print(f"Step {step_num} ({step_name}) is already complete.")
             print("State may be inconsistent. Run: python3 pipeline.py status")
@@ -972,7 +972,7 @@ def cmd_continue(args):
         if next_num is None:
             print("\nAll steps complete! Final video is in versions/ and thumbnail is in versions/<title>-thumbnail-vN.png.")
             pl.emit_trailer(0, "", "done", 0)
-        elif next_key in SKIP_STEPS:
+        elif next_key in CREATIVE_STEPS:
             print(f"\nNext: Step {next_num} ({STEP_NAMES.get(next_key, next_key)}) — requires creative input.")
             _print_creative_brief(next_num, next_key, title)
         else:
@@ -1151,6 +1151,7 @@ def cmd_audit(args):
                 r = subprocess.run(
                     ["ffmpeg", "-i", str(fp), "-filter:a", "volumedetect", "-f", "null", "-"],
                     capture_output=True, text=True, timeout=30,
+                    encoding="utf-8", errors="replace",
                 )
                 m = re.search(r"mean_volume\s*=\s*(-?\d+(?:\.\d+)?)\s*dB", r.stderr)
                 if m:
@@ -1286,7 +1287,8 @@ def cmd_doctor(args):
     print("\n=== 3. Schema validation ===")
     p = subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"), str(vdir)],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=REPO_ROOT,
     )
     print(p.stdout.strip() if p.stdout else "")
     if p.returncode != 0:
@@ -1387,7 +1389,7 @@ def cmd_clean(args):
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
 
-    cfg = load_pipeline_config()
+    cfg = load_pipeline_config(video_dir=vdir)
     ren = cfg.get("retention", {})
     keep_v = ren.get("keep_versions", 2)
     safe_title = pl.sanitize_title(title)
@@ -1412,7 +1414,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Pruned: {old.name} ({sz/1024/1024:.1f} MB)")
 
-    # 4. Prune old thumbnail PNG versions
+    # 3. Prune old thumbnail PNG versions
     to_prune = pl.find_versions_to_prune(
         vdir / "versions", safe_title, r'{title}-thumbnail-v(\d+)\.png', keep_v)
     for old in to_prune:
@@ -1421,7 +1423,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Pruned: {old.name} ({sz/1024/1024:.1f} MB)")
 
-    # 5. remotion/node_modules/
+    # 4. remotion/node_modules/
     nm_dir = vdir / "remotion" / "node_modules"
     if nm_dir.exists():
         sz = sum(f.stat().st_size for f in nm_dir.rglob("*") if f.is_file())
@@ -1429,7 +1431,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Removed: remotion/node_modules/ ({sz/1024/1024:.1f} MB)")
 
-    # 6. .preview/
+    # 5. .preview/
     preview_dir = vdir / ".preview"
     if preview_dir.exists():
         sz = sum(f.stat().st_size for f in preview_dir.rglob("*") if f.is_file())
@@ -1437,7 +1439,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Removed: .preview/ ({sz/1024/1024:.1f} MB)")
 
-    # 7. Scene MP4s (only if configured, default off)
+    # 6. Scene MP4s (only if configured, default off)
     if ren.get("clean_scene_mp4s_after_stitch", False):
         scenes_dir = vdir / "scenes"
         if scenes_dir.exists():
@@ -1447,7 +1449,7 @@ def cmd_clean(args):
                 freed += sz
                 print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
 
-    # 8. Reap Remotion TMPDIR (per-video — title substitution)
+    # 7. Reap Remotion TMPDIR (per-video — title substitution)
     tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion/{title}")
     tdir = Path(tmpdir.replace("{title}", title))
     if tdir.exists():
@@ -1456,7 +1458,7 @@ def cmd_clean(args):
         freed += sz
         print(f"  Reaped: Remotion TMPDIR ({sz/1024/1024:.1f} MB)")
 
-    # 9. Rotate logs
+    # 8. Rotate logs
     log_dir = vdir / "logs"
     if log_dir.exists():
         for lf in sorted(log_dir.glob("*.log")):

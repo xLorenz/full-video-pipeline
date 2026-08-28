@@ -12,25 +12,12 @@ import shlex
 import subprocess
 import sys
 import tempfile
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 
-
-def shell_quote(value) -> str:
-    """Quote a single argument for the platform's default shell.
-
-    POSIX shells understand shlex.quote's single-quote form; cmd.exe does not
-    treat single quotes as quoting characters, so use subprocess's own
-    MSVC-style quoting there.
-    """
-    value = str(value)
-    if os.name == "nt":
-        return subprocess.list2cmdline([value])
-    return shlex.quote(value)
 
 # ---------------------------------------------------------------------------
 # Step pipeline metadata (single source of truth for scripts + orchestrator)
@@ -458,16 +445,6 @@ def apply_render_env(tmpdir):
     os.environ["REMOTION_TMPDIR"] = tmpdir
 
 
-def video_dir_path(title):
-    """Return the absolute Path to a video project directory (alias of video_dir)."""
-    return REPO_ROOT / "videos" / title
-
-
-# ---------------------------------------------------------------------------
-# Paths & sanitization
-# ---------------------------------------------------------------------------
-
-
 def sanitize_title(title):
     """Convert a display title into a safe directory/filename slug."""
     safe = title.lower()
@@ -542,18 +519,6 @@ def load_scenes(title):
         return json.load(f).get("scenes", [])
 
 
-def save_scenes(title, data):
-    """Atomic write (preserves full scenes.json structure, not just the scenes array)."""
-    p = scenes_json_path(title)
-    with open(p, "r", encoding="utf-8") as f:
-        full = json.load(f)
-    if "scenes" in data:
-        full = data
-    else:
-        full["scenes"] = data
-    _atomic_write_json(p, full)
-
-
 def save_scenes_full(video_dir_path, data):
     """Atomic write of full scenes.json given a Path to the video directory."""
     p = Path(video_dir_path) / "scenes.json"
@@ -609,7 +574,6 @@ def emit_trailer(step_num: int, step_key: str, action: str, exit_code: int,
     Backward compatible: the new params default to "" / None so existing callers
     that pass only (step_num, step_key, action, exit_code) still work.
     """
-    import json
     name = STEP_NAMES.get(step_key, step_key)
     if step_key == "":
         kind = "done"
@@ -683,10 +647,6 @@ def scene_padded_duration(scene, fps) -> float:
     frames = scene.get("actual_duration_frames")
     if frames:
         return float(frames) / float(fps or 30)
-    if not scene.get("_warned_no_frames"):
-        print(f"WARNING: scene {scene.get('id', '?')} has no actual_duration_frames "
-              f"— using raw seconds for audio padding (run Step 6 first)", file=sys.stderr)
-        scene["_warned_no_frames"] = True
     return float(scene.get("actual_duration_seconds")
                  or scene.get("target_duration_seconds") or 0.0)
 
@@ -711,6 +671,7 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
     pads = []
     labels = []
     missing = []
+    warned = set()
     ordered = sorted(scenes, key=lambda s: s["id"])
     for idx, s in enumerate(ordered):
         mp3 = Path(voiceover_dir) / f"scene-{s['id']:02d}.mp3"
@@ -718,6 +679,10 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
             missing.append(s["id"])
             continue
         dur = scene_padded_duration(s, fps)
+        if not s.get("actual_duration_frames") and s["id"] not in warned:
+            print(f"WARNING: scene {s.get('id', '?')} has no actual_duration_frames "
+                  f"— using raw seconds for audio padding (run Step 6 first)", file=sys.stderr)
+            warned.add(s["id"])
         input_args += ["-i", mp3.resolve().as_posix()]
         pads.append(
             f"[{idx}:a]aresample=44100,"
@@ -800,17 +765,6 @@ def compute_scene_render_hashes(video_dir) -> dict:
 # ---------------------------------------------------------------------------
 # subprocess helper with optional log tee
 # ---------------------------------------------------------------------------
-
-
-@contextmanager
-def open_log(logpath: Path):
-    """Yield a file handle for appending; caller writes through run_cmd."""
-    logpath.parent.mkdir(parents=True, exist_ok=True)
-    f = open(logpath, "a", encoding="utf-8")
-    try:
-        yield f
-    finally:
-        f.close()
 
 
 def rotate_log_if_needed(logpath: Path, max_size_mb: int = 0, keep_last_n: int = 10):

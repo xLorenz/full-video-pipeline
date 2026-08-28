@@ -523,17 +523,21 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
     if not segs:                                       # all-silent run set → no track
         return None
 
-    # 4. write into master; equal-power blend where adjacent segments differ
+    # 4. write into master; crossfade where adjacent segments differ.
+    # Segments are flush (seg starts at prev's end). The crossfade fades the
+    # previous segment's tail out over [start-X, start) while the incoming
+    # segment fades in over [start, start+X) — each sample is written exactly
+    # once, with no timing shift from the absolute offsets. (The previous
+    # version anticipated the incoming head into the prev window AND replayed
+    # it at the segment start, doubling the first X samples at each boundary.)
     prev = None                      # (start_sample, samples)
     for start, seg in segs:
         if prev is not None and abs(start - (prev[0] + len(prev[1]))) <= 1:
             X = min(int(xfade * sr), len(prev[1]) // 2, len(seg) // 2)
-            if X > 32:               # blend region straddles the boundary
+            if X > 32:               # fade-out / fade-in handoff at the boundary
                 for k in range(X):
                     t = k / X
-                    master[start - X + k] = \
-                        prev[1][-X + k] * math.cos(t * math.pi / 2.0) + \
-                        seg[k] * math.sin(t * math.pi / 2.0)
+                    master[start - X + k] = prev[1][-X + k] * math.cos(t * math.pi / 2.0)
                 for k in range(X):
                     t = k / X
                     master[start + k] = seg[k] * math.sin(t * math.pi / 2.0)
