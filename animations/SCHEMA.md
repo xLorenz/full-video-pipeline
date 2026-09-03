@@ -35,6 +35,10 @@ Every template instance is a `TemplateConfig` JSON document. The same core shape
     "easing": "ease-out-cubic"                             //   default easing; element override wins. Registry below.
   },
 
+  // Element-driven templates only. Children-wrapper treatments
+  // (bend, blaze, droplets, flame-wrap, vhs, glyph-rain, shatter,
+  // decrypt-reveal, magnify, glitch-rip) IGNORE this array — send []
+  // and pass content as children; tune via extras.* instead.
   "elements": [                                            // OPTIONAL per-element override; unrecognized ids are ignored
     {
       "id": "title",                                       //   stable id from this template's animation.md — REQUIRED if the element is listed
@@ -61,7 +65,7 @@ Every template instance is a `TemplateConfig` JSON document. The same core shape
 3. **Theme fall-through** — omitting `theme.palette.primary` keeps the styles.ts `COLORS.primary`. Setting it overrides only that key.
 4. **Speed is multiplicative** — `"speed": 1.5` stretches every element's delay+dur by 50%; per-element explicit values still win.
 5. **`hidden: true` collapses layout** — subsequent siblings reflow as if the element were never authored.
-6. **Unrecognized `elements[].id`** — ignored silently (to allow templates to share a base config); a warning is logged at preview time.
+6. **Unrecognized `elements[].id`** — ignored silently (to allow templates to share a base config); a warning is logged at preview time. Children-wrapper treatments ignore the whole array (see above).
 
 ## Easing registry
 

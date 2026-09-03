@@ -45,9 +45,19 @@ Reach for a template when your scene's `visual_notes` describe a **complex, mult
 
 ## The contract: JSON config, never JSX
 
-Every template instance is a **JSON config + a one-line `<Template config={...} />` use**. The agent customizes by editing JSON values; the `.tsx` is read-only shipped. Two reasons:
+Every template instance is a **JSON config + a one-line use**. The agent customizes by editing JSON values; the `.tsx` is read-only shipped. Two reasons:
 1. Predictability — lint + schema catch bad inputs; renames in the agent-generated code are avoided.
 2. Per-video portability — the same config can be lifted into any video that has the template published.
+
+Two families share the config shape but differ in content supply:
+
+| | Element-driven (12) | Children-wrapper treatments (10) |
+|---|---|---|
+| Templates | right-wrong-card, data-bars, count-up-stat, timeline-marker, comparison-grid, kinetic-title-mosaic, radial-pulse-rings, rolling-digit-counter, orbit-chip-cloud, bar-code-scan, radial-gauge, trend-line | bend, blaze, droplets, flame-wrap, vhs, glyph-rain, shatter, decrypt-reveal, magnify, glitch-rip |
+| Content from | `elements[]` (+ `extras.*`) | `children` (yours, rendered unmodified under the effect) |
+| Tune via | per-element overrides + `extras.*` | `extras.*` only (`elements[]` ignored — send `[]`) |
+| TS props | `TemplateProps` (`_shared/types.ts`) | `TreatmentProps` (extends `TemplateProps` + required `children`) |
+| Use | `<Template config={...} styles={...} />` | `<Treatment config={...} styles={...}>{content}</Treatment>` |
 
 ### The DeepConfig shape
 
@@ -155,9 +165,9 @@ Lint gate (`tsc --noEmit` + eslint + `remotion compositions`) catches type/prop 
 Each template schema allows full per-element overrides. Concretely you can, per instance:
 - Change the **global theme** (palette, fonts, font-size scale) — applies to all templates uniformly.
 - Change the **global speed** (multiplier on every delay/duration) — fix pacing without re-tuning each element.
-- **Override each element individually** (text, color, position, size, timing, easing, hidden).
-- Use **element `custom`** for template-specific per-element fields (e.g. per-bar color, per-card verdict style).
-- Use **template-level `extras`** for behavior knobs (`showCount`, `countUp`, `topN`, `dividerStyle`, ...).
+- **Override each element individually** (text, color, position, size, timing, easing, hidden) — element-driven templates only; treatments ignore `elements[]`.
+- Use **element `custom`** for template-specific per-element fields (e.g. per-bar color, per-card verdict style) — element-driven only.
+- Use **template-level `extras`** for behavior knobs (`showCount`, `countUp`, `topN`, `dividerStyle`, ... for element templates; `intensity`, `speed`, `radius`, `fadeInFrames`, ... for treatments).
 
 See [`SCHEMA.md`](./SCHEMA.md) for the full field reference and recipes.
 

@@ -1,10 +1,20 @@
 /**
  * Shared types for animation templates.
  *
- * Every template accepts `{ config: TemplateConfig }` and resolves it via
- * the helpers in `_shared/`. The shape mirrors the JSON Schema at
+ * Two families share the `TemplateConfig` data shape but differ in how
+ * content is supplied:
+ *   - Element-driven templates render their own content from
+ *     `config.elements[]` (+ `extras.*`) and take {@link TemplateProps}.
+ *   - Children-wrapper treatments (bend, blaze, droplets, flame-wrap, vhs,
+ *     glyph-rain, shatter, decrypt-reveal, magnify, glitch-rip) ignore
+ *     `config.elements[]` — the caller passes content as `children` and
+ *     tunes via `extras.*`. They take {@link TreatmentProps}.
+ *
+ * The shape mirrors the JSON Schema at
  * `schemas/animations.schema.json` (Draft 7).
  */
+
+import type { ReactNode } from "react";
 
 export type EasingName =
   | "linear"
@@ -102,6 +112,35 @@ export interface TemplateConfig {
    * `config/schema.json`. Untyped here so templates can extend freely.
    */
   extras?: Record<string, unknown>;
+}
+
+/**
+ * Injected per-video style maps (`COLORS`/`FONTS` from `lib/styles.ts`).
+ * Structurally identical to `StylesSource` in `./theme` (kept separate to
+ * avoid a value-level import cycle; the two must stay assignable).
+ */
+export interface StyleMaps {
+  colors: { [key: string]: HexColor };
+  fonts: { [key: string]: string };
+}
+
+/**
+ * Props for element-driven templates: content comes from
+ * `config.elements[]` (+ `extras.*`). No `children`.
+ */
+export interface TemplateProps {
+  config: TemplateConfig;
+  styles: StyleMaps;
+  fontSizes?: Record<string, number>;
+}
+
+/**
+ * Props for children-wrapper treatments: `config.elements[]` is ignored
+ * (send `[]`), content comes from `children`, tuning from `extras.*`.
+ */
+export interface TreatmentProps extends TemplateProps {
+  /** Source content rendered UNDER the effect, always unmodified. */
+  children: ReactNode;
 }
 
 /** Resolved theme — after merging styles.ts defaults with `theme` overrides. */

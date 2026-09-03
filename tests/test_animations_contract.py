@@ -96,3 +96,26 @@ def test_catalog_tag_headers_unique():
     headers = re.findall(r"^- `([^`]+)` — ", text, re.MULTILINE)
     dupes = sorted({h for h in headers if headers.count(h) > 1})
     assert dupes == [], f"duplicate tag headers in CATALOG: {dupes}"
+
+
+def test_shared_types_define_both_prop_families():
+    text = (ANIM / "_shared" / "types.ts").read_text(encoding="utf-8")
+    for name in ["TemplateProps", "TreatmentProps", "StyleMaps"]:
+        assert re.search(rf"(interface|type)\s+{name}\b", text), \
+            f"_shared/types.ts missing {name}"
+    assert "children" in text, "TreatmentProps must declare children"
+
+
+def test_global_schema_documents_treatment_elements():
+    import json
+    schema = json.loads((REPO / "schemas" / "animations.schema.json")
+                        .read_text(encoding="utf-8"))
+    desc = schema["properties"]["elements"].get("description", "")
+    assert "treatment" in desc.lower() or "children" in desc.lower(), \
+        "global schema must document that treatments ignore elements[]"
+
+
+def test_all_templates_listed_in_contract_table():
+    text = (ANIM / "README.md").read_text(encoding="utf-8")
+    for name in [p.name for p in template_dirs()]:
+        assert name in text, f"template {name} missing from README contract docs"

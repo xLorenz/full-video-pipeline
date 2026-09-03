@@ -2,8 +2,9 @@
  * Theme resolution for animation templates.
  *
  * The single source of truth is `lib/styles.ts` (per-video). Templates
- * receive it via the dependency-injected `predict()` callbacks so this
- * module stays import-free and testable in isolation.
+ * receive it as `styles` props ({ colors, fonts }) via `resolveTheme()`.
+ * `StylesSource` is structurally identical to `StyleMaps` in `./types`
+ * (kept separate to avoid a value-level import cycle).
  */
 
 import type {

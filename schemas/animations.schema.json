@@ -10,7 +10,11 @@
     "instanceId": { "type": "string" },
     "theme": { "$ref": "#/definitions/theme" },
     "global": { "$ref": "#/definitions/global" },
-    "elements": { "type": "array", "items": { "$ref": "#/definitions/element" } },
+    "elements": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/element" },
+      "description": "Per-element overrides for element-driven templates. Children-wrapper treatments (bend, blaze, droplets, flame-wrap, vhs, glyph-rain, shatter, decrypt-reveal, magnify, glitch-rip) ignore this array — pass [] and supply content via children instead."
+    },
     "extras": { "type": "object" }
   },
   "definitions": {
