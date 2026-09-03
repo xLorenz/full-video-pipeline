@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { BlazeRip } from "../component";
+import { Blaze } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#E4572E",
@@ -79,7 +79,7 @@ const PhotoBlock: React.FC<{ label: string }> = ({ label }) => (
 
 /**
  * The scene behind the fire — a full-frame editorial poster. It is the
- * CALLER'S content: BlazeRip knows nothing about it, it just captures
+ * CALLER'S content: Blaze knows nothing about it, it just captures
  * its DOM into a texture each frame and burns it from the bottom up.
  * Blaze does NOT scroll — the scene sits at exactly the frame size
  * (1920×1080), and the fire rises over it as it stands. A small entrance
@@ -291,7 +291,7 @@ const BurnPoster: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for blaze.
  *
- * Exercises the full-frame children model: `<BlazeRip>` wraps a
+ * Exercises the full-frame children model: `<Blaze>` wraps a
  * frame-sized `<BurnPoster>` and the fire rises over it for the whole
  * composition — heat-distorting the poster, darkening it under the
  * flames, and laying sparks and smoke over it. The preview raises the
@@ -339,8 +339,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <BlazeRip {...PREVIEW_DEFAULT_PROPS}>
+    <Blaze {...PREVIEW_DEFAULT_PROPS}>
       <BurnPoster />
-    </BlazeRip>
+    </Blaze>
   );
 };

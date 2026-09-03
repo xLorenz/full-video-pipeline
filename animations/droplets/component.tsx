@@ -20,7 +20,7 @@ import {
 export type { ElementOverride };
 
 /**
- * DropletsRip — rain running down the glass, refracting the content.
+ * Droplets — rain running down the glass, refracting the content.
  *
  * A deterministic Remotion port of the Canvas UI `<Droplets>` WebGL
  * component (canvasui.dev). Like glyph-rain/flame-wrap/vhs, the effect
@@ -55,7 +55,7 @@ export type { ElementOverride };
  *      captured as-is. Because the shader samples with `textureLod`
  *      (for the optional `blur`), `generateMipmap()` runs after every
  *      upload — an incomplete mip chain samples black.
- *   4. Full-frame treatment: like vhs, DropletsRip fills the
+ *   4. Full-frame treatment: like vhs, Droplets fills the
  *      composition (`AbsoluteFill` root) and processes everything the
  *      caller puts inside — wrap your ENTIRE scene. `uMaxX` is kept:
  *      content narrower than the frame is rained on only over its own
@@ -81,7 +81,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface DropletsRipProps {
+export interface DropletsProps {
   config: TemplateConfig;
   /** The scene behind the rainy glass (fills the frame). */
   children?: ReactNode;
@@ -628,7 +628,7 @@ async function captureAndDraw(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-export const DropletsRip: React.FC<DropletsRipProps> = ({
+export const Droplets: React.FC<DropletsProps> = ({
   config,
   children,
   fontSizes,
@@ -737,7 +737,9 @@ export const DropletsRip: React.FC<DropletsRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (droplets) and the auto-generated index.ts re-exports Droplets.
-// Keep both names available so previews (DropletsRip) and the barrel (Droplets) compile.
-export const Droplets = DropletsRip;
+// Canonical export matches the folder PascalCase (droplets -> Droplets), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link Droplets} instead — kept for configs written against the old name. */
+export const DropletsRip = Droplets;
+/** @deprecated Use {@link DropletsProps} instead. */
+export type DropletsRipProps = DropletsProps;

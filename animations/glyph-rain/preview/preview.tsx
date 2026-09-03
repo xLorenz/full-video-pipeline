@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, Easing } from "remotion";
-import { GlyphRainRip } from "../component";
+import { GlyphRain } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#2B6AFF",
@@ -22,7 +22,7 @@ const PREVIEW_FONT_SIZES = { headline: 168, body: 28, caption: 22 };
 
 /**
  * Demonstrates the children-wrapper model: this `TerminalCard` is the
- * CALLER'S content — `<GlyphRainRip>` knows nothing about it and only
+ * CALLER'S content — `<GlyphRain>` knows nothing about it and only
  * overlays the rain on top. The title block has its OWN intrinsic
  * animation (a typed-in + glow-flicker headline + a boot sub-line) so
  * the preview shows how the rain composes with content that is already
@@ -97,7 +97,7 @@ const TerminalCard: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for glyph-rain.
  *
- * Exercises the children-wrapper model: `<GlyphRainRip>` is given a
+ * Exercises the children-wrapper model: `<GlyphRain>` is given a
  * `<TerminalCard>` as `children`. The TerminalCard carries its own
  * type-in + glow flicker animation; the rain overlays on top at a
  * 0.5 dim so the terminal reads through. Faster `speed` (0.5 vs
@@ -143,8 +143,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <GlyphRainRip {...PREVIEW_DEFAULT_PROPS}>
+    <GlyphRain {...PREVIEW_DEFAULT_PROPS}>
       <TerminalCard />
-    </GlyphRainRip>
+    </GlyphRain>
   );
 };

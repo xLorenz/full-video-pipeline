@@ -2,7 +2,7 @@
 
 Deterministic Remotion port of the Canvas UI [`<VHS>`](https://canvasui.dev/docs/components/vhs) WebGL component (canvasui.dev, MIT + Commons Clause). A full-frame treatment: whatever the caller puts in `children` is captured each frame and played back through a worn-tape shader — slow horizontal wave, per-line jitter, a travelling crease band, bottom head-switching noise, horizontal chroma bloom with RGB aberration, a rolling brightness beat, animated grain, CRT scanlines, vignette, and optional tube barrel curvature.
 
-Unlike glyph-rain/flame-wrap (box wrappers), **VHSRip fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card.
+Unlike glyph-rain/flame-wrap (box wrappers), **Vhs fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card.
 
 ## Model
 

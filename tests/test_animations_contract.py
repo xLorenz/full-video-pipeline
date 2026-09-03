@@ -98,6 +98,48 @@ def test_catalog_tag_headers_unique():
     assert dupes == [], f"duplicate tag headers in CATALOG: {dupes}"
 
 
+def _pascal(folder: str) -> str:
+    return "".join(p.capitalize() for p in folder.split("-") if p)
+
+
+# Old treatment primaries, kept as @deprecated aliases.
+DEPRECATED_RIP_ALIASES = {
+    "bend": "BendRip", "blaze": "BlazeRip", "droplets": "DropletsRip",
+    "flame-wrap": "FlameWrapRip", "vhs": "VHSRip",
+    "glyph-rain": "GlyphRainRip", "shatter": "ShatterRip",
+    "decrypt-reveal": "DecryptRip",
+}
+
+
+def test_component_exports_folder_pascalcase():
+    bad = []
+    for p in template_dirs():
+        text = (p / "component.tsx").read_text(encoding="utf-8")
+        if f"export const {_pascal(p.name)}" not in text:
+            bad.append(p.name)
+    assert bad == [], f"component.tsx missing canonical PascalCase export: {bad}"
+
+
+def test_deprecated_rip_aliases_present():
+    bad = []
+    for folder, old in DEPRECATED_RIP_ALIASES.items():
+        text = (ANIM / folder / "component.tsx").read_text(encoding="utf-8")
+        if f"export const {old} =" not in text or "@deprecated" not in text:
+            bad.append(folder)
+    assert bad == [], f"missing @deprecated Rip aliases: {bad}"
+
+
+def test_no_primary_rip_exports_remain():
+    bad = []
+    for p in template_dirs():
+        text = (p / "component.tsx").read_text(encoding="utf-8")
+        for m in re.finditer(r"export const (\w+): React\.FC", text):
+            name = m.group(1)
+            if name.endswith("Rip") and name != "GlitchRip":
+                bad.append(f"{p.name}: {name}")
+    assert bad == [], f"old *Rip primaries remain: {bad}"
+
+
 def test_shared_types_define_both_prop_families():
     text = (ANIM / "_shared" / "types.ts").read_text(encoding="utf-8")
     for name in ["TemplateProps", "TreatmentProps", "StyleMaps"]:

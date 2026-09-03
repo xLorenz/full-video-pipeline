@@ -19,7 +19,7 @@ import {
 export type { ElementOverride };
 
 /**
- * BendRip — the page scrolls on the face of a cube; the top and bottom
+ * Bend — the page scrolls on the face of a cube; the top and bottom
  * edges fold over virtual creases and flatten back out at the scroll
  * ends.
  *
@@ -59,7 +59,7 @@ export type { ElementOverride };
  *      rebuilds; see the animation.md pitfall). The texture keeps its
  *      mipmap chain
  *      (`generateMipmap` per upload), matching upstream's sampler.
- *   4. Full-frame treatment: like vhs/droplets, BendRip fills the
+ *   4. Full-frame treatment: like vhs/droplets, Bend fills the
  *      composition (`AbsoluteFill` root) and processes everything the
  *      caller puts inside — wrap your ENTIRE scene. `uMaxX` is kept:
  *      content narrower than the frame is bent only over its own
@@ -84,7 +84,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface BendRipProps {
+export interface BendProps {
   config: TemplateConfig;
   /** The scrollable scene behind the folding edges (fills the frame,
    *  taller than the frame to scroll — see the preview for the pattern).
@@ -612,7 +612,7 @@ async function captureAndDraw(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-export const BendRip: React.FC<BendRipProps> = ({
+export const Bend: React.FC<BendProps> = ({
   config,
   children,
   fontSizes,
@@ -738,7 +738,9 @@ export const BendRip: React.FC<BendRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (bend) and the auto-generated index.ts re-exports Bend.
-// Keep both names available so previews (BendRip) and the barrel (Bend) compile.
-export const Bend = BendRip;
+// Canonical export matches the folder PascalCase (bend -> Bend), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link Bend} instead — kept for configs written against the old name. */
+export const BendRip = Bend;
+/** @deprecated Use {@link BendProps} instead. */
+export type BendRipProps = BendProps;

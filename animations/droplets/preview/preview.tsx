@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { DropletsRip } from "../component";
+import { Droplets } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#FFC46B",
@@ -64,7 +64,7 @@ const Building: React.FC<{ left: number; width: number; height: number; windows:
 
 /**
  * The scene behind the rainy glass. It is the CALLER'S content —
- * DropletsRip knows nothing about it, it just captures its DOM into a
+ * Droplets knows nothing about it, it just captures its DOM into a
  * texture and runs the rain over the whole frame. A small entrance
  * animation (headline rise) demonstrates that per-frame styles are
  * captured as-is.
@@ -216,7 +216,7 @@ const WindowScene: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for droplets.
  *
- * Exercises the full-frame children model: `<DropletsRip>` wraps a
+ * Exercises the full-frame children model: `<Droplets>` wraps a
  * `<WindowScene>` and the rainy-glass shader treats EVERYTHING — static
  * drops, running drops with trails, refraction of the skyline through
  * the glass, and a soft edge vignette. `intensity: 0.85` for a solid
@@ -262,8 +262,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <DropletsRip {...PREVIEW_DEFAULT_PROPS}>
+    <Droplets {...PREVIEW_DEFAULT_PROPS}>
       <WindowScene />
-    </DropletsRip>
+    </Droplets>
   );
 };

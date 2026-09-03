@@ -2,7 +2,7 @@
 
 Deterministic Remotion port of the Canvas UI [`<Droplets>`](https://canvasui.dev/docs/components/droplets) WebGL component (canvasui.dev, MIT + Commons Clause). A full-frame treatment: whatever the caller puts in `children` is captured each frame and viewed through a rainy window — static drops, running drops with trails, the content refracting along each drop's surface normal, optional background blur and vignette, and an optional color tint.
 
-Unlike glyph-rain/flame-wrap (box wrappers), **DropletsRip fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card.
+Unlike glyph-rain/flame-wrap (box wrappers), **Droplets fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card.
 
 ## Model
 

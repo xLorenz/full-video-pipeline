@@ -4,12 +4,12 @@ Matrix-style glyph rain layered above arbitrary content. Columns of katakana / d
 
 ## Children-wrapper model
 
-`<GlyphRainRip>` is a **wrapper, not a content owner**. Pass your own Remotion component(s) as `children` and the template overlays the rain above them:
+`<GlyphRain>` is a **wrapper, not a content owner**. Pass your own Remotion component(s) as `children` and the template overlays the rain above them:
 
 ```tsx
-<GlyphRainRip config={config} styles={{ colors, fonts }}>
+<GlyphRain config={config} styles={{ colors, fonts }}>
   <YourContent />
-</GlyphRainRip>
+</GlyphRain>
 ```
 
 Layer order (lowest → highest):
@@ -55,7 +55,7 @@ import React from "react";
 import { AbsoluteFill } from "remotion";
 import type { SceneTiming } from "remotion-foundation";
 import { Background } from "../components/Background";
-import { GlyphRainRip } from "../components/animations";
+import { GlyphRain } from "../components/animations";
 import { COLORS, FONTS } from "../lib/styles";
 import config from "../scene-assets/scene-03-rain.json";
 
@@ -68,9 +68,9 @@ const MyTitle: React.FC = () => (
 export const Scene03: React.FC<{ scene: SceneTiming }> = () => (
   <AbsoluteFill>
     <Background backgroundColor={COLORS.background} />
-    <GlyphRainRip config={config} styles={{ colors: COLORS, fonts: FONTS }}>
+    <GlyphRain config={config} styles={{ colors: COLORS, fonts: FONTS }}>
       <MyTitle />
-    </GlyphRainRip>
+    </GlyphRain>
   </AbsoluteFill>
 );
 ```
@@ -178,9 +178,9 @@ Save the config at `videos/<title>/remotion/src/scene-assets/scene-03-rain.json`
 ### Rain your own animated content (terminal title block underneath)
 The children can be any Remotion component, including one with its own intrinsic animation. The rain overlays above it; children stay at `1 - dim` opacity, never hidden.
 ```tsx
-<GlyphRainRip config={config} styles={styles} >
+<GlyphRain config={config} styles={styles} >
   <TerminalCard /> {/* has its own type-in animation */}
-</GlyphRainRip>
+</GlyphRain>
 ```
 
 ## Pitfalls

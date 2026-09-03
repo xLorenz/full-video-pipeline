@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { BendRip } from "../component";
+import { Bend } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#B5492F",
@@ -70,7 +70,7 @@ const PhotoBlock: React.FC<{
 
 /**
  * The scene behind the fold — a tall magazine "page". It is the
- * CALLER'S content: BendRip knows nothing about it, it just captures
+ * CALLER'S content: Bend knows nothing about it, it just captures
  * its DOM into a texture each frame (scroll position included) and
  * folds the top/bottom edges over virtual creases. The scene is TALLER
  * than the frame so it has real scroll distance for the fold sweep,
@@ -269,7 +269,7 @@ const PageScene: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for bend.
  *
- * Exercises the full-frame children model: `<BendRip>` wraps a tall
+ * Exercises the full-frame children model: `<Bend>` wraps a tall
  * `<PageScene>` and the composition plays one scroll pass — the page
  * travels from its top edge (bottom crease folded) through the middle
  * (both folded) to its bottom edge (top crease folded). `zone: 260`
@@ -310,8 +310,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <BendRip {...PREVIEW_DEFAULT_PROPS}>
+    <Bend {...PREVIEW_DEFAULT_PROPS}>
       <PageScene />
-    </BendRip>
+    </Bend>
   );
 };

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://full-video-pipeline/animations/droplets.schema.json",
-  "title": "DropletsRip instance",
+  "title": "Droplets instance",
   "description": "Per-template schema for droplets. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it applies a rainy-glass treatment to arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
   "type": "object",
   "additionalProperties": false,
@@ -13,7 +13,7 @@
     "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
     "elements": {
       "type": "array",
-      "description": "Currently unused by droplets itself — content is passed as `children` to <DropletsRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "description": "Currently unused by droplets itself — content is passed as `children` to <Droplets>. Kept in the schema for DeepConfig pipeline compatibility.",
       "items": {
         "type": "object",
         "additionalProperties": true,

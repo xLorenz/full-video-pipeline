@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { DecryptRip } from "../component";
+import { DecryptReveal } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#4ade80",
@@ -23,7 +23,7 @@ const PREVIEW_FONT_SIZES = { headline: 128, body: 26, caption: 18 };
 
 /**
  * The scene behind the cipher — a full-frame classified dossier. It is
- * the CALLER'S content: DecryptRip knows nothing about it, it just
+ * the CALLER'S content: DecryptReveal knows nothing about it, it just
  * captures its DOM into a texture each frame and covers it with a
  * shape-matched cipher. Monospace text is ideal: every glyph of the
  * cipher is chosen to match the shapes of the content beneath it, so
@@ -215,7 +215,7 @@ const Dossier: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for decrypt-reveal.
  *
- * Exercises the full-frame children model: `<DecryptRip>` wraps a
+ * Exercises the full-frame children model: `<DecryptReveal>` wraps a
  * frame-sized `<Dossier>` and the decrypt circle sweeps across it for
  * the whole composition — everything outside the circle is a shape-
  * matched cipher of the dossier, everything inside is the real page,
@@ -280,8 +280,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <DecryptRip {...PREVIEW_DEFAULT_PROPS}>
+    <DecryptReveal {...PREVIEW_DEFAULT_PROPS}>
       <Dossier />
-    </DecryptRip>
+    </DecryptReveal>
   );
 };

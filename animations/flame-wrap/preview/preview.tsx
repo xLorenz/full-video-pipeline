@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, Easing } from "remotion";
-import { FlameWrapRip } from "../component";
+import { FlameWrap } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#FF7A1A",
@@ -22,7 +22,7 @@ const PREVIEW_FONT_SIZES = { headline: 96, body: 24, caption: 18 };
 
 /**
  * Demonstrates the children-wrapper model: this `TitleCard` is the
- * CALLER'S content — `<FlameWrapRip>` knows nothing about it, it only
+ * CALLER'S content — `<FlameWrap>` knows nothing about it, it only
  * wraps the box with fire. The card's border-radius (28px) intentionally
  * matches `extras.radius: 28` so the burning outline hugs its corners.
  * Its own entrance animation (overline fade, title rise, sub fade) shows
@@ -62,7 +62,7 @@ const TitleCard: React.FC = () => {
       }}
     >
       <div style={{ marginTop: 150 }}>
-        <FlameWrapRip
+        <FlameWrap
           config={{
             instanceId: "flame-wrap.preview",
             theme: {
@@ -180,7 +180,7 @@ const TitleCard: React.FC = () => {
               </span>
             </div>
           </div>
-        </FlameWrapRip>
+        </FlameWrap>
       </div>
     </AbsoluteFill>
   );
@@ -189,7 +189,7 @@ const TitleCard: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for flame-wrap.
  *
- * Exercises the children-wrapper model: `<FlameWrapRip>` wraps a
+ * Exercises the children-wrapper model: `<FlameWrap>` wraps a
  * `<TitleCard>`. The card animates on its own; the fire wraps it with
  * orange tongues from the top edge, rim glow on all edges, rising
  * sparks, and smoke — deterministically re-computed every frame.

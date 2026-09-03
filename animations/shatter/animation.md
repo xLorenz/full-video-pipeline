@@ -2,7 +2,7 @@
 
 Deterministic Remotion port of the Canvas UI [`<Shatter>`](https://canvasui.dev/docs/components/shatter) WebGL component (canvasui.dev, MIT + Commons Clause). A full-frame treatment: whatever the caller puts in `children` is captured each frame and broken into 3D glass shards around a traveling lens — each shard lifts, tips, and floats above the void, casting soft shadows and refracting (with chromatic dispersion) the content beneath it.
 
-Unlike glyph-rain/flame-wrap (box wrappers), **ShatterRip fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
+Unlike glyph-rain/flame-wrap (box wrappers), **Shatter fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
 
 ## Model
 

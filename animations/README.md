@@ -201,6 +201,9 @@ Every template folder **must** conform to this exact layout (no extra source fil
 | Folder name | `kebab-case` | `right-wrong-card` |
 | Component file | always `component.tsx` (lowercase, fixed name) | — |
 | Exported component | `export const <PascalCaseOfFolder>: React.FC<<Name>Props>` (named `const`, never `default export`) | `export const RightWrongCard: React.FC<RightWrongCardProps>` |
+| Deprecated alias | `export const <OldName> = <Name>` + `export type <OldName>Props = <Name>Props`, each with `@deprecated` | `export const BendRip = Bend` (old treatment names) |
+
+> **Rename history (breaking, mitigated):** the 8 WebGL/DOM treatments were renamed from `*Rip` primaries to folder-PascalCase canonicals (`BendRip→Bend`, `BlazeRip→Blaze`, `DropletsRip→Droplets`, `FlameWrapRip→FlameWrap`, `VHSRip→Vhs`, `GlyphRainRip→GlyphRain`, `ShatterRip→Shatter`, `DecryptRip→DecryptReveal`). Old names remain as `@deprecated` aliases so existing per-video configs keep compiling — but always emit the canonical name in new `SceneXX.tsx` code.
 | Props interface | `<Name>Props` | `RightWrongCardProps` |
 | Preview file | always `preview/preview.tsx` (fixed path) | — |
 | Preview exports | `PREVIEW_DEFAULT_PROPS` + `Preview: React.FC` (both named) | — |

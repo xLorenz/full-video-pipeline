@@ -2,7 +2,7 @@
 
 Deterministic Remotion port of the Canvas UI [`<Bend>`](https://canvasui.dev/docs/components/bend) WebGL component (canvasui.dev, MIT + Commons Clause). A full-frame treatment: whatever the caller puts in `children` is captured each frame and its top/bottom edges fold over virtual creases — the content appears to scroll on the face of a cube, flattening back out at the scroll ends.
 
-Unlike glyph-rain/flame-wrap (box wrappers), **BendRip fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
+Unlike glyph-rain/flame-wrap (box wrappers), **Bend fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
 
 ## Model
 

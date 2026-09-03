@@ -2,7 +2,7 @@
 
 Deterministic Remotion port of the Canvas UI [`<Blaze>`](https://canvasui.dev/docs/components/blaze) WebGL component (canvasui.dev, MIT + Commons Clause). A full-frame treatment: whatever the caller puts in `children` is captured each frame and burned from the bottom up — layered procedural sparks rising in depth, drifting fbm smoke, a warm glow at the base, and heat-distortion noise that bends the content near the fire zone and darkens it under the flames.
 
-Like vhs/droplets/bend/shatter, **BlazeRip fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. Unlike bend and shatter it does **not** scroll: the scene can be exactly the frame size (the preview's poster is 1920×1080 inside a 1920×1080 comp); the fire rises over it as it stands.
+Like vhs/droplets/bend/shatter, **Blaze fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. Unlike bend and shatter it does **not** scroll: the scene can be exactly the frame size (the preview's poster is 1920×1080 inside a 1920×1080 comp); the fire rises over it as it stands.
 
 ## Model
 

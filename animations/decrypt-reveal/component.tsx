@@ -20,7 +20,7 @@ import {
 export type { ElementOverride };
 
 /**
- * DecryptRip — the wrapped content is covered by a shape-matched cipher
+ * DecryptReveal — the wrapped content is covered by a shape-matched cipher
  * of random glyphs; a decrypt circle (radius, softness) travels through
  * the frame, and wherever it passes the cipher falls away to reveal the
  * real content beneath, with a flickering, glowing, chromatically
@@ -99,7 +99,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface DecryptRipProps {
+export interface DecryptRevealProps {
   config: TemplateConfig;
   /** The scene behind the cipher (fills the frame; the decrypt circle
    *  travels over it — see the preview for the pattern).
@@ -1283,7 +1283,7 @@ async function captureAndDraw(
   renderMain(gl, gls, p, time, dpr, cssW, cssH, width, height, gls.measuredMaxX);
 }
 
-export const DecryptRip: React.FC<DecryptRipProps> = ({
+export const DecryptReveal: React.FC<DecryptRevealProps> = ({
   config,
   children,
   fontSizes,
@@ -1399,7 +1399,9 @@ export const DecryptRip: React.FC<DecryptRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (decrypt-reveal) and the auto-generated index.ts re-exports DecryptReveal.
-// Keep both names available so previews (DecryptRip) and the barrel (DecryptReveal) compile.
-export const DecryptReveal = DecryptRip;
+// Canonical export matches the folder PascalCase (decrypt-reveal -> DecryptReveal), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link DecryptReveal} instead — kept for configs written against the old name. */
+export const DecryptRip = DecryptReveal;
+/** @deprecated Use {@link DecryptRevealProps} instead. */
+export type DecryptRipProps = DecryptRevealProps;

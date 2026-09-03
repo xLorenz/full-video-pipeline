@@ -16,7 +16,7 @@ import {
 export type { ElementOverride };
 
 /**
- * GlyphRainRip — matrix-style glyph rain layered above arbitrary content.
+ * GlyphRain — matrix-style glyph rain layered above arbitrary content.
  *
  * A wrapper, not a content owner: drop your own Remotion component(s) in
  * as `children` and the template overlays columns of glyphs on top of
@@ -98,7 +98,7 @@ export type { ElementOverride };
  *   - fadeInFrames, fadeOutFrames
  */
 
-export interface GlyphRainRipProps {
+export interface GlyphRainProps {
   config: TemplateConfig;
   /** Source content layered UNDER the glyph rain. Renders dimmed. */
   children?: ReactNode;
@@ -227,7 +227,7 @@ function withAlpha(hex: string, alpha: number): string {
 /** Hard cap on total DOM spans per frame — keeps t3.micro happy. */
 const SPAN_CAP = 3600;
 
-export const GlyphRainRip: React.FC<GlyphRainRipProps> = ({
+export const GlyphRain: React.FC<GlyphRainProps> = ({
   config,
   children,
   styles,
@@ -481,7 +481,9 @@ export const GlyphRainRip: React.FC<GlyphRainRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (glyph-rain) and the auto-generated index.ts re-exports GlyphRain.
-// Keep both names available so previews (GlyphRainRip) and the barrel (GlyphRain) compile.
-export const GlyphRain = GlyphRainRip;
+// Canonical export matches the folder PascalCase (glyph-rain -> GlyphRain), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link GlyphRain} instead — kept for configs written against the old name. */
+export const GlyphRainRip = GlyphRain;
+/** @deprecated Use {@link GlyphRainProps} instead. */
+export type GlyphRainRipProps = GlyphRainProps;

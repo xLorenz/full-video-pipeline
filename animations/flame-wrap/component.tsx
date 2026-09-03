@@ -16,7 +16,7 @@ import {
 export type { ElementOverride };
 
 /**
- * FlameWrapRip — border of fire around arbitrary content.
+ * FlameWrap — border of fire around arbitrary content.
  *
  * A deterministic Remotion port of the Canvas UI `<FlameWrap>` WebGL
  * component (canvasui.dev). The GLSL is kept VERBATIM from the upstream
@@ -67,7 +67,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface FlameWrapRipProps {
+export interface FlameWrapProps {
   config: TemplateConfig;
   /** Source content the fire wraps around. Rendered untouched. */
   children?: ReactNode;
@@ -589,7 +589,7 @@ function drawFlame(
   glc.drawArrays(glc.TRIANGLE_STRIP, 0, 4);
 }
 
-export const FlameWrapRip: React.FC<FlameWrapRipProps> = ({
+export const FlameWrap: React.FC<FlameWrapProps> = ({
   config,
   children,
   styles,
@@ -686,7 +686,9 @@ export const FlameWrapRip: React.FC<FlameWrapRipProps> = ({
     </div>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (flame-wrap) and the auto-generated index.ts re-exports FlameWrap.
-// Keep both names available so previews (FlameWrapRip) and the barrel (FlameWrap) compile.
-export const FlameWrap = FlameWrapRip;
+// Canonical export matches the folder PascalCase (flame-wrap -> FlameWrap), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link FlameWrap} instead — kept for configs written against the old name. */
+export const FlameWrapRip = FlameWrap;
+/** @deprecated Use {@link FlameWrapProps} instead. */
+export type FlameWrapRipProps = FlameWrapProps;

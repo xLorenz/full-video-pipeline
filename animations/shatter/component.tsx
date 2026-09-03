@@ -19,7 +19,7 @@ import {
 export type { ElementOverride };
 
 /**
- * ShatterRip — the page breaks into 3D glass shards around a traveling
+ * Shatter — the page breaks into 3D glass shards around a traveling
  * lens. Each shard lifts, tips, and floats above the void, casting soft
  * shadows; the lifted glass refracts and chromatically fringes the
  * content beneath it.
@@ -66,7 +66,7 @@ export type { ElementOverride };
  *      included — animated transforms are captured cleanly; per-element
  *      opacity fades are not (see the animation.md pitfall). Sampler
  *      matches upstream: LINEAR/LINEAR, no mipmaps.
- *   4. Full-frame treatment: like the other treatments, ShatterRip
+ *   4. Full-frame treatment: like the other treatments, Shatter
  *      fills the composition (`AbsoluteFill` root) and processes
  *      everything the caller puts inside — wrap your ENTIRE scene.
  *      `uMaxX` is kept: content narrower than the frame is shattered
@@ -93,7 +93,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface ShatterRipProps {
+export interface ShatterProps {
   config: TemplateConfig;
   /** The scrollable scene behind the shards (fills the frame, taller
    *  than the frame to scroll — see the preview for the pattern).
@@ -843,7 +843,7 @@ async function captureAndDraw(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-export const ShatterRip: React.FC<ShatterRipProps> = ({
+export const Shatter: React.FC<ShatterProps> = ({
   config,
   children,
   fontSizes,
@@ -969,7 +969,9 @@ export const ShatterRip: React.FC<ShatterRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (shatter) and the auto-generated index.ts re-exports Shatter.
-// Keep both names available so previews (ShatterRip) and the barrel (Shatter) compile.
-export const Shatter = ShatterRip;
+// Canonical export matches the folder PascalCase (shatter -> Shatter), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link Shatter} instead — kept for configs written against the old name. */
+export const ShatterRip = Shatter;
+/** @deprecated Use {@link ShatterProps} instead. */
+export type ShatterRipProps = ShatterProps;

@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { ShatterRip } from "../component";
+import { Shatter } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#A93A2A",
@@ -72,7 +72,7 @@ const PhotoBlock: React.FC<{
 
 /**
  * The scene behind the glass — a tall magazine "page". It is the
- * CALLER'S content: ShatterRip knows nothing about it, it just captures
+ * CALLER'S content: Shatter knows nothing about it, it just captures
  * its DOM into a texture each frame (scroll position included) and
  * breaks it into shards around the traveling lens. The scene is TALLER
  * than the frame so it has real scroll distance, and a small entrance
@@ -273,7 +273,7 @@ const PageScene: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for shatter.
  *
- * Exercises the full-frame children model: `<ShatterRip>` wraps a tall
+ * Exercises the full-frame children model: `<Shatter>` wraps a tall
  * `<PageScene>` and the composition plays one pass — the page scrolls
  * while the lens sweeps from the left edge to the right edge,
  * shattering the spread and letting it reform behind itself. The
@@ -333,8 +333,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <ShatterRip {...PREVIEW_DEFAULT_PROPS}>
+    <Shatter {...PREVIEW_DEFAULT_PROPS}>
       <PageScene />
-    </ShatterRip>
+    </Shatter>
   );
 };

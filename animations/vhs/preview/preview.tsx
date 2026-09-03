@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { VHSRip } from "../component";
+import { Vhs } from "../component";
 
 const PREVIEW_COLORS = {
   primary: "#FFB347",
@@ -21,7 +21,7 @@ const PREVIEW_FONTS = {
 const PREVIEW_FONT_SIZES = { headline: 132, body: 28, caption: 20 };
 
 /**
- * The scene the VHS treatment eats. It is the CALLER'S content — VHSRip
+ * The scene the VHS treatment eats. It is the CALLER'S content — Vhs
  * knows nothing about it, it just captures its DOM into a texture and
  * runs the tape effect over the whole frame. The root div carries an
  * OPAQUE background (#0A0A0E): the shader's CRT bezel color is probed by
@@ -191,7 +191,7 @@ const TapeScene: React.FC = () => {
 /**
  * Self-contained 90-frame (3s @ 30fps) preview for vhs.
  *
- * Exercises the full-frame children model: `<VHSRip>` wraps a
+ * Exercises the full-frame children model: `<Vhs>` wraps a
  * `<TapeScene>` and the worn-tape shader treats EVERYTHING — wave,
  * jitter, crease band, head-switching noise, chroma bloom + RGB
  * aberration, brightness beat, grain, scanlines, vignette, CRT barrel.
@@ -238,8 +238,8 @@ export const PREVIEW_DEFAULT_PROPS = {
 
 export const Preview: React.FC = () => {
   return (
-    <VHSRip {...PREVIEW_DEFAULT_PROPS}>
+    <Vhs {...PREVIEW_DEFAULT_PROPS}>
       <TapeScene />
-    </VHSRip>
+    </Vhs>
   );
 };

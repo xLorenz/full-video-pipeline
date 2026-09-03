@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { DecryptRip } from "../component";
+import { DecryptReveal } from "../component";
 
 const CARD_PREVIEW_COLORS = {
   primary: "#4ade80",
@@ -22,7 +22,7 @@ const CARD_PREVIEW_FONT_SIZES = { headline: 96, body: 26, caption: 18 };
 
 /**
  * The scene behind the cipher — a single centered "secret message" card
- * on a flat dark backdrop. It is the CALLER'S content: DecryptRip
+ * on a flat dark backdrop. It is the CALLER'S content: DecryptReveal
  * knows nothing about it, it just captures its DOM into a texture each
  * frame and covers it with a shape-matched cipher. The card is fully
  * opaque (opacity fades decay out of the html-in-canvas record — see
@@ -137,7 +137,7 @@ const SecretCard: React.FC = () => {
  * Self-contained 150-frame (5s @ 30fps) preview for decrypt-reveal —
  * the "decrypt a card at 3s of 5s" recipe.
  *
- * A single centered card on a flat dark backdrop, wrapped in DecryptRip
+ * A single centered card on a flat dark backdrop, wrapped in DecryptReveal
  * with a STATIC centered `lensPath` (two identical stops), `radius` 600
  * (covers the 880×560 card plus feather), `background` set to the
  * backdrop color exactly (empty frame stays seamless), and a hold-off
@@ -203,8 +203,8 @@ export const PREVIEW_CARD_DEFAULT_PROPS = {
 
 export const PreviewCard: React.FC = () => {
   return (
-    <DecryptRip {...PREVIEW_CARD_DEFAULT_PROPS}>
+    <DecryptReveal {...PREVIEW_CARD_DEFAULT_PROPS}>
       <SecretCard />
-    </DecryptRip>
+    </DecryptReveal>
   );
 };

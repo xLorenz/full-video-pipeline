@@ -1,6 +1,6 @@
 import React from "react";
 import { interpolate, useCurrentFrame, Easing } from "remotion";
-import { ShatterRip } from "../component";
+import { Shatter } from "../component";
 
 const CARD_COLORS = {
   primary: "#A93A2A",
@@ -196,8 +196,8 @@ export const PREVIEW_CARD_DEFAULT_PROPS = {
 
 export const PreviewCard: React.FC = () => {
   return (
-    <ShatterRip {...PREVIEW_CARD_DEFAULT_PROPS}>
+    <Shatter {...PREVIEW_CARD_DEFAULT_PROPS}>
       <CardScene />
-    </ShatterRip>
+    </Shatter>
   );
 };

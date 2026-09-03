@@ -20,7 +20,7 @@ import {
 export type { ElementOverride };
 
 /**
- * VHSRip — worn-tape CRT treatment over arbitrary content.
+ * Vhs — worn-tape CRT treatment over arbitrary content.
  *
  * A deterministic Remotion port of the Canvas UI `<VHS>` WebGL component
  * (canvasui.dev). Unlike glyph-rain/flame-wrap, the VHS effect IS the
@@ -47,7 +47,7 @@ export type { ElementOverride };
  *      captured as-is. (An SVG `<foreignObject>` blob image would be
  *      simpler, but Chrome flags such images as cross-origin and WebGL
  *      rejects the upload with a SecurityError — tainted.)
- *   3. Full-frame treatment: unlike flame-wrap (a box wrapper), VHSRip
+ *   3. Full-frame treatment: unlike flame-wrap (a box wrapper), Vhs
  *      fills the composition (`AbsoluteFill` root) and processes
  *      everything the caller puts inside — wrap your ENTIRE scene.
  *      `uMaxX` is kept: content narrower than the frame is sampled only
@@ -71,7 +71,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface VHSRipProps {
+export interface VhsProps {
   config: TemplateConfig;
   /** The scene the VHS treatment is applied to (fills the frame). */
   children?: ReactNode;
@@ -600,7 +600,7 @@ async function captureAndDraw(
     glc.drawArrays(glc.TRIANGLE_STRIP, 0, 4);
 }
 
-export const VHSRip: React.FC<VHSRipProps> = ({
+export const Vhs: React.FC<VhsProps> = ({
   config,
   children,
   fontSizes,
@@ -703,8 +703,9 @@ export const VHSRip: React.FC<VHSRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component
-// name from the folder (vhs -> Vhs) and the auto-generated index.ts
-// re-exports `Vhs`. Keep both names available so previews (VHSRip) and
-// the generated barrel (Vhs) both compile.
-export const Vhs = VHSRip;
+// Canonical export matches the folder PascalCase (vhs -> Vhs), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link Vhs} instead — kept for configs written against the old name. */
+export const VHSRip = Vhs;
+/** @deprecated Use {@link VhsProps} instead. */
+export type VHSRipProps = VhsProps;

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://full-video-pipeline/animations/blaze.schema.json",
-  "title": "BlazeRip instance",
+  "title": "Blaze instance",
   "description": "Per-template schema for blaze. Core TemplateConfig fields (theme/global) are $ref-d from the global animations.schema.json. This template does NOT own content — it burns arbitrary `children` passed by the caller, so `elements[]` is unconstrained (any id) and typically empty. extras.* are extended here.",
   "type": "object",
   "additionalProperties": false,
@@ -13,7 +13,7 @@
     "global": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/global"},
     "elements": {
       "type": "array",
-      "description": "Currently unused by blaze itself — content is passed as `children` to <BlazeRip>. Kept in the schema for DeepConfig pipeline compatibility.",
+      "description": "Currently unused by blaze itself — content is passed as `children` to <Blaze>. Kept in the schema for DeepConfig pipeline compatibility.",
       "items": {
         "type": "object",
         "additionalProperties": true,

@@ -19,7 +19,7 @@ import {
 export type { ElementOverride };
 
 /**
- * BlazeRip — a fire burns up from the bottom of the frame, rising over
+ * Blaze — a fire burns up from the bottom of the frame, rising over
  * the wrapped content: layered procedural sparks with depth, drifting
  * smoke, a warm glow at the base, and heat-distortion noise that bends
  * the content near the fire zone.
@@ -84,7 +84,7 @@ export type { ElementOverride };
  * Pins used (recognized element ids):
  *   (none — content is passed as `children`; `elements[]` is ignored)
  */
-export interface BlazeRipProps {
+export interface BlazeProps {
   config: TemplateConfig;
   /** The scene behind the fire (fills the frame; the fire rises over
    *  its lower `height` fraction — see the preview for the pattern).
@@ -745,7 +745,7 @@ async function captureAndDraw(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-export const BlazeRip: React.FC<BlazeRipProps> = ({
+export const Blaze: React.FC<BlazeProps> = ({
   config,
   children,
   fontSizes,
@@ -870,7 +870,9 @@ export const BlazeRip: React.FC<BlazeRipProps> = ({
     </AbsoluteFill>
   );
 };
-// Barrel-name alias: publish_animations.py derives the exported component name
-// from the folder (blaze) and the auto-generated index.ts re-exports Blaze.
-// Keep both names available so previews (BlazeRip) and the barrel (Blaze) compile.
-export const Blaze = BlazeRip;
+// Canonical export matches the folder PascalCase (blaze -> Blaze), which is
+// what publish_animations.py re-exports from the generated barrel index.
+/** @deprecated Use {@link Blaze} instead — kept for configs written against the old name. */
+export const BlazeRip = Blaze;
+/** @deprecated Use {@link BlazeProps} instead. */
+export type BlazeRipProps = BlazeProps;
