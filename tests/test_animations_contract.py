@@ -42,33 +42,14 @@ def test_every_template_in_examples():
     assert missing == [], f"templates missing from examples/README: {missing}"
 
 
-# Known README violations, slated for removal in the previews phase
-# (fold card variants into the single preview.tsx as comments).
-KNOWN_PREVIEW_VIOLATIONS = {"decrypt-reveal", "shatter"}
-
-
 def test_one_preview_per_template():
     bad = []
     for p in template_dirs():
-        if p.name in KNOWN_PREVIEW_VIOLATIONS:
-            continue
         variants = [f.name for f in (p / "preview").glob("preview-*")
                     if f.name not in ("preview.tsx", "preview.mp4")]
         if variants:
             bad.append(f"{p.name}: {variants}")
     assert bad == [], f"forbidden secondary preview variants: {bad}"
-
-
-def test_known_preview_violations_still_tracked():
-    # Fails when the previews phase removes them — then drop the allowlist.
-    remaining = set()
-    for name in KNOWN_PREVIEW_VIOLATIONS:
-        variants = [f.name for f in (ANIM / name / "preview").glob("preview-*")
-                    if f.name not in ("preview.tsx", "preview.mp4")]
-        if variants:
-            remaining.add(name)
-    assert remaining == KNOWN_PREVIEW_VIOLATIONS, (
-        f"allowlist out of date, remaining: {sorted(remaining)}")
 
 
 def test_preview_files_present():

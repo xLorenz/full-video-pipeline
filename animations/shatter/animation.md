@@ -97,7 +97,7 @@ Upstream's `followSpeed` is intentionally absent — see Model above.
 ## Typical scenes
 
 - **Full sweep (the default)**: `lensPath: [{x:-0.25,y:0.5,at:0},{x:1.25,y:0.5,at:1}]`, `scrollTo: 1` — the page scrolls while the shatter wave crosses it, reforming behind itself.
-- **One card, no scroll, shatters at 3s of a 5s video**: a centered single-card scene (not taller than the frame), `lensPath: [{x:0.5,y:0.5,at:0},{x:0.5,y:0.5,at:1}]` (static center), `scrollTo: 0` (page pinned), `activePath: [{at:0,v:0},{at:0.6,v:0},{at:0.62,v:1}]` (lens off until 60% = 3s — keep `v:0` up to the trigger, then step to 1 — optionally reform with a later `{at:0.74,v:0}`), tune `radius`/`lift`/`tileSize` to the card. The full recipe is demonstrated by `preview/preview-card.tsx`.
+- **One card, no scroll, shatters at 3s of a 5s video**: a centered single-card scene (not taller than the frame), `lensPath: [{x:0.5,y:0.5,at:0},{x:0.5,y:0.5,at:1}]` (static center), `scrollTo: 0` (page pinned), `activePath: [{at:0,v:0},{at:0.6,v:0},{at:0.62,v:1}]` (lens off until 60% = 3s — keep `v:0` up to the trigger, then step to 1 — optionally reform with a later `{at:0.74,v:0}`), tune `radius`/`lift`/`tileSize` to the card.
 - **Static lens, live page**: one lens stop anywhere plus `scrollTo: 1` — the page scrolls through a fixed shatter zone.
 - **Traveling but never off-frame**: `lensPath: [{x:0.2,y:0.6,at:0},{x:0.8,y:0.4,at:1}]` — a diagonal drift; the lens never leaves the frame, so no entrance is needed (`activePath` can stay at its default).
 
@@ -134,6 +134,6 @@ Upstream's `followSpeed` is intentionally absent — see Model above.
 
 ## To preview
 
-See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a tall `PageScene` with gradient photo blocks as `children` (sun disc + ridge edges give the refraction structure); `preview-card` demonstrates the pinned single-card variant.
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a tall `PageScene` with gradient photo blocks as `children` (sun disc + ridge edges give the refraction structure).
 
-`preview/preview-card.tsx` is the counter-example — a single centered card on a dark backdrop with a static center `lensPath`, `scrollTo: 0`, and a hold-off `activePath` (off until progress 0.6, snap on, hold, reform at 0.78) — the "shatter a card at 3s of 5s" recipe above, in 150 frames. `preview/preview-card.mp4` is its render.
+For a pinned single card instead of a scrolling page, use a static center `lensPath` with `scrollTo: 0` and the hold-off `activePath` from the recipe above.
