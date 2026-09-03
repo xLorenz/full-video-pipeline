@@ -4,6 +4,51 @@ Deterministic Remotion port of the Canvas UI [`<Shatter>`](https://canvasui.dev/
 
 Unlike glyph-rain/flame-wrap (box wrappers), **Shatter fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "the glass breaks / reveal through shards"
+- "a fragile topic, literally cracking"
+- "page turn with broken glass"
+
+Don't use it for flat wipes (`comparison` templates) or fire (`blaze`). The scene should be TALLER than the frame when you want the traveling-lens scroll; pin it with `scrollTo: 0` for a single shattering card.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { Shatter } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-11-shatter.json";
+
+export const Scene11: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill>
+    <Shatter config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyTallScene />
+    </Shatter>
+  </AbsoluteFill>
+);
+```
+
+`scene-11-shatter.json` (`at` is 0–1 scene progress):
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": {
+    "lensPath": [{ "x": -0.25, "y": 0.5, "at": 0 }, { "x": 1.25, "y": 0.5, "at": 1 }],
+    "activePath": [{ "at": 0, "v": 0 }, { "at": 0.1, "v": 1 }, { "at": 0.9, "v": 1 }, { "at": 1, "v": 0 }]
+  }
+}
+```
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and breaks it into shards. The GLSL is kept **verbatim** from upstream `ShatterVanilla.ts`; the runtime driver is re-touched for Remotion.
@@ -56,6 +101,23 @@ Upstream's `followSpeed` is intentionally absent — see Model above.
 - **Static lens, live page**: one lens stop anywhere plus `scrollTo: 1` — the page scrolls through a fixed shatter zone.
 - **Traveling but never off-frame**: `lensPath: [{x:0.2,y:0.6,at:0},{x:0.8,y:0.4,at:1}]` — a diagonal drift; the lens never leaves the frame, so no entrance is needed (`activePath` can stay at its default).
 
+## Customization recipes
+
+### Gentler glass (lift without violence)
+```json
+{ "extras": { "strength": 0.5, "lift": 15, "scatter": 2 } }
+```
+
+### Chunky shards (fewer, bigger tiles)
+```json
+{ "extras": { "tileSize": 200, "tilt": 4 } }
+```
+
+### Always-on lens (no traveling reveal — static glass drift)
+```json
+{ "extras": { "activePath": [{ "at": 0, "v": 1 }] } }
+```
+
 ## Pitfalls & notes
 
 - **The composition is one lens pass over one scroll pass**: `progress = frame / durationInFrames` drives both — the page's scroll coverage and the lens's path both complete exactly once over the composition, shaped by `scrollTo` and `lensPath`. Time your scene (and its entrance animations) for that. There is deliberately no `speed` knob — the motion is tied to the composition itself.
@@ -69,5 +131,9 @@ Upstream's `followSpeed` is intentionally absent — see Model above.
 ## Deterministic preview
 
 `preview/preview.tsx` renders a tall magazine `PageScene` (masthead, "GLASS BREAKS INTO LIGHT" headline with a transform-only rise entrance, two CSS-gradient "photo" blocks, pull quote) wrapped in Shatter with upstream defaults and an explicit `lensPath` sweep + `activePath` envelope that grows the lens in over the first 8 frames and shrinks it out over the last 8 — one pass in 90 frames: the lens enters from the left edge, crosses mid-screen while the page scrolls, and exits off the right edge — shards lift, float, and reform behind the traveling lens. `preview/preview.mp4` is the rendered 90-frame output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a tall `PageScene` with gradient photo blocks as `children` (sun disc + ridge edges give the refraction structure); `preview-card` demonstrates the pinned single-card variant.
 
 `preview/preview-card.tsx` is the counter-example — a single centered card on a dark backdrop with a static center `lensPath`, `scrollTo: 0`, and a hold-off `activePath` (off until progress 0.6, snap on, hold, reform at 0.78) — the "shatter a card at 3s of 5s" recipe above, in 150 frames. `preview/preview-card.mp4` is its render.

@@ -4,6 +4,50 @@ Deterministic Remotion port of the Canvas UI [`<FlameWrap>`](https://canvasui.de
 
 Like glyph-rain, this is a **children-wrapper**: the caller passes their own Remotion content as `children`, the template adds the fire. Content passes through untouched (no dimming, no tinting).
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "the title card is on fire"
+- "a burning border around the content"
+- "hot-take card"
+
+Don't use it for full-frame fire (`blaze` fills the frame; this wraps one box). The wrapped card needs headroom — flames reach ~`height · 0.65` above its top edge — and its `border-radius` must match `extras.radius`.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { FlameWrap } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-09-flame.json";
+
+export const Scene09: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill style={{ justifyContent: "flex-end", paddingBottom: 120 }}>
+    <FlameWrap config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyCard />
+    </FlameWrap>
+  </AbsoluteFill>
+);
+```
+
+`scene-09-flame.json`:
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": { "height": 200, "speed": 0.6, "radius": 28 }
+}
+```
+
+Set `radius` to your card's exact `border-radius`, and keep the card low in the frame so the flames stay on-canvas.
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **Fire is a full-screen WebGL2 fragment shader** (verbatim from upstream `FlameWrapVanilla.ts`). A rounded-rect SDF (`sdRoundRect`) carves the burning outline; fbm noise (`fbm`/`fbm2`) + a 7-step `turbulence` domain warp shape the tongues; the density field gates them into a flame body with white-hot cores, a `hash3` cell grid spawns rising sparks, and an edge-attenuated smoke band wisps off the top.
@@ -33,6 +77,26 @@ Like glyph-rain, this is a **children-wrapper**: the caller passes their own Rem
 | `ember` / `scorch` | 2 / 0 | Ember line / charred band — content-branch only, no-op headless |
 | `fadeInFrames` / `fadeOutFrames` | 0 / 0 | Fire overlay fade, frames |
 
+## Customization recipes
+
+### Stubby card flames (small badge, tight fire)
+```json
+{ "extras": { "height": 120, "scale": 1.0, "radius": 16 } }
+```
+Match `radius` to the card's `border-radius`.
+
+### Tall inferno (full-height licks)
+```json
+{ "extras": { "height": 320, "intensity": 1.0, "smoke": 2.0 } }
+```
+Needs matching headroom above the card (~`height · 0.65`).
+
+### Cheap local preview (same layout, faster renders)
+```json
+{ "extras": { "sparks": 0, "smoke": 0 } }
+```
+`sparks: 0` disables sparks entirely; restore both for finals.
+
 ## Pitfalls & notes
 
 - **WebGL y is bottom-up** — the burn-rect center must be measured from the canvas BOTTOM edge (`uRectCenter.y = box.height − reach − contentH/2`), mirroring upstream's `rect.cy = outRect.bottom − boxCenterY`. Measuring from the top flips the whole fire vertically: the ring renders around an empty mirrored box high above the content. (This bit the first port.)
@@ -46,3 +110,7 @@ Like glyph-rain, this is a **children-wrapper**: the caller passes their own Rem
 ## Deterministic preview
 
 `preview/preview.tsx` renders an animated `TitleCard` (overline fade → title rise → sub fade) wrapped in fire with `height: 200`, `speed: 0.6`, `radius: 28` (matching the card), orange `#FF5722` flames, sparks and smoke on. `preview/preview.mp4` is the rendered 90-frame output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes an animated `TitleCard` as `children` with `radius: 28` matching the card's `border-radius`, pushed low in the frame for flame headroom.

@@ -211,6 +211,28 @@ def test_signature_easings_fall_back_to_global():
             f"{folder}: {knob} must fall back to config.global?.easing"
 
 
+SCHOOL1_SECTIONS = ["## When to use", "## Quick start",
+                    "## Recognized element ids", "## Customization recipes",
+                    "## To preview"]
+
+
+def test_treatment_docs_have_school1_structure():
+    bad = []
+    for p in template_dirs():
+        text = (p / "animation.md").read_text(encoding="utf-8")
+        missing = []
+        for h in SCHOOL1_SECTIONS:
+            if h in text or f"{h} (" in text:
+                continue
+            # "### Recognized `elements[].id`" subsection counts
+            if h == "## Recognized element ids" and "Recognized `elements[].id`" in text:
+                continue
+            missing.append(h)
+        if missing:
+            bad.append(f"{p.name}: missing {missing}")
+    assert bad == [], bad
+
+
 # Demonstrative defaults entries must mirror base content (zero visual delta).
 MIRROR_CASES = {
     "data-bars": ("bar-0", "A", ["labels", 0]),

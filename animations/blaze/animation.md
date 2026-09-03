@@ -4,6 +4,48 @@ Deterministic Remotion port of the Canvas UI [`<Blaze>`](https://canvasui.dev/do
 
 Like vhs/droplets/bend/shatter, **Blaze fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. Unlike bend and shatter it does **not** scroll: the scene can be exactly the frame size (the preview's poster is 1920×1080 inside a 1920×1080 comp); the fire rises over it as it stands.
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "fire rises over the scene"
+- "a burning reveal / heat climax"
+- "the poster catches fire"
+
+Don't use it for a bordered fire around one card (`flame-wrap` wraps a box; this fills the frame). The scene can be exactly the frame size — nothing needs to scroll.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { Blaze } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-07-blaze.json";
+
+export const Scene07: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill>
+    <Blaze config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyPoster />
+    </Blaze>
+  </AbsoluteFill>
+);
+```
+
+`scene-07-blaze.json`:
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": { "height": 0.85, "speed": 1, "sparks": 0.5, "smoke": 0.5 }
+}
+```
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and burns it. The GLSL is kept **verbatim** from upstream `BlazeVanilla.ts`; the runtime driver is re-touched for Remotion.
@@ -46,6 +88,24 @@ All upstream options are kept — nothing interactive existed to drop.
 - **Cold fire / electric mirage**: `sparkColor: [0.2, 0.8, 1]`, `smokeColor: [0.1, 0.4, 0.9]`, `speed: 2` — the same pipeline re-dressed; the luma darkening and distortion still sell the heat.
 - **Slow ember flicker**: `speed: 0.35`, `sparks: 0.8`, `glow: 2` — a slow, close ember bed.
 
+## Customization recipes
+
+### Calm ember bed (background heat, not climax)
+```json
+{ "extras": { "height": 0.5, "sparks": 0.15, "smoke": 0.2, "glow": 1.0 } }
+```
+
+### Full inferno (climax beat)
+```json
+{ "extras": { "sparks": 1.0, "sparkDensity": 2.0, "layers": 6, "glow": 2.0 } }
+```
+
+### Cheap local preview (same look, faster renders)
+```json
+{ "extras": { "layers": 2, "sparkDensity": 0.5, "smoke": 0 } }
+```
+`sparks`, `smoke` and `layers` dominate per-pixel cost — cut them for previews, restore for finals.
+
 ## Pitfalls & notes
 
 - **The composition is one burn**: the fire is driven by `time = frame * speed / fps` and nothing else — there is no waypoint, envelope, or scroll parameter. Time your scene (and its entrance animations) for the composition; `speed` scales the fire, not the pacing of any camera.
@@ -61,3 +121,7 @@ All upstream options are kept — nothing interactive existed to drop.
 ## Deterministic preview
 
 `preview/preview.tsx` renders a frame-sized `BurnPoster` (masthead, "THE FIRE STARTS HERE" headline with a transform-only rise entrance, a gradient "pyre" photo, two-column body copy, pull quote) wrapped in Blaze with the upstream defaults tuned only slightly: `height: 0.85` (a clean band of undisturbed poster stays visible across the top), `fadeInFrames: 12`, `fadeOutFrames: 12` (the fire grows in and dies out instead of popping). The composition is 90 frames at 30fps: the fire rises over the whole poster, heat-shimmering the copy, darkening it under the flames, and laying sparks and smoke over it. `preview/preview.mp4` is the rendered output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a full-frame `BurnPoster` as `children` with `fadeInFrames`/`fadeOutFrames: 12` so the fire grows in and dies out instead of popping.

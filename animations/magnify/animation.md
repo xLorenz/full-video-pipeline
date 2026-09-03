@@ -4,6 +4,56 @@ Deterministic Remotion port of the Canvas UI [`<Magnify>`](https://canvasui.dev/
 
 Unlike glyph-rain/flame-wrap (box wrappers), **Magnify fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be exactly the composition size (or larger — magnify does NOT scroll, so anything below the fold is simply off-screen).
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "zoom into the detail"
+- "a tutorial inspects the UI"
+- "evidence callout under a lens"
+
+Don't use it for plain scale punch-ins (a spring on the content is cheaper). The children need fine detail (small mono rows, ridge edges, caption text) — the lens has nothing to say over flat color.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { Magnify } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-13-magnify.json";
+
+export const Scene13: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill>
+    <Magnify config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyDetailScene />
+    </Magnify>
+  </AbsoluteFill>
+);
+```
+
+`scene-13-magnify.json` (`at` is 0–1 scene progress; positions are 0–1 frame fractions):
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": {
+    "zoom": 1.5,
+    "cursor": {
+      "start": { "x": 0.2, "y": 0.6 },
+      "enter": 0.05,
+      "leave": 0.95,
+      "moves": [{ "to": { "x": 0.6, "y": 0.4 }, "at": 0.5, "ease": "ease-out-cubic" }]
+    }
+  }
+}
+```
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and magnifies it inside the lens. The GLSL is kept **verbatim** from upstream `MagnifyVanilla.ts`; the runtime driver is re-touched for Remotion.
@@ -84,6 +134,34 @@ Upstream's `scrollZoom`/`zoomModifier` are intentionally absent — there is no 
 - **Hold-shot on a detail**: no moves, `cursor: {start: {x: 0.5, y: 0.5}}`, `follow: 1`, a click at 0.4 — a fixed lens hovering a spec, clicking at the right moment.
 - **Off-frame walk-on/walk-off**: `start: {x: -0.2, y: 0.5}` (or a first `to` at x < 0) with `enter` at 0.05, last move `to: {x: 1.2, y: 0.5}` with `leave` at 0.95 — the lens walks in from the left and out to the right, like the classic demo.
 
+## Customization recipes
+
+### Bare lens (no HUD chrome — just glass + zoom)
+```json
+{ "extras": { "hud": 0, "ring": false, "crosshair": false, "ticks": false, "brackets": false, "dot": false, "readout": false } }
+```
+
+### Strong lens (evidence punch-in)
+```json
+{ "extras": { "zoom": 2.2, "size": 200 } }
+```
+
+### Double-click beat (inspect, then confirm)
+```json
+{
+  "extras": {
+    "cursor": {
+      "start": { "x": 0.3, "y": 0.5 },
+      "enter": 0.1,
+      "leave": 0.9,
+      "moves": [{ "to": { "x": 0.55, "y": 0.45 }, "at": 0.4, "ease": "ease-out-cubic" }]
+    },
+    "ripples": true
+  }
+}
+```
+Add `"clicks": [{ "at": 0.55, "hold": 0.08, "release": 0.06, "count": 2, "zoom": 1.5 }]` inside `cursor` for the two-ripple confirm.
+
 ## Pitfalls & notes
 
 - **The composition is one cursor script**: `progress = frame / durationInFrames` drives the whole cursor timeline — the moves complete at their `at` fractions regardless of composition length. Time the scene (and its entrance animations) around the script; there is deliberately no `speed` knob.
@@ -98,3 +176,7 @@ Upstream's `scrollZoom`/`zoomModifier` are intentionally absent — there is no 
 ## Deterministic preview
 
 `preview/preview.tsx` renders a 16:9 magazine spread (`SpreadScene`: masthead, "SEE CLOSER" headline with a transform-only rise entrance, a gradient photo block, a dark optical spec sheet with tiny mono rows) wrapped in Magnify with the full cursor script — lens fades in at the left edge, sweeps to the headline (ease-out-quint), **clicks the headline on arrival** (ripple + zoom punch), makes a **relative** ease-out-back move down to the spec sheet, and a standalone **double-click** at 82% fires two ripples with two punches before the lens fades out at 97% — one pass in 120 frames. `preview/preview.mp4` is the rendered output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a detail-dense `PhotoBlock` scene as `children` with the full cursor script (sweep, headline click, relative move, double-click).

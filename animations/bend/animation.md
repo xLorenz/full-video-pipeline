@@ -4,6 +4,50 @@ Deterministic Remotion port of the Canvas UI [`<Bend>`](https://canvasui.dev/doc
 
 Unlike glyph-rain/flame-wrap (box wrappers), **Bend fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. The scene should be TALLER than the frame so it has real scroll distance (see the preview pattern).
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "the page folds over as we scroll"
+- "a photo-memoir page turn"
+- "scroll a tall scene on a folding surface"
+
+Don't use it for flat full-frame treatments with no scroll (`vhs`, `blaze`, `decrypt-reveal` process the frame as it stands). The scene must be TALLER than the frame — without scroll distance there is nothing to fold.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { Bend } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-06-bend.json";
+
+export const Scene06: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill>
+    <Bend config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyTallScene />
+    </Bend>
+  </AbsoluteFill>
+);
+```
+
+`scene-06-bend.json`:
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": { "direction": "in", "top": true, "bottom": true }
+}
+```
+
+Build `<MyTallScene>` taller than the frame (1.5–2× frame height) so the fold has real scroll distance.
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and bends it over folded edges. The GLSL is kept **verbatim** from upstream `Bend.tsx`; the runtime driver is re-touched for Remotion.
@@ -36,6 +80,24 @@ Unlike glyph-rain/flame-wrap (box wrappers), **Bend fills the composition** and 
 
 Upstream's `smoothing`, `tumble`, `tilt` are intentionally absent — see Model above.
 
+## Customization recipes
+
+### Outward unfold (vs the default inward fold)
+```json
+{ "extras": { "direction": "out" } }
+```
+
+### Single crease (fold one edge only)
+```json
+{ "extras": { "top": true, "bottom": false } }
+```
+
+### Stronger cube perspective
+```json
+{ "extras": { "perspective": 400, "rounding": 100 } }
+```
+Lower `perspective` deepens the foreshortening; lower `rounding` sharpens the crease.
+
 ## Pitfalls & notes
 
 - **The composition is one full scroll pass**: the fold sweep is `frame / durationInFrames` — the video plays the content from top to bottom exactly once. Time your scene (and its entrance animations) for that: content arriving late in the pass is folded at its crease, content at the scroll ends sits flat. There is deliberately no `speed` knob — the sweep is tied to the composition itself.
@@ -49,3 +111,7 @@ Upstream's `smoothing`, `tumble`, `tilt` are intentionally absent — see Model 
 ## Deterministic preview
 
 `preview/preview.tsx` renders a tall magazine `PageScene` (masthead, "PAGES BEND AT THE EDGES" headline with a transform-only rise entrance, two CSS-gradient "photo" blocks, pull quote) wrapped in Bend with `zone: 260`, `angle: 80`, `rounding: 150`, `ease: 260` — one full scroll pass in 90 frames: bottom crease folded at the start, both folded mid-pass, top crease folded at the end. `preview/preview.mp4` is the rendered 90-frame output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a tall `PageScene` (masthead, photo blocks, pull quote) as `children` to demonstrate the fold tastes scroll distance.

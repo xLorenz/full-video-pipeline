@@ -4,6 +4,48 @@ Deterministic Remotion port of the Canvas UI [`<Droplets>`](https://canvasui.dev
 
 Unlike glyph-rain/flame-wrap (box wrappers), **Droplets fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card.
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "rain runs down the glass"
+- "a night window / melancholy city beat"
+- "seen through a wet windshield"
+
+Don't use it for full-frame fire or tape damage (`blaze`, `vhs`). Content with bright points (windows, moons, lamps) refracts best.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { Droplets } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-08-droplets.json";
+
+export const Scene08: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill>
+    <Droplets config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyNightScene />
+    </Droplets>
+  </AbsoluteFill>
+);
+```
+
+`scene-08-droplets.json`:
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": { "intensity": 0.85, "refraction": 0.3, "fallSpeed": 1.1 }
+}
+```
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and distorts it along the rain field's surface normals. The GLSL is kept **verbatim** from upstream `Droplets.tsx`; the runtime driver is re-touched for Remotion.
@@ -36,6 +78,23 @@ Unlike glyph-rain/flame-wrap (box wrappers), **Droplets fills the composition** 
 
 Upstream's `interactive`, `interactionRadius`, `interactionStrength`, `interactionDistortion` are intentionally absent — see Model above.
 
+## Customization recipes
+
+### Heavy storm (climax weather)
+```json
+{ "extras": { "intensity": 1.0, "refraction": 0.5, "fallSpeed": 1.6, "wiggle": 1.5 } }
+```
+
+### Misted morning (barely raining, mostly beads + fog)
+```json
+{ "extras": { "intensity": 0.35, "staticDrops": 0.8, "blur": 0.25 } }
+```
+
+### Subtle drizzle (keeps text readable)
+```json
+{ "extras": { "intensity": 0.4, "dropLength": 0.7, "refraction": 0.2 } }
+```
+
 ## Pitfalls & notes
 
 - **The scene's colors show through the glass unmodified** (the shader only re-samples them along refracted UVs), so make the wrapped scene's colors *readable behind rain*: high-contrast shapes (lit windows, bright text on dark sky) show refraction best. Low-contrast flat fills make the drops nearly invisible — add `tint`/`tintStrength` for a moody colored glass if needed.
@@ -47,3 +106,7 @@ Upstream's `interactive`, `interactionRadius`, `interactionStrength`, `interacti
 ## Deterministic preview
 
 `preview/preview.tsx` renders a night-skyline `WindowScene` (moon, lit buildings, "RAIN ON THE WINDOW" headline with entrance rise) wrapped in Droplets with `intensity: 0.85`, `speed: 1.1`, `refraction: 0.3`, a light `blur: 0.15` fog and `vignette: 0.35`. `preview/preview.mp4` is the rendered 90-frame output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a night-skyline `WindowScene` (moon, lit buildings) as `children` — bright points give the refraction something to bend.

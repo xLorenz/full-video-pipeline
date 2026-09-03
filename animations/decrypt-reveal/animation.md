@@ -4,6 +4,48 @@ Deterministic Remotion port of the Canvas UI [`<DecryptReveal>`](https://canvasu
 
 Like the other treatments, **DecryptReveal fills the composition** and processes the ENTIRE scene — wrap your whole frame, not a card. Like blaze it does **not** scroll: the scene can be exactly the frame size (the preview's dossier is 1920×1080 inside a 1920×1080 comp); the circle travels over it as it stands.
 
+## When to use
+
+Reach for this when your scene's `visual_notes` says something like:
+- "classified file decrypts"
+- "a hacking / password beat"
+- "the secret message reveals"
+
+Don't use it for scrolling content (the scene sits at exactly frame size — the circle travels, the page doesn't). Monospace content works best: cipher glyphs are shape-matched to what lies beneath. The cipher `background` must exactly match your scene backdrop.
+
+## Quick start (copy into your scene)
+
+```tsx
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import type { SceneTiming } from "remotion-foundation";
+import { DecryptReveal } from "../components/animations";
+import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+import config from "../scene-assets/scene-12-decrypt.json";
+
+export const Scene12: React.FC<{ scene: SceneTiming }> = () => (
+  <AbsoluteFill style={{ backgroundColor: "#0B0F0C" }}>
+    <DecryptReveal config={config}
+      styles={{colors: COLORS, fonts: FONTS}}
+      fontSizes={FONT_SIZES}>
+      <MyDossier />
+    </DecryptReveal>
+  </AbsoluteFill>
+);
+```
+
+`scene-12-decrypt.json`:
+```json
+{
+  "global": { "speed": 1.0 },
+  "extras": { "radius": 440, "cell": 16, "scramble": 0.15, "background": "#0B0F0C" }
+}
+```
+
+## Recognized element ids
+
+None — children-wrapper. `elements[]` is ignored; pass content as `children`.
+
 ## Model
 
 - **The treatment IS the content**: the shader samples a texture of the wrapped DOM and encrypts it with glyphs matched to its own shapes. The GLSL (`CELL_FRAG`, `MAIN_FRAG`) is kept **verbatim** from upstream `DecryptRevealVanilla.ts`; the runtime driver is re-touched for Remotion.
@@ -64,6 +106,24 @@ All upstream options are kept; the pointer/loop machinery is replaced by the way
 - **Typewriter drip**: `cell: 6`, `radius: 90`, `scramble: 0.4`, `scrambleSpeed: 20`, `edgeFlicker: 1` — a tiny churning window that decrypts letter by letter as it crawls along a line of text.
 - **Redacted / burned document**: `colored: 0`, `color: "#4ade80"`, `passthrough: 0` — a fully green, shape-matched redaction over the whole frame with no reveal (`activePath` off or a tiny circle).
 
+## Customization recipes
+
+### Red-team cipher (alarm palette)
+```json
+{ "extras": { "color": "#FF5D5D", "background": "#17141A" } }
+```
+`background` must exactly match the scene backdrop or the cipher card edges show.
+
+### Slow burn (long hover before the reveal)
+```json
+{ "extras": { "scrambleSpeed": 3, "edgeGlow": 3 } }
+```
+
+### Soft edge (no flicker — calm unveil)
+```json
+{ "extras": { "edgeWidth": 0.35, "edgeFlicker": 0 } }
+```
+
 ## Pitfalls & notes
 
 - **The composition is one reveal pass**: `progress = frame / durationInFrames` drives the circle's path and activation — both complete exactly once over the composition, shaped by `lensPath`/`activePath` and damped by `smoothing`. Time your scene (and its entrance animations) for that. The cipher scramble runs continuously on composition time — it does not re-roll on any timeline.
@@ -78,5 +138,9 @@ All upstream options are kept; the pointer/loop machinery is replaced by the way
 ## Deterministic preview
 
 `preview/preview.tsx` renders a frame-sized `Dossier` (status bar, "PROJECT DECRYPT" headline with a transform-only rise entrance, a REDACTED block, two columns of dense mono copy, a KEY MATERIAL section, footer) wrapped in DecryptReveal with the upstream defaults tuned slightly: `radius: 440`, `cell: 16` (software-render tractability), `scramble: 0.15`, `aberration: 12`, `background: "#0B0F0C"` (the dossier's exact backdrop), `smoothing: 0.12`, an explicit `lensPath` sweep, and an `activePath` that grows the decrypt circle in over the first ~5 frames. The composition is 90 frames at 30fps: the frame opens fully encrypted, the circle blooms at the left edge and sweeps right — the cipher churning and flickering at its edge as the dossier reveals beneath it. `preview/preview.mp4` is the rendered output.
+
+## To preview
+
+See the optional-preview instructions in [`../README.md`](../README.md). Set `animations_preview_requested: true` in `pipeline_state.json` before running `complete` at Step 8. The preview passes a frame-sized monospace `Dossier` as `children` (shape-matched cipher needs glyph-dense content); `preview-card` demonstrates the single-card variant.
 
 `preview/preview-card.tsx` is the counter-example — a single centered "secret message" card on a flat dark backdrop (`#17141A`, matching `background` exactly) with a static center `lensPath`, `radius: 600`, and a hold-off `activePath` (fully encrypted until progress 0.6 = frame 90, bloom, hold ~0.9s, re-lock at 0.78) — the "decrypt a card at 3s of 5s" recipe above, in 150 frames, with the card rising in via a transform-only entrance. `preview/preview-card.mp4` is its render.
