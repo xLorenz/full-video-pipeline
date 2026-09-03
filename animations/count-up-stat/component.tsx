@@ -16,6 +16,7 @@ import {
   pickFont,
   type TemplateConfig,
   type ElementOverride,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -124,11 +125,7 @@ export const CountUpStat: React.FC<CountUpStatProps> = ({ config, styles, fontSi
   const labelAfterLand = extras.labelAfterLand !== false;
 
   // Element overrides folded into a Map for O(1) lookup.
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const findOv = (id: string): ElementOverride | undefined => overrideMap.get(id);
   const labelText = findOv("label")?.text ?? "";
 

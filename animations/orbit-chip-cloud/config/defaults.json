@@ -6,7 +6,7 @@
     "delayOffset": 0,
     "easing": "ease-out-cubic"
   },
-  "elements": [],
+  "elements": [{ "id": "chip-0", "text": "PILLAR A" }],
   "extras": {
     "chips": [
       "PILLAR A",

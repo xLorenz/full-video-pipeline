@@ -2,7 +2,7 @@
   "instanceId": "timeline-marker.defaults",
   "theme": {},
   "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-cubic" },
-  "elements": [],
+  "elements": [{ "id": "event-0", "text": "1950" }],
   "extras": {
     "events": [
       { "label": "1950", "caption": "Start" },

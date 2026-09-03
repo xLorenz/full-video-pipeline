@@ -17,6 +17,7 @@ import {
   pickFont,
   type ElementOverride,
   type TemplateConfig,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -121,11 +122,7 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
     "#1A2744",
   );
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const findOv = (id: string): ElementOverride | undefined => overrideMap.get(id);
   const titleText = findOv("title")?.text ?? "";
   const labelText = findOv("label")?.text ?? "";

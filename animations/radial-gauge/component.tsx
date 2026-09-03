@@ -17,6 +17,7 @@ import {
   pickFont,
   type ElementOverride,
   type TemplateConfig,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -117,11 +118,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({ config, styles, fontSi
   const landPunchDuration = Math.max(1, Number(extras.landPunchDurationFrames ?? 7));
   const labelAfterLand = extras.labelAfterLand !== false;
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const findOv = (id: string): ElementOverride | undefined => overrideMap.get(id);
   const labelText = findOv("label")?.text ?? "";
 

@@ -8,7 +8,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  useSlotOverrides,
   type EasingName,
 } from "../_shared";
 
@@ -106,11 +106,7 @@ export const DataBars: React.FC<DataBarsProps> = ({ config, styles, fontSizes })
   const accentLeader = extras.accentLeader !== false;
   const trackRoundingPx = Math.max(0, Math.min(40, Number(extras.trackRoundingPx ?? 8)));
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
 
   const visibleIndices = useMemo(() => {
     const out: number[] = [];

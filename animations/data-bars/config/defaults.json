@@ -2,7 +2,7 @@
   "instanceId": "data-bars.defaults",
   "theme": {},
   "global": { "speed": 1.0, "delayOffset": 0, "easing": "ease-out-quint" },
-  "elements": [],
+  "elements": [{ "id": "bar-0", "text": "A" }],
   "extras": {
     "values": [42, 88, 56, 120, 35, 74, 91],
     "labels": ["A", "B", "C", "D", "E", "F", "G"],

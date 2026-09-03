@@ -16,7 +16,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  useSlotOverrides,
   type EasingName,
 } from "../_shared";
 
@@ -180,11 +180,7 @@ export const KineticTitleMosaic: React.FC<KineticTitleMosaicProps> = ({
   const mutedColor = pickColor(null, theme, "muted", "#9CA3AF");
   const baseTextColor = pickColor(null, theme, "text", "#FFFFFF");
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
 
   const perSlotDur = Math.round(perSlotDurSec * fps * g.speed);
   const baseStagger = Math.round(staggerSec * fps * g.speed);

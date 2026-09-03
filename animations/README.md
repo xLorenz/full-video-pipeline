@@ -95,6 +95,13 @@ Full schema: [`schemas/animations.schema.json`](../schemas/animations.schema.jso
 Per-template extensions: `<template>/config/schema.json`.
 Human-readable field guide: [`SCHEMA.md`](./SCHEMA.md).
 
+### Where content lives (canonical rule)
+
+- **Ordered content lives in `extras.*` base arrays** — shape is template-specific (`words`, `chips`, `cells`, `events`, `values`+`labels`, `points`+`labels`, `barcodeBars`, `radarDots`). The schema marks content arrays required where applicable.
+- **Per-item overrides live in `elements[]`** under slot ids (`bar-0`, `word-2`, `event-1`, `chip-3`, `cell-0-1`, `node-label`, … — see each template's "Recognized element ids"). `text` replaces that slot's label, `color`/`delay`/`duration`/`hidden`/`custom` tune it; unmatched ids are ignored with a preview warning.
+- `elements[]` never carries the base list itself — `defaults.json` ships one mirroring entry (same text as the base slot) purely to demonstrate the pattern.
+- Components build the id→override map via `useSlotOverrides(config.elements)` (`buildSlotOverrideMap` outside components) from `_shared/content.ts` — never hand-roll the loop.
+
 ## How the agent uses a template
 
 During Phase 3 (Step 8) — while writing `SceneXX.tsx`:

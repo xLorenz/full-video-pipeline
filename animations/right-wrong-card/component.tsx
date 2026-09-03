@@ -14,7 +14,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  buildSlotOverrideMap,
   type ResolvedGlobal,
 } from "../_shared";
 
@@ -154,8 +154,7 @@ function synthesizeLegacyCards(
   extras: Record<string, unknown>,
 ): CardSpec[] {
   const leftIsWinner = Boolean(extras.leftIsWinner ?? false);
-  const overrideMap = new Map<string, ElementOverride>();
-  for (const e of config.elements ?? []) overrideMap.set(e.id, e);
+  const overrideMap = buildSlotOverrideMap(config.elements);
   const leg = (id: string) => overrideMap.get(id);
   const t = (id: string, fallback: string) => {
     const ov = leg(id);

@@ -11,6 +11,7 @@ import {
   type TemplateConfig,
   type ElementOverride,
   type EasingName,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -173,11 +174,7 @@ export const ComparisonGrid: React.FC<ComparisonGridProps> = ({
   const mutedColor = pickColor(null, theme, "muted", "#8B95A7");
 
   // Element overrides hot path.
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const elementFor = (r: number, c: number): ElementOverride | undefined =>
     overrideMap.get(slotId(r, c));
   const cellText = (r: number, c: number): string => {

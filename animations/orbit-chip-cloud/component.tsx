@@ -7,6 +7,7 @@ import {
   pickFont,
   type TemplateConfig,
   type ElementOverride,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -200,11 +201,7 @@ export const OrbitChipCloud: React.FC<OrbitChipCloudProps> = ({
   const mutedColor = pickColor(null, theme, "muted", "#6F7B91");
 
   // Element override lookup.
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const elementFor = (i: number): ElementOverride | undefined =>
     overrideMap.get(slotId(i));
 

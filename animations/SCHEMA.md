@@ -66,6 +66,7 @@ Every template instance is a `TemplateConfig` JSON document. The same core shape
 4. **Speed is multiplicative** — `"speed": 1.5` stretches every element's delay+dur by 50%; per-element explicit values still win.
 5. **`hidden: true` collapses layout** — subsequent siblings reflow as if the element were never authored.
 6. **Unrecognized `elements[].id`** — ignored silently (to allow templates to share a base config); a warning is logged at preview time. Children-wrapper treatments ignore the whole array (see above).
+7. **Content-supply rule** — ordered content lives in template-specific `extras.*` base arrays; `elements[]` holds per-slot overrides only (`<prefix>-N` ids mirroring base positions). Components resolve slots via `useSlotOverrides()` from `_shared/content.ts`.
 
 ## Easing registry
 

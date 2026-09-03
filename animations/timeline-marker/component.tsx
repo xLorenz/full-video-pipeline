@@ -15,6 +15,7 @@ import {
   pickFont,
   type TemplateConfig,
   type ElementOverride,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -231,11 +232,7 @@ export const TimelineMarker: React.FC<TimelineMarkerProps> = ({
   const bodyFont = pickFont(null, theme, "body", "Poppins");
   const mutedColor = pickColor(null, theme, "muted", "#9CA3AF");
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const elementFor = (i: number): ElementOverride | undefined =>
     overrideMap.get(slotId(i));
 

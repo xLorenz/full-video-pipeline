@@ -14,7 +14,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  useSlotOverrides,
   type EasingName,
 } from "../_shared";
 
@@ -106,11 +106,7 @@ export const BarCodeScan: React.FC<BarCodeScanProps> = ({ config, styles }) => {
   const spineColor = pickColor(null, theme, "gridLine", "#1A2744");
   const bgColor = pickColor(null, theme, "background", "#0A1220");
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
 
   if (barcodeLabels.length === 0) {
     return (

@@ -13,3 +13,4 @@ export * from "./types";
 export * from "./theme";
 export * from "./timing";
 export * from "./layout";
+export * from "./content";

@@ -14,7 +14,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  useSlotOverrides,
 } from "../_shared";
 
 /**
@@ -194,11 +194,7 @@ export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
 
   // --- Per-element overrides -------------------------------------------
 
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const labelOv = overrideMap.get("label");
   const labelText = labelOv?.text ?? extrasLabelText ?? "";
   const labelSize = resolveSize(labelOv, theme.sizeScale);

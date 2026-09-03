@@ -161,3 +161,52 @@ def test_all_templates_listed_in_contract_table():
     text = (ANIM / "README.md").read_text(encoding="utf-8")
     for name in [p.name for p in template_dirs()]:
         assert name in text, f"template {name} missing from README contract docs"
+
+
+def test_shared_content_helper_exported():
+    text = (ANIM / "_shared" / "content.ts").read_text(encoding="utf-8")
+    assert "buildSlotOverrideMap" in text
+    assert "useSlotOverrides" in text
+    index = (ANIM / "_shared" / "index.ts").read_text(encoding="utf-8")
+    assert '"./content"' in index or "'./content'" in index
+
+
+def test_no_hand_rolled_override_maps():
+    bad = []
+    for p in template_dirs():
+        comp = p / "component.tsx"
+        if not comp.exists():
+            continue
+        text = comp.read_text(encoding="utf-8")
+        if "new Map<string, ElementOverride>()" in text:
+            bad.append(p.name)
+    assert bad == [], f"hand-rolled override maps (use useSlotOverrides): {bad}"
+
+
+# Demonstrative defaults entries must mirror base content (zero visual delta).
+MIRROR_CASES = {
+    "data-bars": ("bar-0", "A", ["labels", 0]),
+    "kinetic-title-mosaic": ("word-0", "DATA", ["words", 0]),
+    "timeline-marker": ("event-0", "1950", ["events", 0, "label"]),
+    "orbit-chip-cloud": ("chip-0", "PILLAR A", ["chips", 0]),
+    "comparison-grid": ("cell-0-0", "Option", ["cells", 0, 0]),
+    "bar-code-scan": ("bar-0", "A", ["barcodeBars", 0]),
+}
+
+
+def test_defaults_elements_mirror_base_content():
+    import json
+    bad = []
+    for folder, (eid, text, path) in MIRROR_CASES.items():
+        data = json.loads((ANIM / folder / "config" / "defaults.json")
+                          .read_text(encoding="utf-8"))
+        els = [e for e in data.get("elements", []) if e.get("id") == eid]
+        if not els or els[0].get("text") != text:
+            bad.append(f"{folder}: missing mirror entry {eid}={text!r}")
+            continue
+        node = data["extras"]
+        for key in path:
+            node = node[key]
+        if node != text:
+            bad.append(f"{folder}: mirror entry {eid} diverged from extras base")
+    assert bad == [], bad

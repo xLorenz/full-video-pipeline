@@ -8,7 +8,7 @@ import {
   pickColor,
   pickFont,
   type TemplateConfig,
-  type ElementOverride,
+  useSlotOverrides,
   type EasingName,
 } from "../_shared";
 
@@ -178,11 +178,7 @@ export const RadialPulseRings: React.FC<RadialPulseRingsProps> = ({
   const mutedColor = pickColor(null, theme, "muted", "#9CA3AF");
 
   // Per-element override lookup.
-  const overrideMap = useMemo(() => {
-    const m = new Map<string, ElementOverride>();
-    for (const e of config.elements ?? []) m.set(e.id, e);
-    return m;
-  }, [config.elements]);
+  const overrideMap = useSlotOverrides(config.elements);
   const glyphOv = overrideMap.get("node-glyph");
   const labelOv = overrideMap.get("node-label");
   const glyphOvHidden = glyphOv?.hidden === true;
