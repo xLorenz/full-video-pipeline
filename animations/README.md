@@ -21,7 +21,6 @@ Reach for a template when your scene's `visual_notes` describe a **complex, mult
 | Right-wrong card | [`right-wrong-card/animation.md`](./right-wrong-card/animation.md) | Two-card verdict reveal with stamp/shake/glow options |
 | Data bars | [`data-bars/animation.md`](./data-bars/animation.md) | Racing bar chart for ranked quantities |
 | Count-up stat | [`count-up-stat/animation.md`](./count-up-stat/animation.md) | Animated numerical reveal with sub-label |
-| Before-after split | [`before-after-split/animation.md`](./before-after-split/animation.md) | Wipe-reveal contrast of two halves |
 | Timeline marker | [`timeline-marker/animation.md`](./timeline-marker/animation.md) | Horizontal milestone drop-in sequence |
 | Comparison grid | [`comparison-grid/animation.md`](./comparison-grid/animation.md) | N×M matrix of tumbling-in cells |
 | Kinetic title mosaic | [`kinetic-title-mosaic/animation.md`](./kinetic-title-mosaic/animation.md) | Multi-word kinetic typography with per-word motion variants |
@@ -29,6 +28,18 @@ Reach for a template when your scene's `visual_notes` describe a **complex, mult
 | Rolling digit counter | [`rolling-digit-counter/animation.md`](./rolling-digit-counter/animation.md) | Slot-machine tumbling numeral columns snap to target |
 | Orbit chip cloud | [`orbit-chip-cloud/animation.md`](./orbit-chip-cloud/animation.md) | Labelled pill chips orbit a focal node on an ellipse |
 | Bar code scan | [`bar-code-scan/animation.md`](./bar-code-scan/animation.md) | Scanline sweeps decoding barcode segments one by one |
+| Radial gauge | [`radial-gauge/animation.md`](./radial-gauge/animation.md) | Arc gauge sweeps to a fraction with center count-up and cap-dot |
+| Trend line | [`trend-line/animation.md`](./trend-line/animation.md) | Draw-on line chart with gradient area, dot pops and goal line |
+| Glitch rip | [`glitch-rip/animation.md`](./glitch-rip/animation.md) | Broadcast glitch bursts over hero text (children-wrapper) |
+| Glyph rain | [`glyph-rain/animation.md`](./glyph-rain/animation.md) | Matrix glyph rain over arbitrary content (children-wrapper) |
+| Flame wrap | [`flame-wrap/animation.md`](./flame-wrap/animation.md) | WebGL fire border around arbitrary content (children-wrapper) |
+| VHS | [`vhs/animation.md`](./vhs/animation.md) | Worn-tape CRT treatment over the whole frame (children-wrapper) |
+| Droplets | [`droplets/animation.md`](./droplets/animation.md) | Rain-on-glass refraction over content (children-wrapper) |
+| Bend | [`bend/animation.md`](./bend/animation.md) | Full-frame page-fold cube scroll (children-wrapper) |
+| Shatter | [`shatter/animation.md`](./shatter/animation.md) | Glass-shard lens refracting content beneath (children-wrapper) |
+| Blaze | [`blaze/animation.md`](./blaze/animation.md) | Full-frame procedural fire rising over content (children-wrapper) |
+| Decrypt reveal | [`decrypt-reveal/animation.md`](./decrypt-reveal/animation.md) | Shape-matched cipher with traveling decrypt circle (children-wrapper) |
+| Magnify | [`magnify/animation.md`](./magnify/animation.md) | Magnifying lens on a scripted cursor path (children-wrapper) |
 
 (Tag index in [`CATALOG.md`](./CATALOG.md).)
 
@@ -79,17 +90,35 @@ Human-readable field guide: [`SCHEMA.md`](./SCHEMA.md).
 During Phase 3 (Step 8) — while writing `SceneXX.tsx`:
 
 1. Read this `README.md` and pick from the table above.
-2. Open the chosen template's `animation.md` — it documents **every recognized `elements[].id`**, the `extras.*` fields, recipes for common tweaks, and a copy-paste snippet.
+2. Open the chosen template's `animation.md` — for element-driven templates it documents **every recognized `elements[].id`**, the `extras.*` fields, recipes for common tweaks, and a copy-paste snippet. For children-wrapper treatments (marked above) `elements[]` is ignored — content comes via `children`, tuning via `extras.*`.
 3. Write a per-scene config file at `videos/<title>/remotion/src/scene-assets/scene-NN-<template>.json`. (You can also inline an object literal if it's short.)
-4. Drop the one-line use into `SceneXX.tsx`:
+4. Drop the one-line use into `SceneXX.tsx` — always pass `styles` + `fontSizes` (theme falls back to `styles.ts` only through them), and import from the barrel:
    ```tsx
-   import { RightWrongCard } from "../components/animations/RightWrongCard/component";
-   import config from "../scene-assets/scene-04-rightwrong.json";
+   // Element-driven template:
+   import { OrbitChipCloud } from "../components/animations";
+   import { COLORS, FONTS, FONT_SIZES } from "../lib/styles";
+   import config from "../scene-assets/scene-04-orbit.json";
 
    export const Scene04: React.FC<{ scene: SceneTiming }> = () => (
      <AbsoluteFill>
        <Background backgroundColor={COLORS.background} />
-       <RightWrongCard config={config} />
+       <OrbitChipCloud config={config}
+         styles={{colors: COLORS, fonts: FONTS}}
+         fontSizes={FONT_SIZES} />
+     </AbsoluteFill>
+   );
+   ```
+   ```tsx
+   // Children-wrapper treatment (content is yours, effect is the template's):
+   import { Blaze } from "../components/animations";
+
+   export const Scene07: React.FC<{ scene: SceneTiming }> = () => (
+     <AbsoluteFill>
+       <Blaze config={config}
+         styles={{colors: COLORS, fonts: FONTS}}
+         fontSizes={FONT_SIZES}>
+         <MySceneContent />
+       </Blaze>
      </AbsoluteFill>
    );
    ```

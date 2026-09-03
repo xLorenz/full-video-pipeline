@@ -7,7 +7,6 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 | Right-wrong card | [`right-wrong-card/`](./right-wrong-card/animation.md) | `judgment` `verdict` `comparison` `contest` | Two-card verdict reveal: judge-style stamp, shake-out, optional glow winner |
 | Data bars | [`data-bars/`](./data-bars/animation.md) | `data-viz` `ranking` `count` `bars` | Racing bar chart for ranked quantities |
 | Count-up stat | [`count-up-stat/`](./count-up-stat/animation.md) | `stat` `number` `count-up` `headline` | Large numerical reveal with interpolating digits |
-| Before-after split | [`before-after-split/`](./before-after-split/animation.md) | `comparison` `wipe` `contrast` `split` | Two-panel divider wipe to reveal a contrast |
 | Timeline marker | [`timeline-marker/`](./timeline-marker/animation.md) | `sequence` `events` `steps` `reveal` | Horizontal timeline with milestones dropping in order |
 | Comparison grid | [`comparison-grid/`](./comparison-grid/animation.md) | `matrix` `grid` `comparison` | N×M grid of cells tumbling in to show a matrix |
 | Kinetic title mosaic | [`kinetic-title-mosaic/`](./kinetic-title-mosaic/animation.md) | `typography` `opener` `title` `kinetic` | Multi-word kinetic typography with per-word motion variants |
@@ -30,13 +29,13 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 
 ## By tag
 
-- `comparison` — `right-wrong-card`, `before-after-split`, `comparison-grid`
-- `data-viz` — `data-bars`, `count-up-stat`, `trend-line`
+- `comparison` — `right-wrong-card`, `comparison-grid`
+- `data-viz` — `data-bars`, `count-up-stat`, `trend-line`, `radial-gauge`, `rolling-digit-counter`
 - `judgment` — `right-wrong-card`
 - `sequence` — `timeline-marker`, `bar-code-scan`
 - `count` — `data-bars`, `count-up-stat`, `rolling-digit-counter`
 - `typography` — `kinetic-title-mosaic`
-- `opener` — `kinetic-title-mosaic`
+- `opener` — `kinetic-title-mosaic`, `glitch-rip`, `glyph-rain`, `flame-wrap`
 - `emphasis` — `radial-pulse-rings`
 - `radar` — `radial-pulse-rings`
 - `transmission` — `radial-pulse-rings`
@@ -53,11 +52,9 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `glitch` — `glitch-rip`
 - `broadcast` — `glitch-rip`
 - `crt` — `glitch-rip`, `vhs`
-- `opener` — `kinetic-title-mosaic`, `glitch-rip`, `glyph-rain`, `flame-wrap`
 - `matrix` — `glyph-rain`
 - `code-rain` — `glyph-rain`
 - `cyberpunk` — `glyph-rain`
-- `terminal` — `glyph-rain`
 - `fire` — `flame-wrap`, `blaze`
 - `flame` — `flame-wrap`
 - `burn` — `flame-wrap`
@@ -83,7 +80,7 @@ Every template in `animations/` that ships into per-video projects. Use tags to 
 - `cipher` — `decrypt-reveal`
 - `encrypt` — `decrypt-reveal`
 - `secret` — `decrypt-reveal`
-- `terminal` — `decrypt-reveal`
+- `terminal` — `glyph-rain`, `decrypt-reveal`
 - `mono` — `decrypt-reveal`
 - `overlay` — `droplets`
 - `magnify` — `magnify`
