@@ -13,7 +13,7 @@ Agent-orchestrated autonomous YouTube video production pipeline. The orchestrato
 
 ## Environment
 
-- **Cross-platform — Windows, Linux, and macOS.** No OS guard; render guardrails use `psutil` (portable) and Remotion picks the right native GL backend (`swangle` on Linux, `angle` elsewhere). Works natively on this Windows dev box too — WSL still works but is no longer required.
+- **Cross-platform — Windows and Linux (macOS not supported — no darwin compositor shipped).** No OS guard; render guardrails use `psutil` (portable) and Remotion picks the right native GL backend (`swangle` on Linux, `angle` on Windows). Works natively on this Windows dev box too — WSL still works but is no longer required.
 - Setup: `pip install -r scripts/requirements.txt` (edge-tts, jsonschema, psutil), Node 18+, ffmpeg/ffprobe, `python scripts/check_system.py` pre-flight (`bash scripts/check_system.sh` still works as a shim). `requirements-pocket.txt` is only for the optional `pocket` TTS engine. On Windows, enable long paths once (admin PowerShell: `LongPathsEnabled=1` + `git config --system core.longpaths true`) to avoid deep `node_modules` issues.
 - Tests: `python -m pytest tests` — unit suite for the shared lib + orchestrator state machine. Run it after touching `pipeline.py` or `scripts/_pipeline_lib.py`.
 - `skills/claude-youtube` and `skills/remotion-best-practices` are **git submodules** the phase briefs load skill files from — clone with `--recurse-submodules` or phases 1/3/4 lose their instructions.

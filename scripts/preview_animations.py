@@ -142,9 +142,14 @@ def render_one(
                 stdout=lf,
                 stderr=subprocess.STDOUT,
                 text=True,
+                timeout=300,
             )
         except FileNotFoundError as e:
             return False, f"npx not found: {e}"
+        except subprocess.TimeoutExpired:
+            return False, f"{comp_id}: timed out after 300s (see {log_path})"
+        except OSError as e:
+            return False, f"{comp_id}: could not launch render ({e})"
     if result.returncode == 0:
         return True, f"rendered {out_path.name}"
     return False, f"{comp_id}: exit {result.returncode} (see {log_path})"

@@ -346,20 +346,35 @@ def load_config(video_dir=None):
             cfg = json.load(f)
 
     # Layer 2: --config CLI override
-    if _CONFIG_OVERRIDE_PATH is not None and _CONFIG_OVERRIDE_PATH.exists():
-        with open(_CONFIG_OVERRIDE_PATH, "r", encoding="utf-8") as f:
-            override = json.load(f)
-        cfg = _deep_merge(cfg, override)
+    if _CONFIG_OVERRIDE_PATH is not None:
+        if _CONFIG_OVERRIDE_PATH.exists():
+            with open(_CONFIG_OVERRIDE_PATH, "r", encoding="utf-8") as f:
+                override = json.load(f)
+            cfg = _deep_merge(cfg, override)
+        else:
+            print(f"WARNING: --config override not found: {_CONFIG_OVERRIDE_PATH}",
+                  file=sys.stderr)
 
     # Layer 3: per-video auto-discovery
     auto_discover = cfg.get("config_files", {}).get("auto_discover_per_video", True)
     if auto_discover and video_dir is not None:
-        # Accept str (title) OR Path (video_dir).
+        # Accept Path (video_dir) OR str (title). A str that is an existing
+        # path (absolute or contains a separator) is used directly — otherwise
+        # it is treated as a title under videos/.
         tvdir = None
-        if isinstance(video_dir, str):
-            tvdir = REPO_ROOT / "videos" / video_dir
-        elif isinstance(video_dir, Path):
+        if isinstance(video_dir, Path):
             tvdir = video_dir
+        elif isinstance(video_dir, str):
+            p = Path(video_dir)
+            if p.is_absolute() or (len(p.parts) > 1 and p.exists()):
+                tvdir = p
+            elif (REPO_ROOT / "videos" / video_dir).exists() or \
+                    "/" not in video_dir and "\\" not in video_dir:
+                tvdir = REPO_ROOT / "videos" / video_dir
+            elif p.exists():
+                tvdir = p
+            else:
+                tvdir = REPO_ROOT / "videos" / video_dir
         if tvdir is not None and tvdir.exists():
             per_video_cfg = tvdir / "pipeline_config.json"
             if per_video_cfg.exists():
@@ -437,12 +452,28 @@ def resolve_tmpdir(cfg=None, title="") -> Path:
 
 
 def apply_render_env(tmpdir):
-    """Set temp-dir env vars for Remotion/Node children on any OS."""
+    """Set temp-dir env vars for Remotion/Node children on any OS.
+
+    Returns the previous values dict so callers can restore with
+    restore_render_env() and avoid cross-video process-global leaks.
+    """
     tmpdir = str(tmpdir)
-    os.environ["TMPDIR"] = tmpdir
-    os.environ["TEMP"] = tmpdir
-    os.environ["TMP"] = tmpdir
-    os.environ["REMOTION_TMPDIR"] = tmpdir
+    keys = ("TMPDIR", "TEMP", "TMP", "REMOTION_TMPDIR")
+    prev = {k: os.environ.get(k) for k in keys}
+    for k in keys:
+        os.environ[k] = tmpdir
+    return prev
+
+
+def restore_render_env(prev):
+    """Restore env vars saved by apply_render_env()."""
+    if not isinstance(prev, dict):
+        return
+    for k, v in prev.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 def sanitize_title(title):
@@ -496,7 +527,7 @@ def atomic_replace(src: Path, dst: Path, retries: int = 5):
         try:
             os.replace(src, dst)
             return
-        except PermissionError as e:
+        except (PermissionError, FileNotFoundError, OSError) as e:
             last = e
             _time.sleep(0.05 * (attempt + 1))
     if last is not None:
@@ -504,11 +535,68 @@ def atomic_replace(src: Path, dst: Path, retries: int = 5):
 
 
 def _atomic_write_json(path: Path, data):
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    atomic_replace(tmp, path)
+    # Unique tmp per writer — fixed "*.tmp" names clobber under concurrency.
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        atomic_replace(Path(tmp_name), path)
+    except BaseException:
+        try:
+            Path(tmp_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
+class _FileLock:
+    """Minimal cross-platform exclusive lock via O_CREAT|O_EXCL spin.
+
+    Stdlib-only: creates <target>.lock atomically, waits up to timeout,
+    removes on release. Stale locks older than timeout are broken.
+    """
+
+    def __init__(self, target: Path, timeout: float = 30.0):
+        self.lock_path = Path(str(target) + ".lock")
+        self.timeout = timeout
+
+    def __enter__(self):
+        import time as _time
+        deadline = _time.time() + self.timeout
+        while True:
+            try:
+                fd = os.open(str(self.lock_path),
+                             os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode("utf-8"))
+                os.close(fd)
+                return self
+            except FileExistsError:
+                try:
+                    age = _time.time() - self.lock_path.stat().st_mtime
+                    if age > self.timeout:
+                        self.lock_path.unlink(missing_ok=True)
+                        continue
+                except OSError:
+                    pass
+                if _time.time() >= deadline:
+                    raise TimeoutError(
+                        f"Timed out acquiring lock {self.lock_path}")
+                _time.sleep(0.05)
+
+    def __exit__(self, *exc):
+        try:
+            self.lock_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+
+
+def pipeline_lock(target: Path, timeout: float = 30.0):
+    """Return a context manager for exclusive access to target JSON file."""
+    return _FileLock(Path(target), timeout=timeout)
 
 
 def load_scenes(title):
@@ -522,7 +610,8 @@ def load_scenes(title):
 def save_scenes_full(video_dir_path, data):
     """Atomic write of full scenes.json given a Path to the video directory."""
     p = Path(video_dir_path) / "scenes.json"
-    _atomic_write_json(p, data)
+    with pipeline_lock(p):
+        _atomic_write_json(p, data)
 
 
 def load_state(title):
@@ -540,7 +629,9 @@ def load_state(title):
 
 
 def save_state(title, state):
-    _atomic_write_json(state_path(title), state)
+    p = state_path(title)
+    with pipeline_lock(p):
+        _atomic_write_json(p, state)
 
 
 # ---------------------------------------------------------------------------
@@ -672,7 +763,10 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
     labels = []
     missing = []
     warned = set()
-    ordered = sorted(scenes, key=lambda s: s["id"])
+    # Skip malformed entries instead of KeyErroring the whole stitch.
+    valid = [s for s in (scenes or []) if isinstance(s, dict)
+             and isinstance(s.get("id"), int)]
+    ordered = sorted(valid, key=lambda s: s["id"])
     for idx, s in enumerate(ordered):
         mp3 = Path(voiceover_dir) / f"scene-{s['id']:02d}.mp3"
         if not mp3.exists():
@@ -691,6 +785,10 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
         )
         labels.append(f"[a{idx}]")
     n = len(labels)
+    if n == 0:
+        # concat=n=0 is invalid ffmpeg — return an anullsrc graph so callers
+        # fail with a clear missing-audio error instead of a filter error.
+        return input_args, "anullsrc=r=44100:cl=mono[aout]", missing
     graph = "".join(pads) + "".join(labels) + f"concat=n={n}:v=0:a=1[aout]"
     return input_args, graph, missing
 
@@ -734,6 +832,7 @@ def compute_scene_render_hashes(video_dir) -> dict:
     src = Path(video_dir) / "remotion" / "src"
     if not src.is_dir():
         return {}
+    scene_re = re.compile(r"^Scene(\d+)\.tsx$")
     shared_h = hashlib.sha256()
     scene_bytes = {}
     shared_files = []
@@ -741,24 +840,28 @@ def compute_scene_render_hashes(video_dir) -> dict:
         if not p.is_file():
             continue
         rel = p.relative_to(src).as_posix()
+        # Auto-generated map churns every scaffold — excluding it prevents
+        # invalidating all scenes on every run.
+        if rel == "scenes/SceneMap.generated.ts":
+            continue
         data = p.read_bytes()
-        if rel.startswith("scenes/") and rel.endswith(".tsx"):
-            scene_bytes[rel] = data
-        else:
-            shared_files.append((rel, data))
+        if rel.startswith("scenes/"):
+            m = scene_re.match(Path(rel).name)
+            if m:
+                scene_bytes[int(m.group(1))] = data
+                continue
+            # scenes/*.ts helpers fall through to shared (invalidate all).
+        shared_files.append((rel, data))
     for rel, data in sorted(shared_files):
         shared_h.update(rel.encode("utf-8"))
         shared_h.update(data)
     shared_digest = shared_h.hexdigest().encode("utf-8")
     out = {}
-    for rel, data in scene_bytes.items():
-        digits = "".join(ch for ch in Path(rel).stem if ch.isdigit())
-        if not digits:
-            continue
+    for sid, data in scene_bytes.items():
         sh = hashlib.sha256()
         sh.update(shared_digest)
         sh.update(data)
-        out[int(digits)] = sh.hexdigest()
+        out[sid] = sh.hexdigest()
     return out
 
 
@@ -811,18 +914,29 @@ def find_versions_to_prune(versions_dir: Path, safe_title: str, pattern_str: str
 def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
     """Run a command, capture output, echo it indented, optionally tee to a log.
 
-    ``cmd`` may be a string (executed via the shell) or an argv list — lists
-    are joined with proper quoting first (subprocess's list+shell=True
-    combination is a POSIX trap: only argv[0] becomes the shell command string,
-    so ['python','script.py','dir'] silently ran a bare interactive REPL).
+    ``cmd`` may be a string (executed via the shell) or an argv list.
+    Lists run with shell=False on POSIX (no shell parsing, safe for paths
+    with spaces). On Windows they run with shell=True via list2cmdline:
+    CreateProcess cannot launch .cmd shims (npx.cmd) directly, so bare
+    shell=False fails with WinError 2 — the shell resolves PATHEXT.
     """
+    use_shell = True
     if isinstance(cmd, (list, tuple)):
         parts = [str(p) for p in cmd]
         if os.name == "nt":
-            cmd = subprocess.list2cmdline(parts)
+            # Windows: join with list2cmdline quoting, run through the shell
+            # so npx.cmd / npm.cmd / node shims resolve via PATHEXT.
+            printable = subprocess.list2cmdline(parts)
+            print(f"  $ {printable}")
+            parts = printable
+            use_shell = True
         else:
-            cmd = " ".join(shlex.quote(p) for p in parts)
-    print(f"  $ {cmd}")
+            printable = " ".join(shlex.quote(p) for p in parts)
+            print(f"  $ {printable}")
+            use_shell = False
+    else:
+        print(f"  $ {cmd}")
+        parts = cmd
     log_f = open(logpath, "a", encoding="utf-8") if logpath else None
     try:
         # Force UTF-8 I/O in child Python processes: step scripts print
@@ -832,7 +946,7 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
         env["PYTHONUTF8"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
         result = subprocess.run(
-            cmd, shell=True, cwd=cwd, env=env,
+            parts, shell=use_shell, cwd=cwd, env=env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
         stdout_text = result.stdout.decode("utf-8", errors="replace")

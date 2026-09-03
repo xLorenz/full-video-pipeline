@@ -42,6 +42,12 @@ except ImportError:
     print("ERROR: jsonschema not installed. Run: pip install -r scripts/requirements.txt",
           file=sys.stderr)
     sys.exit(2)
+try:
+    import referencing  # noqa: F401
+except ImportError:
+    print("ERROR: referencing not installed. Run: pip install referencing",
+          file=sys.stderr)
+    sys.exit(2)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ANIMATIONS_DIR = REPO_ROOT / "animations"
@@ -307,6 +313,9 @@ def main(argv=None):
         sys.exit(1)
 
     print(f"Validation OK for {len(ok_templates)} template(s).")
+    if args.dry_run:
+        print("(dry-run: no files written)")
+        sys.exit(0)
     dest_anim_dir.mkdir(parents=True, exist_ok=True)
     publish_shared(dest_anim_dir, args.dry_run)
     for t in ok_templates:

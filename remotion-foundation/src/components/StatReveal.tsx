@@ -88,14 +88,14 @@ export const StatReveal: React.FC<StatRevealProps> = ({
       >
         {value}
       </div>
-      {label && labelStyle && (
+      {label && (
         <div
           style={{
-            fontSize: labelStyle.fontSize,
-            color: labelStyle.color,
+            fontSize: labelStyle?.fontSize ?? style.fontSize * 0.4,
+            color: labelStyle?.color ?? style.color,
             fontFamily: style.fontFamily,
-            marginTop: labelStyle.marginTop ?? 16,
-            opacity: labelStyle.opacity ?? 0.8,
+            marginTop: labelStyle?.marginTop ?? 16,
+            opacity: labelStyle?.opacity ?? 0.8,
           }}
         >
           {label}

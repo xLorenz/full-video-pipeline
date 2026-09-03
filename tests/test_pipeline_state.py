@@ -41,12 +41,13 @@ def test_find_next_step_returns_failed_before_pending():
     assert (n, key) == (5, pl.STEP_KEYS[4])
 
 
-def test_find_next_step_resumes_from_current_step_pointer():
-    # current_step advanced past an in_progress entry -> pointer wins
-    st = _state({5: "in_progress", 6: "pending"})
+def test_find_next_step_revisits_gaps_before_pointer():
+    # Gaps before current_step are revisited (force-gaps must not be skipped).
+    st = _state({1: "complete", 2: "complete", 3: "complete", 4: "complete",
+                 5: "in_progress", 6: "pending"})
     st["current_step"] = 6
     n, key = pipeline.find_next_step(st)
-    assert (n, key) == (6, pl.STEP_KEYS[5])
+    assert (n, key) == (5, pl.STEP_KEYS[4])
 
 
 def test_find_next_step_all_complete():

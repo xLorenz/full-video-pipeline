@@ -63,10 +63,26 @@ def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
     errors = []
     scenes = data.get("scenes", [])
 
+    # Scene ids must be unique ints — schema uniqueItems cannot express this.
+    if scenes:
+        seen = set()
+        dupes = set()
+        for s in scenes:
+            sid = s.get("id") if isinstance(s, dict) else None
+            if isinstance(sid, int):
+                if sid in seen:
+                    dupes.add(sid)
+                seen.add(sid)
+        for d in sorted(dupes):
+            errors.append(f"Duplicate scene id {d} — ids must be unique")
+
     if step >= 3:
         if not scenes:
             errors.append(f"At step {step}: scenes.json must have at least 1 scene")
         for s in scenes:
+            if not isinstance(s, dict):
+                errors.append(f"At step {step}: malformed scene entry (not an object)")
+                continue
             for field in ("id", "title", "script_text", "voiceover_text"):
                 if not s.get(field):
                     errors.append(f"Scene {s.get('id', '?')}: missing required field '{field}' for step {step}")

@@ -128,6 +128,19 @@ async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pit
 
         duration = pl.get_audio_duration(output_path)
         size = os.path.getsize(output_path)
+        if duration <= 0.0:
+            # ffprobe failed — 0.0 is not a valid duration; mark failed so
+            # Step 6 does not compute 0-frame scenes from a bogus value.
+            err = (f"ERROR: Scene {scene_id}: ffprobe could not measure "
+                   f"{output_file} — discarding audio")
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            try:
+                os.unlink(output_path)
+            except OSError:
+                pass
+            return ("failed", scene_id, voice_hash)
         msg = (f"Scene {scene_id}: generated {output_file} "
                f"({size} bytes, {duration:.2f}s)")
         print(msg)
@@ -176,8 +189,23 @@ async def main():
     rate = args.rate or vo.get("rate", "+0%")
     volume = args.volume or vo.get("volume", "+0%")
     pitch = args.pitch or vo.get("pitch", "+0Hz")
-    concurrency = args.concurrency or vo.get("concurrency", 3)
-    min_ram_mb = sys_cfg.get("min_available_ram_mb", 200)
+    try:
+        concurrency = int(args.concurrency or vo.get("concurrency", 3))
+    except (TypeError, ValueError):
+        print("ERROR: voiceover.concurrency must be an integer", file=sys.stderr)
+        sys.exit(2)
+    if concurrency < 1:
+        print(f"WARNING: voiceover.concurrency={concurrency} invalid — clamping to 1",
+              file=sys.stderr)
+        concurrency = 1
+    if concurrency > 10:
+        print(f"WARNING: voiceover.concurrency={concurrency} high — clamping to 10",
+              file=sys.stderr)
+        concurrency = 10
+    try:
+        min_ram_mb = int(sys_cfg.get("min_available_ram_mb", 200))
+    except (TypeError, ValueError):
+        min_ram_mb = 200
 
     os.makedirs(voiceover_dir, exist_ok=True)
 

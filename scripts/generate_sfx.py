@@ -92,15 +92,19 @@ def place_cue(samples_total, cue_samples, start_abs, tail_fade_seconds, cue_fade
     if start >= samples_total:
         return None                                    # inaudible — dropped with WARN (caller prints)
     seg = cue_samples
-    end = min(samples_total, start + len(seg))
-    if end < len(seg):                                  # tail would cross video end
+    if start + len(seg) > samples_total:               # tail would cross video end
+        end = samples_total
         seg = seg[: end - start]
         remaining = end - start
         fade_sec = cue_fade_out if cue_fade_out is not None else tail_fade_seconds
         fade_len = min(fade_sec * SR, max(0.0, remaining / 2.0))
         if fade_len > 16:
-            fade = [(1.0 - i / fade_len) ** 2 for i in range(int(fade_len))]
-            seg[-len(fade):] = [vi * fa for vi, fa in zip(seg[-len(fade):], fade)]
+            n_fade = int(fade_len)
+            # In-place squared fade on the tail slice (avoids temp list copies).
+            tail_start = len(seg) - n_fade
+            for i in range(n_fade):
+                f = 1.0 - i / fade_len
+                seg[tail_start + i] *= f * f
     return start, seg
 
 
@@ -188,13 +192,27 @@ def bed_gain_db(volume, bed_db):
 
 def apply_gain_db(x, db):                               # x: iterable of floats → new array
     g = 10.0 ** (db / 20.0)
-    return array("f", (s * g for s in x))
+    # Local-bound loop avoids generator overhead for large tracks.
+    n = len(x)
+    out = array("f", [0.0]) * n
+    for i in range(n):
+        out[i] = x[i] * g
+    return out
 
 
 def mix_add(master, start_sample, samples, gain=1.0):
     """Add `samples` into master at start_sample (in place)."""
-    for k, v in enumerate(samples):
-        master[start_sample + k] += v * gain
+    # Fast paths avoid per-element gain multiply; locals avoid attr lookups.
+    n = len(samples)
+    if n == 0:
+        return
+    if gain == 1.0:
+        for k in range(n):
+            master[start_sample + k] += samples[k]
+    else:
+        g = gain
+        for k in range(n):
+            master[start_sample + k] += samples[k] * g
 
 
 # ---------------------------------------------------------------------------
@@ -203,11 +221,15 @@ def mix_add(master, start_sample, samples, gain=1.0):
 
 
 def _white(rng, n):
-    return [rng.uniform(-1.0, 1.0) for _ in range(n)]
+    # rng.random()*2-1 is faster than uniform() (no arg validation).
+    rand = rng.random
+    return [rand() * 2.0 - 1.0 for _ in range(n)]
 
 
 def _sine(freq, n, phase=0.0):
-    return [math.sin(phase + 2.0 * math.pi * freq * i / SR) for i in range(n)]
+    step = 2.0 * math.pi * freq / SR
+    sin = math.sin
+    return [sin(phase + step * i) for i in range(n)]
 
 
 def _sweep_sine(f0, f1, n, exp_curve=True):
@@ -399,10 +421,17 @@ def per_cue_seed(sound_id, params, start_abs):
 
 def decode_to_floats(path):
     """Decode an audio file to mono float samples at SR via ffmpeg pipe."""
-    result = subprocess.run(
-        ["ffmpeg", "-i", str(path), "-f", "f32le", "-ac", "1", "-ar", str(SR), "-"],
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-i", str(path), "-f", "f32le", "-ac", "1", "-ar", str(SR), "-"],
+            capture_output=True, timeout=120,
+        )
+    except FileNotFoundError:
+        print(f"ERROR: ffmpeg not found — cannot decode {path}")
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: ffmpeg decode timed out for {path}")
+        sys.exit(1)
     if result.returncode != 0 or not result.stdout:
         print(f"ERROR: could not decode audio file {path}")
         sys.exit(1)
@@ -435,7 +464,7 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
                 "params": params,
                 "seed_str": per_cue_seed(cue["sound"], params, cue["start_abs"]),
             })
-    tone_rendered = tone_render.render_tone_cues(tone_jobs)
+    tone_rendered = tone_render.render_tone_cues(tone_jobs, sample_rate=sr)
 
     for cue in resolved_cues:
         scene_id, i = cue["scene"], cue["cue_index"]
@@ -616,22 +645,40 @@ def write_wav(path, samples, sr):
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(sr)
-        frames = bytearray()
-        for v in samples:
-            clipped = max(-1.0, min(1.0, v))
-            frames += struct.pack("<h", int(round(clipped * 32767)))
-        w.writeframes(bytes(frames))
+        # Chunked pack avoids O(n^2) bytearray += and keeps peak RAM flat.
+        chunk = 65536
+        n = len(samples)
+        for off in range(0, n, chunk):
+            part = samples[off:off + chunk]
+            buf = bytearray(len(part) * 2)
+            for i, v in enumerate(part):
+                if v > 1.0:
+                    v = 1.0
+                elif v < -1.0:
+                    v = -1.0
+                struct.pack_into("<h", buf, i * 2, int(round(v * 32767)))
+            w.writeframes(bytes(buf))
 
 
 def encode_mp3(wav, out):
     tmp = str(out) + ".tmp"
-    result = subprocess.run(
-        ["ffmpeg", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "192k", "-f", "mp3", tmp],
-        capture_output=True, text=True,
-    )
+    Path(tmp).unlink(missing_ok=True)
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "192k", "-f", "mp3", tmp],
+            capture_output=True, text=True, timeout=180,
+            encoding="utf-8", errors="replace",
+        )
+    except FileNotFoundError:
+        print("ERROR: ffmpeg not found — cannot encode MP3")
+        return False
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: ffmpeg encode timed out for {out}")
+        Path(tmp).unlink(missing_ok=True)
+        return False
     if result.returncode != 0 or not Path(tmp).exists():
         if Path(tmp).exists():
-            Path(tmp).unlink()
+            Path(tmp).unlink(missing_ok=True)
         return False
     pl.atomic_replace(Path(tmp), Path(out))
     return out.stat().st_size > 1000
@@ -669,9 +716,10 @@ def main():
 
     offsets, total_sec = cumulative_offsets(scenes, FPS)
     samples_total = int(total_sec * SR)
-    if samples_total * 4 > MAX_TRACK_BYTES:
-        mb = samples_total * 4 / (1024 * 1024)
-        print(f"ERROR: video too long for the SFX engine ({mb:.0f} MB float buffer) — shorten or split")
+    # Both tracks (sfx+bgm) can coexist — guard 2x peak RAM, not per-track.
+    if samples_total * 4 * 2 > MAX_TRACK_BYTES:
+        mb = samples_total * 4 * 2 / (1024 * 1024)
+        print(f"ERROR: video too long for the SFX engine ({mb:.0f} MB for sfx+bgm buffers) — shorten or split")
         sys.exit(1)
 
     # resolve cues per scene (defensive re-validation)

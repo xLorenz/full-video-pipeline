@@ -196,22 +196,32 @@ def stream_to_wav(model, voice_state, text: str, wav_path: str) -> int:
     with open(wav_path, "wb") as f:
         write_wav_header(f, model.sample_rate)
         for chunk in model.generate_audio_stream(voice_state, text):
-            # chunk is a 1D float32 torch.Tensor in [-1, 1]; convert to int16 PCM
-            pcm = (chunk.clamp(-1.0, 1.0).numpy() * 32767.0).astype(np.int16)
+            # chunk is a 1D float32 torch.Tensor in [-1, 1]; convert to int16 PCM.
+            # Detach + move to CPU first — CUDA tensors have no .numpy().
+            t = chunk.detach()
+            if getattr(t, "is_cuda", False):
+                t = t.cpu()
+            pcm = (t.clamp(-1.0, 1.0).numpy() * 32767.0).astype(np.int16)
             f.write(pcm.tobytes())
             total_samples += pcm.shape[0]
         finalize_wav_lengths(f, total_samples * 2)  # 2 bytes per int16 sample
     return total_samples
 
 
-def encode_mp3(wav_path: str, mp3_path: str) -> None:
+def encode_mp3(wav_path: str, mp3_path: str, timeout: int = 120) -> None:
     """ffmpeg WAV → MP3. -qscale:a 4 ≈ 165-185 kbps, audibly transparent
     for voiceover and well within YouTube recommendations."""
-    result = subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path,
-         "-codec:a", "libmp3lame", "-qscale:a", "4", mp3_path],
-        capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path,
+             "-codec:a", "libmp3lame", "-qscale:a", "4", mp3_path],
+            capture_output=True, text=True, timeout=timeout,
+            encoding="utf-8", errors="replace",
+        )
+    except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found — cannot encode MP3")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"ffmpeg encode timed out after {timeout}s for {mp3_path}")
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg encode failed: {result.stderr.strip()}")
 

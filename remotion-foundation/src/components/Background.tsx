@@ -30,7 +30,8 @@ export const Background: React.FC<BackgroundProps> = ({
       })
     : 0;
 
-  const gridSize = grid?.size ?? 80;
+  const gridSize = Math.min(400, Math.max(8, grid?.size ?? 80));
+  const gridColor = typeof grid?.color === "string" && grid.color ? grid.color : "rgba(255,255,255,0.15)";
 
   return (
     <AbsoluteFill>
@@ -51,8 +52,8 @@ export const Background: React.FC<BackgroundProps> = ({
             height: "100%",
             opacity: gridOpacity,
             backgroundImage: `
-              linear-gradient(${grid.color} 1px, transparent 1px),
-              linear-gradient(90deg, ${grid.color} 1px, transparent 1px)
+              linear-gradient(${gridColor} 1px, transparent 1px),
+              linear-gradient(90deg, ${gridColor} 1px, transparent 1px)
             `,
             backgroundSize: `${gridSize}px ${gridSize}px`,
           }}

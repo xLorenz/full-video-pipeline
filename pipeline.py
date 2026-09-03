@@ -4,9 +4,19 @@ pipeline.py — CLI orchestrator for the full video pipeline.
 
 Usage:
     ./pipeline.py new <title>            Scaffold a new video project
+    ./pipeline.py run <title>            Scaffold (if needed) + advance (resume-safe)
     ./pipeline.py continue <title>      Run the next incomplete pipeline step
-    ./pipeline.py status [title]        Show pipeline state
-    ./pipeline.py sfx <title> [--preview]  Generate SFX/BGM tracks (audition with --preview)
+    ./pipeline.py complete <title> [--step N] [--force]  Validate creative artifacts + auto-run automated steps
+    ./pipeline.py status [title] [--scenes]  Show pipeline state
+    ./pipeline.py validate <title> [--step N]  Standalone schema validation
+    ./pipeline.py lint-script <title>    Lint scenes.json voiceover_text for AI-isms
+    ./pipeline.py preview <title>        Smoke-render scene 1 (low-res)
+    ./pipeline.py preview-frame <title> <scene> <frame>  Single still for visual QA
+    ./pipeline.py captions <title>       Generate SRT + populate caption cues
+    ./pipeline.py sfx <title> [--preview] [--force]  Generate SFX/BGM tracks
+    ./pipeline.py audit <title>          Audit for violations (always after --force)
+    ./pipeline.py doctor <title>         System + project diagnostics
+    ./pipeline.py clean <title>          Free disk space (safe-to-delete items)
 """
 
 import argparse
@@ -53,12 +63,52 @@ STEP_NAMES = pl.STEP_NAMES
 CREATIVE_STEPS = pl.CREATIVE_STEPS
 EXPECTED_ARTIFACTS = pl.EXPECTED_ARTIFACTS
 
+
+def _safe_title(raw):
+    """sanitize_title with clean exit-2 + trailer instead of traceback."""
+    try:
+        return sanitize_title(raw)
+    except ValueError as e:
+        print(f"ERROR: invalid title: {e}")
+        pl.emit_trailer(0, "", "fix_and_continue", 2)
+        sys.exit(2)
+
+
+def _require_state(title):
+    """load_state with clean exit-1 when pipeline_state.json is missing."""
+    state = load_state(title)
+    if state is None:
+        print(f"ERROR: pipeline_state.json not found for '{title}' "
+              f"(expected {state_path(title)}). Re-run `new` or restore state.")
+        pl.emit_trailer(0, "", "fix_and_continue", 1)
+        sys.exit(1)
+    return state
+
+
+def _atomic_write_text(path: Path, text: str):
+    """Atomic text write via unique tmp + os.replace (crash-safe scaffold)."""
+    import tempfile as _tf
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = _tf.mkstemp(dir=str(path.parent),
+                               prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        pl.atomic_replace(Path(tmp_name), path)
+    except BaseException:
+        try:
+            Path(tmp_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
 # ---------------------------------------------------------------------------
 # NEW subcommand
 # ---------------------------------------------------------------------------
 
 def cmd_new(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     rdir = vdir / "remotion"
 
@@ -115,8 +165,7 @@ def cmd_new(args):
         },
         "sideEffects": ["*.css"],
     }
-    with open(rdir / "package.json", "w") as f:
-        json.dump(pkg, f, indent=2)
+    _atomic_write_text(rdir / "package.json", json.dumps(pkg, indent=2))
 
     # Copy foundation src/ as the per-video Remotion project source.
     # This copies Root.tsx, MainVideo.tsx, Thumbnail.tsx, SceneMap.generated.ts,
@@ -128,20 +177,29 @@ def cmd_new(args):
     shutil.copytree(FOUNDATION_DIR / "src", rdir / "src", dirs_exist_ok=True,
                     ignore=_ignore_for_scaffold)
 
-    # Substitute dynamic values in config.ts (foundation uses {{}} markers)
+    # Substitute dynamic values in config.ts. Foundation ships valid-TS
+    # defaults (30/1920/1080) with {{}} markers in comments; replace markers
+    # first (legacy template) then the numeric defaults (current template).
     config_path = rdir / "src" / "lib" / "config.ts"
     config_text = config_path.read_text(encoding="utf-8")
     config_text = config_text.replace("{{FPS}}", str(fps))
     config_text = config_text.replace("{{WIDTH}}", str(width))
     config_text = config_text.replace("{{HEIGHT}}", str(height))
-    config_path.write_text(config_text, encoding="utf-8")
+    config_text = re.sub(r"export const FPS = \d+;", f"export const FPS = {int(fps)};",
+                         config_text)
+    config_text = re.sub(r"export const WIDTH = \d+;", f"export const WIDTH = {int(width)};",
+                         config_text)
+    config_text = re.sub(r"export const HEIGHT = \d+;", f"export const HEIGHT = {int(height)};",
+                         config_text)
+    _atomic_write_text(config_path, config_text)
 
     # Write a placeholder Scene01.tsx + 1-entry SceneMap.generated.ts so a freshly
     # scaffolded project renders scene 1 (title card) instead of the blank
     # Fallback. Step 9 regenerates SceneMap.generated.ts from the real scene list
     # and agents replace Scene01.tsx in Step 8 (Remotion coding).
     scenes_dir = rdir / "src" / "scenes"
-    (scenes_dir / "Scene01.tsx").write_text(
+    _atomic_write_text(
+        scenes_dir / "Scene01.tsx",
         "import React from \"react\";\n"
         "import { AbsoluteFill } from \"remotion\";\n"
         "import type { SceneTiming } from \"remotion-foundation\";\n"
@@ -164,9 +222,9 @@ def cmd_new(args):
         "    </AbsoluteFill>\n"
         "  );\n"
         "};\n",
-        encoding="utf-8",
     )
-    (scenes_dir / "SceneMap.generated.ts").write_text(
+    _atomic_write_text(
+        scenes_dir / "SceneMap.generated.ts",
         "// AUTO-GENERATED by pipeline.py scaffold — do not edit. Overwritten in Step 9.\n"
         "import React from 'react';\n"
         "import type { SceneTiming } from 'remotion-foundation';\n"
@@ -175,7 +233,6 @@ def cmd_new(args):
         "export const SCENE_MAP: Record<number, React.FC<{ scene: SceneTiming }>> = {\n"
         "  1: Scene01,\n"
         "};\n",
-        encoding="utf-8",
     )
     print(f"  Wrote placeholder src/scenes/Scene01.tsx + SceneMap.generated.ts (1 entry)")
 
@@ -206,8 +263,7 @@ def cmd_new(args):
     }
     for key in STEP_KEYS:
         state["steps"][key] = {"status": "pending"}
-    with open(vdir / "pipeline_state.json", "w") as f:
-        json.dump(state, f, indent=2)
+    _atomic_write_text(vdir / "pipeline_state.json", json.dumps(state, indent=2))
 
     # Create empty scenes.json stub
     scenes_stub = {
@@ -221,8 +277,7 @@ def cmd_new(args):
         "total_estimated_seconds": 0,
         "total_actual_seconds": 0,
     }
-    with open(vdir / "scenes.json", "w") as f:
-        json.dump(scenes_stub, f, indent=2)
+    _atomic_write_text(vdir / "scenes.json", json.dumps(scenes_stub, indent=2))
 
     # Install npm dependencies
     print("\n--- Installing npm dependencies ---")
@@ -252,14 +307,14 @@ def cmd_complete(args):
         at the next pending step (not a failure)
       - Automated step → exit 2 with `action: "use_continue"` trailer
     """
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
 
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
 
-    state = load_state(title)
+    state = _require_state(title)
 
     # Determine which step to mark (default: the current pending/failed/in_progress)
     if args.step:
@@ -280,9 +335,22 @@ def cmd_complete(args):
     step_name = STEP_NAMES.get(step_key, step_key)
     step_state = state["steps"].get(step_key, {})
 
+    # Automated → tell them to use continue (checked before already-complete
+    # so `complete --step 5` is consistently use_continue, not noop).
+    if step_key not in CREATIVE_STEPS:
+        if step_state.get("status") != "complete":
+            print(f"ERROR: Step {step_num} ({step_name}) is automated — use `pipeline.py continue`, not `complete`.")
+            next_cmd = f"python3 pipeline.py continue {title}"
+            pl.emit_trailer(step_num, step_key, "use_continue", 2,
+                            next_cmd=next_cmd)
+            sys.exit(2)
+        # Completed automated step via complete: consistent use_continue.
+        print(f"Step {step_num} ({step_name}) is automated and already complete — use `continue`.")
+        pl.emit_trailer(step_num, step_key, "use_continue", 2,
+                        next_cmd=f"python3 pipeline.py continue {title}")
+        return
+
     # Already-complete → clean exit 0 with noop trailer pointing at NEXT pending step.
-    # (Don't sys.exit(2) — the agent may have looped on `complete` and needs to know
-    # what to work on next, not see a failure.)
     if step_state.get("status") == "complete":
         next_num, next_key = find_next_step(state)
         if next_key is None:
@@ -296,15 +364,6 @@ def cmd_complete(args):
                             next_cmd=next_cmd,
                             expected_artifacts=EXPECTED_ARTIFACTS.get(next_key, []))
         return
-
-    # Automated → tell them to use continue (preserve existing exit-2 behavior,
-    # now with a machine-readable trailer)
-    if step_key not in CREATIVE_STEPS:
-        print(f"ERROR: Step {step_num} ({step_name}) is automated — use `pipeline.py continue`, not `complete`.")
-        next_cmd = f"python3 pipeline.py continue {title}"
-        pl.emit_trailer(step_num, step_key, "use_continue", 2,
-                        next_cmd=next_cmd)
-        sys.exit(2)
 
     # Out-of-order refusal: if `--step N` was passed, refuse if any earlier step
     # is still pending (unless --force). Prevents state corruption via gaps.
@@ -353,7 +412,7 @@ def cmd_complete(args):
         pl.emit_trailer(step_num, step_key, "fix_and_continue", 1)
         sys.exit(1)
 
-    # Mark complete
+    # Mark complete — never move current_step backwards when filling a gap.
     state["steps"][step_key] = {
         "status": "complete",
         "completed_at": now_iso(),
@@ -363,7 +422,8 @@ def cmd_complete(args):
         "step_kind": "creative",
         "artifacts": artifacts,
     }
-    state["current_step"] = min(step_num + 1, len(STEP_KEYS))
+    state["current_step"] = max(state.get("current_step", 1),
+                                min(step_num + 1, len(STEP_KEYS)))
     save_state(title, state)
 
     print(f"\n=== Step {step_num} ({step_name}) marked complete ===")
@@ -506,7 +566,8 @@ def auto_run_automated_steps(title):
             state["steps"][step_key]["status"] = "complete"
             state["steps"][step_key]["completed_at"] = now_iso()
             state["steps"][step_key]["last_error"] = None
-            state["current_step"] = min(step_num + 1, len(STEP_KEYS))
+            state["current_step"] = max(state.get("current_step", 1),
+                                        min(step_num + 1, len(STEP_KEYS)))
             save_state(title, state)
             print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
@@ -546,13 +607,17 @@ def auto_run_automated_steps(title):
 # ---------------------------------------------------------------------------
 
 def find_next_step(state):
-    """Find the first pending, failed, or in-progress step at or after current_step."""
-    current = state.get("current_step", 1)
+    """Find the first pending/failed/in-progress/unknown step.
+
+    Scans from step 1 (not current_step) so gaps left by --force or hand
+    edits are revisited instead of silently skipped. Unknown/corrupt status
+    strings are treated as pending so they surface instead of false-done.
+    """
+    steps = (state.get("steps") or {}) if isinstance(state, dict) else {}
     for i, key in enumerate(STEP_KEYS, start=1):
-        if i < current:
-            continue
-        step = state["steps"].get(key, {})
-        if step.get("status") in ("pending", "failed", "in_progress"):
+        status = steps.get(key, {}).get("status", "pending")
+        if status in ("pending", "failed", "in_progress") or \
+                status not in ("complete", "pending", "failed", "in_progress"):
             return i, key
     return None, None
 
@@ -566,13 +631,20 @@ def run_step_5(title, vdir):
     log_file = pl.log_path(title, 5)
     run_cmd(cmd, cwd=REPO_ROOT, logpath=log_file)
 
-    # Verify output
+    # Verify output — require real non-empty MP3s, not just existing paths.
     scenes = load_scenes(title)
+    if not scenes:
+        print("  WARNING: no scenes in scenes.json — nothing to verify")
+        return False
     missing = []
     for s in scenes:
-        vf = vdir / (s.get("voiceover_file") or "")
-        if not vf.exists():
-            missing.append(s["id"])
+        rel = (s.get("voiceover_file") or "").strip()
+        if not rel:
+            missing.append(s.get("id", "?"))
+            continue
+        vf = vdir / rel
+        if not vf.is_file() or vf.stat().st_size == 0:
+            missing.append(s.get("id", "?"))
     if missing:
         print(f"  WARNING: Voiceover file missing for scenes: {missing}")
         return False
@@ -590,8 +662,9 @@ def run_step_6(title, vdir):
 
     scenes = load_scenes(title)
     for s in scenes:
-        if s.get("actual_duration_frames") is None:
-            print(f"  ERROR: Scene {s['id']} missing actual_duration_frames")
+        if not isinstance(s, dict) or s.get("actual_duration_frames") is None:
+            print(f"  ERROR: Scene {s.get('id', '?') if isinstance(s, dict) else '?'} "
+                  f"missing actual_duration_frames")
             return False
     return True
 
@@ -610,11 +683,41 @@ def lint_gate(title, vdir):
                  logpath=pl.log_path(title, 9, scene_id=0))
     if r2.returncode != 0:
         return False, "tsc --noEmit failed"
-    # Confirm compositions are registered
-    r3 = run_cmd("npx remotion compositions src/Root.tsx", cwd=rdir, check=False,
-                 logpath=pl.log_path(title, 9, scene_id=0))
-    raw = r3.stdout
-    compositions_out = (raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw) or ""
+    # Confirm compositions are registered. Pass real scene --props when
+    # available: `remotion compositions` evaluates calculateMetadata, and
+    # older per-video Root.tsx copies throw on defaultProps.scenes=[].
+    # With real props the check reflects the actual video, not the defaults.
+    comp_argv = ["npx", "remotion", "compositions", "src/Root.tsx"]
+    _props_tmp = None
+    try:
+        import tempfile as _tf
+        import render_scene as _rs
+        _scenes = load_scenes(title)
+        _valid = [s for s in _scenes
+                  if isinstance(s, dict) and isinstance(s.get("id"), int)
+                  and isinstance(s.get("actual_duration_frames"), int)]
+        if _valid:
+            _fd, _props_tmp = _tf.mkstemp(suffix=".json", prefix="remotion-comp-props-")
+            os.close(_fd)
+            try:
+                _rs.build_props_json(scenes_json_path(title), _valid[0]["id"],
+                                     Path(_props_tmp), burn_captions=False)
+                comp_argv.append(f"--props={_props_tmp}")
+            except (SystemExit, AttributeError, TypeError, OSError):
+                _props_tmp = None
+    except (ImportError, AttributeError, TypeError, OSError):
+        _props_tmp = None
+    try:
+        r3 = run_cmd(comp_argv, cwd=rdir, check=False,
+                     logpath=pl.log_path(title, 9, scene_id=0))
+    finally:
+        if _props_tmp:
+            Path(_props_tmp).unlink(missing_ok=True)
+    raw = getattr(r3, "stdout", "")
+    if isinstance(raw, bytes):
+        compositions_out = raw.decode("utf-8", errors="replace")
+    else:
+        compositions_out = raw or ""
     if r3.returncode != 0 or "MainVideo" not in compositions_out:
         return False, "MainVideo composition not found via `remotion compositions`"
     if "Thumbnail" not in compositions_out:
@@ -645,7 +748,11 @@ def run_step_9(title, vdir):
     # Regenerate SceneMap.generated.ts with static scene imports.
     # MainVideo.tsx imports SCENE_MAP from this file; we only overwrite the map,
     # never the agent-owned MainVideo.tsx.
-    scenes = load_scenes(title)
+    scenes = [s for s in load_scenes(title)
+              if isinstance(s, dict) and isinstance(s.get("id"), int)]
+    if not scenes:
+        print("  ERROR: no scenes in scenes.json — run Step 3 (script) + Step 8 (Remotion code) first.")
+        return False
     scene_ids = sorted(set(s["id"] for s in scenes))
     import_lines = []
     map_entries = []
@@ -664,7 +771,7 @@ def run_step_9(title, vdir):
         + "\n};\n"
     )
     sm_path = rdir / "src" / "scenes" / "SceneMap.generated.ts"
-    sm_path.write_text(scenemap_content)
+    _atomic_write_text(sm_path, scenemap_content)
     print(f"  Regenerated SceneMap.generated.ts with {len(scene_ids)} static scene import(s)")
 
     # Lint gate (fail fast before any render work)
@@ -710,6 +817,8 @@ def run_step_9(title, vdir):
     render_hashes = pl.compute_scene_render_hashes(vdir)
     backfills = []
     for s in scenes:
+        if not isinstance(s, dict) or not isinstance(s.get("id"), int):
+            continue
         sid = s["id"]
         if s.get("render_status") != "rendered":
             continue
@@ -736,6 +845,8 @@ def run_step_9(title, vdir):
 
     failed_scenes = []
     for s in scenes:
+        if not isinstance(s, dict) or not isinstance(s.get("id"), int):
+            continue
         sid = s["id"]
         if s.get("render_status") == "rendered":
             # Fresh per the source-hash pre-filter above (its message printed there).
@@ -755,7 +866,8 @@ def run_step_9(title, vdir):
 
     # Re-load to inspect statuses
     scenes = load_scenes(title)
-    still_failed = [s["id"] for s in scenes if s.get("render_status") != "rendered"]
+    still_failed = [s.get("id", "?") for s in scenes
+                    if not isinstance(s, dict) or s.get("render_status") != "rendered"]
     if still_failed:
         print(f"\n  Scenes not rendered: {still_failed}")
         print(f"  Re-run `./pipeline.py continue {title}` to retry failed scenes.")
@@ -782,14 +894,23 @@ def run_step_10(title, vdir):
         state.pop("sfx_preview_requested", None)
         save_state(title, state)
 
+    import time as _time
+    started = _time.time()
     cfg = load_pipeline_config(video_dir=vdir)
     template = pl.get_step_command_template("10_stitching", cfg)
     cmd = pl.render_step_command(template, vdir, cfg=cfg)
     run_cmd(cmd, cwd=REPO_ROOT, logpath=pl.log_path(title, 10))
 
     final_dir = vdir / "versions"
-    if not final_dir.exists() or not list(final_dir.glob("*.mp4")):
-        print("  ERROR: No final MP4 in versions/")
+    # Require a freshly-written MP4 (mtime >= run start) — stale artifacts
+    # from a prior run must not pass a failed re-stitch.
+    fresh = []
+    if final_dir.exists():
+        fresh = [p for p in final_dir.glob("*.mp4")
+                 if p.is_file() and p.stat().st_size > 0
+                 and p.stat().st_mtime >= started - 1]
+    if not fresh:
+        print("  ERROR: No fresh final MP4 in versions/ (stale artifacts do not count)")
         return False
     return True
 
@@ -805,15 +926,25 @@ def run_step_13(title, vdir):
         return False
     print(f"  Lint gate: {msg}")
 
+    import time as _time
+    started = _time.time()
     cfg = load_pipeline_config(video_dir=vdir)
     template = pl.get_step_command_template("13_thumbnail_rendering", cfg)
     cmd = pl.render_step_command(template, vdir, cfg=cfg)
     log_file = pl.log_path(title, 13)
-    run_cmd(cmd, cwd=REPO_ROOT, check=False, logpath=log_file)
+    r = run_cmd(cmd, cwd=REPO_ROOT, check=False, logpath=log_file)
+    if r.returncode != 0:
+        print(f"  ERROR: render_thumbnail.py exited {r.returncode}")
+        return False
 
     final_dir = vdir / "versions"
-    if not final_dir.exists() or not list(final_dir.glob("*thumbnail*.png")):
-        print("  ERROR: No thumbnail PNG in versions/")
+    fresh = []
+    if final_dir.exists():
+        fresh = [p for p in final_dir.glob("*thumbnail*.png")
+                 if p.is_file() and p.stat().st_size > 0
+                 and p.stat().st_mtime >= started - 1]
+    if not fresh:
+        print("  ERROR: No fresh thumbnail PNG in versions/ (stale artifacts do not count)")
         return False
     return True
 
@@ -877,14 +1008,14 @@ def _clean_after_assemble(vdir):
 
 
 def cmd_continue(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
 
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
 
-    state = load_state(title)
+    state = _require_state(title)
 
     # Schema validation gate: refuse to run automated steps on invalid state.
     # Gate against the prior step's requirements (the steps already completed),
@@ -954,10 +1085,14 @@ def cmd_continue(args):
 
     if success:
         state = load_state(title)
+        if state is None:
+            print("ERROR: pipeline_state.json missing after step run")
+            sys.exit(1)
         state["steps"][step_key]["status"] = "complete"
         state["steps"][step_key]["completed_at"] = now_iso()
         state["steps"][step_key]["last_error"] = None
-        state["current_step"] = min(step_num + 1, len(STEP_KEYS))
+        state["current_step"] = max(state.get("current_step", 1),
+                                    min(step_num + 1, len(STEP_KEYS)))
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
@@ -1004,7 +1139,7 @@ def cmd_continue(args):
 
 def cmd_status(args):
     if args.title:
-        title = sanitize_title(args.title)
+        title = _safe_title(args.title)
         show_status_for_title(title, show_scenes=getattr(args, "scenes", False))
     else:
         show_all_statuses()
@@ -1097,14 +1232,14 @@ def show_all_statuses():
 # ---------------------------------------------------------------------------
 
 def cmd_audit(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
         sys.exit(2)
 
     violations = []
-    state = load_state(title)
+    state = _require_state(title)
 
     # 1. Pipeline state summary
     print(f"=== Audit: {title} ===")
@@ -1116,16 +1251,26 @@ def cmd_audit(args):
         icon = {"complete": "[OK]", "in_progress": "[>>]", "failed": "[!!]", "pending": "[--]"}.get(status, "[??]")
         print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status}")
 
-    # 2. Log tail (last 50 lines per step log)
+    # 2. Log tail (last 50 lines per step log) — streamed, bounded, no OOM.
+    from collections import deque as _deque
     log_dir = vdir / "logs"
     print(f"\n--- Log tails ---")
     if log_dir.exists():
         for lf in sorted(log_dir.glob("step-*.log")):
-            lines = lf.read_text(encoding="utf-8").rstrip().split("\n")
-            tail = lines[-50:] if len(lines) > 50 else lines
-            print(f"\n  {lf.name} ({len(lines)} lines, last {len(tail)}):")
-            for line in tail:
-                print(f"    {line}")
+            try:
+                tail = _deque(maxlen=50)
+                count = 0
+                with open(lf, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        tail.append(line.rstrip("\n"))
+                        count += 1
+                        if count > 200000:
+                            break
+                print(f"\n  {lf.name} ({count} lines, last {len(tail)}):")
+                for line in tail:
+                    print(f"    {line}")
+            except OSError as e:
+                print(f"\n  {lf.name} (unreadable: {e})")
     else:
         print("  (no logs directory)")
 
@@ -1172,15 +1317,23 @@ def cmd_audit(args):
     # 4. Cross-reference log errors against step status
     print(f"\n--- Consistency checks ---")
     if log_dir.exists():
+        _err_re = re.compile(r"^\s*(ERROR|Error|error)[\s:]", re.MULTILINE)
+        _exit_re = re.compile(r"exit code [1-9]", re.IGNORECASE)
+        _ffmpeg_re = re.compile(r"\[(error|failed)\]", re.IGNORECASE)
         for lf in sorted(log_dir.glob("step-*.log")):
-            text = lf.read_text(encoding="utf-8")
+            try:
+                with open(lf, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read(2 * 1024 * 1024)  # cap 2MB per log
+            except OSError:
+                continue
             # Extract step number from filename step-N.log
             m_step = re.match(r"step-(\d+)", lf.stem)
             step_num = int(m_step.group(1)) if m_step else None
             if step_num is not None and step_num <= len(STEP_KEYS):
                 key = STEP_KEYS[step_num - 1]
                 status = state["steps"].get(key, {}).get("status", "")
-                has_error = "ERROR" in text or re.search(r"exit code [1-9]", text)
+                has_error = bool(_err_re.search(text) or _exit_re.search(text)
+                                 or _ffmpeg_re.search(text))
                 if status == "complete" and has_error:
                     violations.append(f"LOG_ERROR: {lf.name} marked complete but log contains errors")
                 elif status == "complete":
@@ -1235,7 +1388,7 @@ def cmd_audit(args):
 
 
 def cmd_doctor(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     rdir = vdir / "remotion"
     if not vdir.exists():
@@ -1250,8 +1403,14 @@ def cmd_doctor(args):
     if not sys_check.exists():
         sys_check = REPO_ROOT / "scripts" / "check_system.sh"
     try:
+        if sys_check.suffix == ".sh":
+            import shutil as _sh
+            shell = _sh.which("bash") or _sh.which("sh") or "bash"
+            argv = [shell, str(sys_check)]
+        else:
+            argv = [sys.executable, str(sys_check)]
         r = subprocess.run(
-            [sys.executable, str(sys_check)], capture_output=True, text=True,
+            argv, capture_output=True, text=True,
             timeout=30, encoding="utf-8", errors="replace",
         )
         print(r.stdout)
@@ -1266,13 +1425,20 @@ def cmd_doctor(args):
     # 2. Remotion version drift
     print("\n=== 2. Remotion version check ===")
     if (rdir / "package.json").exists():
-        r = subprocess.run(
-            "npx remotion versions",
-            capture_output=True, text=True, timeout=60, cwd=rdir, shell=True,
-        )
-        if r.returncode == 0 and r.stdout:
+        try:
+            r = subprocess.run(
+                "npx remotion versions",
+                capture_output=True, text=True, timeout=60, cwd=rdir, shell=True,
+                encoding="utf-8", errors="replace",
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f"  SKIP: remotion versions could not run ({e})")
+            r = None
+        if r is not None and r.returncode == 0 and r.stdout:
             print(r.stdout)
-            if "ERROR" in r.stdout or "warning" in r.stdout.lower():
+            # Only hard ERRORs fail diagnostics — benign peer-dep warnings
+            # ("warning" substring) must not flip all_ok.
+            if "ERROR" in r.stdout or "error" in (r.stderr or "").lower():
                 all_ok = False
                 print("  RECOMMENDED: run npx remotion versions to identify drift,"
                       " then align versions in remotion-foundation/package.json")
@@ -1347,7 +1513,7 @@ def cmd_doctor(args):
 
 
 def cmd_validate(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     if not video_dir(title).exists():
         print(f"ERROR: Video directory not found: {video_dir(title)}")
         sys.exit(2)
@@ -1366,7 +1532,7 @@ def cmd_lint_script(args):
     is an error (exit 7). Designed for the iterative write -> lint -> fix
     loop during Phase 1, before `complete <title>` advances the pipeline.
     """
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     if not video_dir(title).exists():
         print(f"ERROR: Video directory not found: {video_dir(title)}")
         sys.exit(2)
@@ -1383,7 +1549,7 @@ def cmd_lint_script(args):
 # ---------------------------------------------------------------------------
 
 def cmd_clean(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -1449,10 +1615,22 @@ def cmd_clean(args):
                 freed += sz
                 print(f"  Removed: scenes/{f.name} ({sz/1024/1024:.1f} MB)")
 
-    # 7. Reap Remotion TMPDIR (per-video — title substitution)
+    # 7. Reap Remotion TMPDIR (per-video — title substitution). Guarded:
+    # only paths inside the OS temp dir or videos/<title> are reaped, so a
+    # malicious per-video system.temp_dir cannot point clean at $HOME etc.
+    import tempfile as _tf
     tmpdir = cfg.get("system", {}).get("temp_dir", "/tmp/remotion/{title}")
-    tdir = Path(tmpdir.replace("{title}", title))
-    if tdir.exists():
+    tdir = Path(str(tmpdir).replace("{title}", title))
+    try:
+        allowed = (Path(_tf.gettempdir()).resolve(), vdir.resolve(),
+                   (REPO_ROOT / "videos").resolve())
+        resolved = tdir.resolve()
+        ok = any(resolved == a or a in resolved.parents for a in allowed)
+    except OSError:
+        ok = False
+    if not ok:
+        print(f"  SKIP: refusing to reap TMPDIR outside safe roots: {tdir}")
+    elif tdir.exists():
         sz = sum(f.stat().st_size for f in tdir.rglob("*") if f.is_file())
         shutil.rmtree(tdir, ignore_errors=True)
         freed += sz
@@ -1477,7 +1655,7 @@ def cmd_clean(args):
 # ---------------------------------------------------------------------------
 
 def cmd_preview(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -1495,9 +1673,16 @@ def cmd_preview(args):
 
     cfg = load_pipeline_config()
     r = cfg.get("render", {})
-    node_max_old = r.get("node_max_old_space_size_mb", 384)
+    try:
+        node_max_old = int(r.get("node_max_old_space_size_mb", 384))
+        timeout_ms = int(r.get("timeout_ms", 60000))
+    except (TypeError, ValueError):
+        print("ERROR: render.node_max_old_space_size_mb/timeout_ms must be integers")
+        sys.exit(2)
     gl_backend = pl.resolve_gl_backend(cfg)
-    timeout_ms = r.get("timeout_ms", 60000)
+    if gl_backend not in ("angle", "swangle", "egl", "swiftshader"):
+        print(f"ERROR: invalid render.gl_backend: {gl_backend!r}")
+        sys.exit(2)
 
     import os as _os
     _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
@@ -1512,37 +1697,41 @@ def cmd_preview(args):
         print("ERROR: no scenes in scenes.json")
         sys.exit(2)
     first = scenes[0]
-    if not first.get("actual_duration_frames"):
+    if not isinstance(first, dict) or not first.get("actual_duration_frames"):
         print("ERROR: scene 1 missing actual_duration_frames (run step 6 first)")
         sys.exit(2)
     frame_end = min(20, first["actual_duration_frames"])
 
     # Build scene props so the preview renders real content, not the fallback.
     import tempfile as _tempfile
-    import render_scene as _render_scene
+    try:
+        import render_scene as _render_scene
+    except (ImportError, AttributeError, TypeError) as e:
+        print(f"PREVIEW FAILED (props import: {e})")
+        sys.exit(1)
     props_fd, props_path = _tempfile.mkstemp(suffix=".json", prefix="remotion-props-")
     os.close(props_fd)
     try:
         _render_scene.build_props_json(scenes_json_path(title), 1,
                                        Path(props_path), burn_captions=False)
     except SystemExit:
-        os.unlink(props_path)
+        Path(props_path).unlink(missing_ok=True)
         print("PREVIEW FAILED (props build)")
+        sys.exit(1)
+    except (AttributeError, TypeError) as e:
+        Path(props_path).unlink(missing_ok=True)
+        print(f"PREVIEW FAILED (props build: {e})")
         sys.exit(1)
 
     print(f"Previewing scene 1, frames 0-{frame_end} -> {out_file}")
-    cmd = (
-        f"npx remotion render src/Root.tsx MainVideo \"{out_file}\" "
-        f"--props=\"{props_path}\" "
-        f"--frames=0-{frame_end} "
-        f"--concurrency 1 "
-        f"--gl={gl_backend} "
-        f"--image-format jpeg --jpeg-quality 60 "
-        f"--codec h264 --x264-preset ultrafast --crf 35 "
-        f"--disallow-parallel-encoding "
-        f"--timeout {timeout_ms} "
-        f"--overwrite --log=warn"
-    )
+    cmd = ["npx", "remotion", "render", "src/Root.tsx", "MainVideo", str(out_file),
+           f"--props={props_path}", f"--frames=0-{frame_end}",
+           "--concurrency", "1", f"--gl={gl_backend}",
+           "--image-format", "jpeg", "--jpeg-quality", "60",
+           "--codec", "h264", "--x264-preset", "ultrafast", "--crf", "35",
+           "--disallow-parallel-encoding",
+           "--timeout", str(timeout_ms),
+           "--overwrite", "--log=warn"]
     try:
         r1 = run_cmd(cmd, cwd=rdir, check=False,
                      logpath=pl.log_path(title, 9, scene_id="preview"))
@@ -1550,8 +1739,7 @@ def cmd_preview(args):
             print("PREVIEW FAILED")
             sys.exit(1)
     finally:
-        if os.path.exists(props_path):
-            os.unlink(props_path)
+        Path(props_path).unlink(missing_ok=True)
     print(f"\nPreview rendered: {out_file}")
     print("  Copy/SCP out and play locally to verify visual correctness.")
 
@@ -1569,7 +1757,7 @@ def cmd_preview(args):
 # ---------------------------------------------------------------------------
 
 def cmd_preview_frame(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -1596,46 +1784,61 @@ def cmd_preview_frame(args):
 
     # Build props (reuses render_scene.build_props_json). Returns (start, end).
     import tempfile as _tempfile
-    import render_scene as _render_scene
+    try:
+        import render_scene as _render_scene
+    except (ImportError, AttributeError, TypeError) as e:
+        print(f"PREVIEW-FRAME FAILED (props import: {e})")
+        sys.exit(1)
     props_fd, props_path = _tempfile.mkstemp(suffix=".json", prefix="remotion-props-")
     os.close(props_fd)
     try:
         frame_start, frame_end = _render_scene.build_props_json(
             scenes_json_path(title), scene_id, Path(props_path), burn_captions=False)
     except SystemExit:
-        os.unlink(props_path)
+        Path(props_path).unlink(missing_ok=True)
         print("PREVIEW-FRAME FAILED (props build)")
+        sys.exit(1)
+    except (AttributeError, TypeError) as e:
+        Path(props_path).unlink(missing_ok=True)
+        print(f"PREVIEW-FRAME FAILED (props build: {e})")
         sys.exit(1)
 
     # Validate the requested frame is within the scene's range in MainVideo time.
     if frame < frame_start or frame > frame_end:
-        os.unlink(props_path)
+        Path(props_path).unlink(missing_ok=True)
         print(f"ERROR: frame {frame} out of range for scene {scene_id} "
               f"(MainVideo frames {frame_start}-{frame_end})")
         sys.exit(2)
 
     cfg = load_pipeline_config()
     r = cfg.get("render", {})
+    try:
+        timeout_ms = int(r.get("timeout_ms", 60000))
+        node_max_old = int(r.get("node_max_old_space_size_mb", 384))
+    except (TypeError, ValueError):
+        Path(props_path).unlink(missing_ok=True)
+        print("ERROR: render timeout_ms/node_max_old_space_size_mb must be integers")
+        sys.exit(2)
     gl_backend = pl.resolve_gl_backend(cfg)
-    timeout_ms = r.get("timeout_ms", 60000)
+    if gl_backend not in ("angle", "swangle", "egl", "swiftshader"):
+        Path(props_path).unlink(missing_ok=True)
+        print(f"ERROR: invalid render.gl_backend: {gl_backend!r}")
+        sys.exit(2)
 
     import os as _os
-    _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={r.get('node_max_old_space_size_mb', 384)}"
+    _os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     out_dir = vdir / ".preview"
     out_dir.mkdir(exist_ok=True)
     out_file = out_dir / f"scene-{scene_id:02d}-frame-{frame}.png"
 
     print(f"Rendering still: scene {scene_id}, MainVideo frame {frame} -> {out_file}")
-    cmd = (
-        f"npx remotion still src/Root.tsx MainVideo \"{out_file}\" "
-        f"--props=\"{props_path}\" "
-        f"--frame={frame} "
-        f"--gl={gl_backend} "
-        f"--image-format png "
-        f"--timeout {timeout_ms} "
-        f"--overwrite --log=warn"
-    )
+    cmd = ["npx", "remotion", "still", "src/Root.tsx", "MainVideo", str(out_file),
+           f"--props={props_path}", f"--frame={frame}",
+           f"--gl={gl_backend}",
+           "--image-format", "png",
+           "--timeout", str(timeout_ms),
+           "--overwrite", "--log=warn"]
     try:
         r1 = run_cmd(cmd, cwd=rdir, check=False,
                      logpath=pl.log_path(title, 9, scene_id=f"preview-frame-{scene_id}-{frame}"))
@@ -1643,8 +1846,7 @@ def cmd_preview_frame(args):
             print("PREVIEW-FRAME FAILED")
             sys.exit(1)
     finally:
-        if os.path.exists(props_path):
-            os.unlink(props_path)
+        Path(props_path).unlink(missing_ok=True)
     print(f"\nStill rendered: {out_file}")
     print("  Copy/SCP out to inspect.")
 
@@ -1654,7 +1856,7 @@ def cmd_preview_frame(args):
 # ---------------------------------------------------------------------------
 
 def cmd_captions(args):
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -1672,7 +1874,7 @@ def cmd_captions(args):
 
 def cmd_sfx(args):
     """Generate SFX/BGM tracks; --preview also exports the audition mp3 + waveform PNG."""
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
     if not vdir.exists():
         print(f"ERROR: Video directory not found: {vdir}")
@@ -1711,7 +1913,7 @@ def cmd_run(args):
     auto-runs automated sub-steps. The agent never needs to track which step
     is next — the orchestrator handles it.
     """
-    title = sanitize_title(args.title)
+    title = _safe_title(args.title)
     vdir = video_dir(title)
 
     if vdir.exists():

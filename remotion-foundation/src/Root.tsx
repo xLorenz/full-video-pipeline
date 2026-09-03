@@ -13,6 +13,18 @@ export const RemotionRoot: React.FC = () => {
         component={MainVideo as React.ComponentType<any>}
         calculateMetadata={async ({ props }) => {
           const p = props as unknown as VideoProps;
+          if (!Number.isFinite(p.fps) || p.fps <= 0) {
+            throw new Error(`invalid fps: ${p.fps}`);
+          }
+          if (!Number.isFinite(p.width) || p.width <= 0 ||
+              !Number.isFinite(p.height) || p.height <= 0) {
+            throw new Error(`invalid dimensions: ${p.width}x${p.height}`);
+          }
+          // NOTE: defaultProps.scenes is [] so `remotion compositions`
+          // (which evaluates this against defaults, no --props) must succeed.
+          // Empty scenes fall back to 1 frame; the real empty-project guard
+          // lives in validate.py (step>=3 requires >=1 scene) and Step 9's
+          // pre-render check, not here.
           const totalFrames = p.scenes.reduce(
             (sum: number, s) => sum + s.durationInFrames, 0,
           );
@@ -35,7 +47,7 @@ export const RemotionRoot: React.FC = () => {
         id="Thumbnail"
         component={Thumbnail as React.ComponentType<any>}
         durationInFrames={1}
-        fps={30}
+        fps={FPS}
         width={WIDTH}
         height={HEIGHT}
         defaultProps={{

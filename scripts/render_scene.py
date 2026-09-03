@@ -54,9 +54,10 @@ def kill_orphaned_chrome():
             if ppid:
                 try:
                     parent = psutil.Process(ppid)
-                    parent_cmd = " ".join(parent.cmdline() or [])
+                    parent_cmd = " ".join(parent.cmdline(timeout=2) or [])
                     parent_alive = "node" in parent_cmd or "remotion" in parent_cmd
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                except (psutil.NoSuchProcess, psutil.AccessDenied,
+                        psutil.TimeoutExpired, psutil.ZombieProcess):
                     parent_alive = False
             if not parent_alive:
                 orphans.append(proc)
@@ -65,6 +66,10 @@ def kill_orphaned_chrome():
     for proc in orphans:
         try:
             proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
+                pass
             print(f"  Killed orphaned chrome-headless-shell (PID {proc.pid})")
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
@@ -103,12 +108,14 @@ def build_props_json(scenes_json_path: Path, target_id: int, props_path: Path,
         data = json.load(f)
     scenes = data.get("scenes", [])
 
-    matches = [s for s in scenes if s["id"] == target_id]
+    matches = [s for s in scenes
+               if isinstance(s, dict) and s.get("id") == target_id]
     if not matches:
         print(f"ERROR: Scene {target_id} not found in scenes.json", file=sys.stderr)
         sys.exit(2)
 
-    missing = [s["id"] for s in scenes if s.get("actual_duration_frames") is None]
+    missing = [s.get("id", "?") for s in scenes
+               if not isinstance(s, dict) or s.get("actual_duration_frames") is None]
     if missing:
         print(f"ERROR: Scenes {missing} missing actual_duration_frames (run step 6 first)",
               file=sys.stderr)
@@ -207,20 +214,28 @@ def main():
     s = cfg.get("system", {})
     v = cfg.get("video", {})
 
-    concurrency     = r.get("concurrency", 1)
-    gl_backend      = pl.resolve_gl_backend(cfg)
-    image_format    = r.get("image_format", "jpeg")
-    jpeg_quality    = r.get("jpeg_quality", 80)
-    codec           = r.get("codec", "h264")
-    x264_preset     = r.get("x264_preset", "ultrafast")
-    crf             = r.get("crf", 28)
-    timeout_ms      = r.get("timeout_ms", 60000)
-    node_max_old    = r.get("node_max_old_space_size_mb", 384)
-    min_ram_mb      = s.get("min_available_ram_mb", 200)
-    min_disk_mb     = s.get("min_available_disk_mb", 500)
-    tmpdir          = str(pl.resolve_tmpdir(cfg, video_dir.name))
-    post_settle     = s.get("post_render_settle_seconds", 5)
-    burn_captions   = v.get("burn_captions", False)
+    try:
+        concurrency = int(r.get("concurrency", 1))
+        jpeg_quality = int(r.get("jpeg_quality", 80))
+        crf = int(r.get("crf", 28))
+        timeout_ms = int(r.get("timeout_ms", 60000))
+        node_max_old = int(r.get("node_max_old_space_size_mb", 384))
+        min_ram_mb = int(s.get("min_available_ram_mb", 200))
+        min_disk_mb = int(s.get("min_available_disk_mb", 500))
+        post_settle = int(s.get("post_render_settle_seconds", 5))
+    except (TypeError, ValueError):
+        print("ERROR: render/system numeric config must be integers", file=sys.stderr)
+        sys.exit(2)
+    gl_backend = pl.resolve_gl_backend(cfg)
+    if gl_backend not in ("angle", "swangle", "egl", "swiftshader"):
+        print(f"ERROR: invalid render.gl_backend: {gl_backend!r}", file=sys.stderr)
+        sys.exit(2)
+    image_format = r.get("image_format", "jpeg")
+    codec = r.get("codec", "h264")
+    x264_preset = r.get("x264_preset", "ultrafast")
+    # Per-scene TMPDIR — shared TMPDIR lets parallel scenes reap each other.
+    tmpdir = str(pl.resolve_tmpdir(cfg, video_dir.name) / f"scene-{scene_id:02d}")
+    burn_captions = v.get("burn_captions", False)
 
     log_file = pl.log_path(video_dir.name, 9, scene_id)
 
@@ -244,7 +259,8 @@ def main():
 
     # TMPDIR setup (platform-appropriate, covers both POSIX and Windows temp vars)
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
-    pl.apply_render_env(tmpdir)
+    _prev_env = pl.apply_render_env(tmpdir)
+    _prev_node = os.environ.get("NODE_OPTIONS")
     os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Orphan cleanup
@@ -260,37 +276,49 @@ def main():
         frame_start, frame_end = build_props_json(scenes_json, scene_id,
                                                   Path(props_path), burn_captions)
     except SystemExit:
+        Path(props_path).unlink(missing_ok=True)
+        pl.restore_render_env(_prev_env)
         update_scene_status(video_dir, scene_id, "failed", "Props build failed")
         raise
+    except (AttributeError, TypeError) as e:
+        Path(props_path).unlink(missing_ok=True)
+        pl.restore_render_env(_prev_env)
+        update_scene_status(video_dir, scene_id, "failed", f"Props build failed: {e}")
+        sys.exit(1)
 
     print(f"\n--- Starting Remotion render ---")
     print(f"Flags: concurrency={concurrency} gl={gl_backend} codec={codec} "
           f"crf={crf} preset={x264_preset}")
     print(f"Frames: {frame_start}-{frame_end}")
 
-    cmd = (
-        f"npx remotion render src/Root.tsx MainVideo \"{output_file}\" "
-        f"--props=\"{props_path}\" "
-        f"--frames={frame_start}-{frame_end} "
-        f"--concurrency {concurrency} "
-        f"--gl={gl_backend} "
-        f"--image-format {image_format} "
-        f"--jpeg-quality {jpeg_quality} "
-        f"--codec {codec} "
-        f"--x264-preset {x264_preset} "
-        f"--crf {crf} "
-        f"--disallow-parallel-encoding "
-        f"--timeout {timeout_ms} "
-        f"--overwrite "
-        f"--bundle-cache "
-        f"--log=warn"
-    )
+    cmd = ["npx", "remotion", "render", "src/Root.tsx", "MainVideo", str(output_file),
+           f"--props={props_path}",
+           f"--frames={frame_start}-{frame_end}",
+           "--concurrency", str(concurrency),
+           f"--gl={gl_backend}",
+           "--image-format", str(image_format),
+           "--jpeg-quality", str(jpeg_quality),
+           "--codec", str(codec),
+           "--x264-preset", str(x264_preset),
+           "--crf", str(crf),
+           "--disallow-parallel-encoding",
+           "--timeout", str(timeout_ms),
+           "--overwrite",
+           "--bundle-cache",
+           "--log=warn"]
 
     start_time = time.time()
-    result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
+    try:
+        result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
+    finally:
+        Path(props_path).unlink(missing_ok=True)
     elapsed = int(time.time() - start_time)
 
-    os.unlink(props_path)
+    pl.restore_render_env(_prev_env)
+    if _prev_node is None:
+        os.environ.pop("NODE_OPTIONS", None)
+    else:
+        os.environ["NODE_OPTIONS"] = _prev_node
 
     if result.returncode != 0:
         msg = f"Remotion render failed with exit code {result.returncode} after {elapsed}s"

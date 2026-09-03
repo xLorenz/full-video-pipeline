@@ -114,13 +114,16 @@ def main():
     safe_title = pl.sanitize_title(data.get("video_title", video_dir.name))
     srt_path = video_dir / f"{safe_title}.srt"
 
-    # Build per-scene cues; collect global SRT entries
+    # Build per-scene cues; collect global SRT entries. Use the SAME
+    # frame-exact ceil'd durations as assemble.py so captions do not drift
+    # ~0.5 frame/scene against the video timeline.
+    fps = float(data.get("fps") or 30)
     global_t = 0.0
     srt_entries = []
     for s in scenes:
         cues = build_scene_cues(s)
         s["captions"] = cues
-        scene_dur = s.get("actual_duration_seconds") or 0
+        scene_dur = pl.scene_padded_duration(s, fps)
         for cue in cues:
             srt_entries.append({
                 "start": global_t + cue["start"],
@@ -144,10 +147,15 @@ def main():
     print(f"  Updated scenes.json with per-scene `captions`")
 
     # Post-write validation: validate.py --step 6 catches integrity issues
-    r = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve().parent / "validate.py"),
-         str(video_dir), "--step", "6"],
-        capture_output=True, text=True)
+    try:
+        r = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "validate.py"),
+             str(video_dir), "--step", "6"],
+            capture_output=True, text=True, timeout=60,
+            encoding="utf-8", errors="replace")
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"ERROR: captions validation could not run ({e})", file=sys.stderr)
+        sys.exit(1)
     if r.returncode != 0:
         print("ERROR: captions validation failed", file=sys.stderr)
         print(r.stdout + r.stderr, file=sys.stderr)

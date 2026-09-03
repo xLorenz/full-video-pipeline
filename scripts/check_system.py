@@ -155,18 +155,27 @@ def main():
         print("WARN: psutil not installed — skipping RAM check (pip install psutil)")
     print()
 
-    # 2. Disk
+    # 2. Disk (measure CWD drive + repo drive — multi-drive Windows boxes
+    # can have free space on C: but not on the repo drive).
     print("--- Disk ---")
     try:
-        # psutil handles Windows drives correctly; fall back to shutil
-        if psutil:
-            du = psutil.disk_usage(str(REPO_ROOT))
-            avail_disk = int(du.free / (1024 * 1024))
-        else:
-            import shutil as _sh
-
-            total_b, used_b, free_b = _sh.disk_usage(REPO_ROOT)
-            avail_disk = int(free_b / (1024 * 1024))
+        import shutil as _sh
+        drives = {str(REPO_ROOT.resolve()), str(Path.cwd().resolve())}
+        avail_disk = None
+        for d in drives:
+            try:
+                if psutil:
+                    du = psutil.disk_usage(d)
+                    free_mb = int(du.free / (1024 * 1024))
+                else:
+                    _, _, free_b = _sh.disk_usage(d)
+                    free_mb = int(free_b / (1024 * 1024))
+                print(f"  {d}: {free_mb} MB free")
+                avail_disk = free_mb if avail_disk is None else min(avail_disk, free_mb)
+            except Exception as e:
+                print(f"  WARN: could not measure {d}: {e}")
+        if avail_disk is None:
+            raise OSError("no measurable drive")
         print(f"Available disk: {avail_disk} MB")
         print()
         if avail_disk < min_disk:
@@ -178,9 +187,21 @@ def main():
         print(f"WARN: could not measure disk: {e}")
     print()
 
-    # 3. Required tools
+    # 3. Required tools (Node >= 18 enforced — Remotion 4.x requirement)
     print("--- Required Tools ---")
     _check_tool("node", True, errors)
+    try:
+        _r = subprocess.run(["node", "--version"], capture_output=True, text=True,
+                            timeout=10, encoding="utf-8", errors="replace")
+        _ver = (_r.stdout or "").strip().lstrip("v")
+        _major = int(_ver.split(".")[0]) if _ver and _ver[0].isdigit() else 0
+        if _major < 18:
+            print(f"FAIL: node >= 18 required (found {_ver or 'unknown'})")
+            errors.append("node-version")
+        else:
+            print(f"OK: node version {_ver}")
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
+        pass
     _check_tool("npm", True, errors)
     _check_tool("python3", True, errors)
     # ffmpeg/ffprobe appear as ffmpeg.exe / ffprobe.exe on Windows via which

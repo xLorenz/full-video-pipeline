@@ -37,11 +37,15 @@ export const Captions: React.FC<CaptionsProps> = ({
   const frame = useCurrentFrame();
   const t = frame / fps;
 
-  const active = cues.find((c) => t >= c.start && t < c.end);
+  const windowEnd = t + maxCueSeconds;
+  const active = cues.find((c) => t >= c.start && t < Math.min(c.end, windowEnd));
   if (!active) return null;
 
   const cueEndFrame = Math.round(active.end * fps);
-  const fadeFrames = Math.min(6, Math.round((active.end - active.start) * fps * 0.15));
+  const fadeFrames = Math.max(
+    1,
+    Math.min(6, Math.round((active.end - active.start) * fps * 0.15)),
+  );
 
   const opacity = interpolate(
     frame,

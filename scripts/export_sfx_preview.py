@@ -30,14 +30,23 @@ import sfx_catalog as sfx           # noqa: E402
 import tone_render                  # noqa: E402  (Tone.js/WebAudio engine bridge)
 
 
-def _run(cmd, **kw):
-    r = subprocess.run(cmd, capture_output=True, text=True, **kw)
-    return r
+def _run(cmd, timeout=120, **kw):
+    kw.setdefault("encoding", "utf-8")
+    kw.setdefault("errors", "replace")
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout, **kw)
+    except FileNotFoundError:
+        print(f"WARNING: binary not found: {cmd[0]}")
+        return subprocess.CompletedProcess(cmd, 127, "", "binary not found")
+    except subprocess.TimeoutExpired:
+        print(f"WARNING: command timed out after {timeout}s: {cmd[0]}")
+        return subprocess.CompletedProcess(cmd, 124, "", "timeout")
 
 
 def _decode_mp3_to_wav(mp3, wav):
     r = _run(["ffmpeg", "-y", "-i", str(mp3), "-ar", "44100", "-ac", "1", str(wav)])
-    return r.returncode == 0 and wav.exists()
+    return r.returncode == 0 and Path(wav).exists()
 
 
 def _limit_from(cfg):
@@ -63,8 +72,9 @@ def export_video_preview(video_dir):
     aligned = video_dir / "voiceover_aligned.mp3"
     if not aligned.exists():
         with open(scenes_json, "r", encoding="utf-8") as f:
-            scenes = json.load(f).get("scenes", [])
-        g.ensure_voiceover_aligned(video_dir, scenes)
+            _data = json.load(f)
+        _fps = float(_data.get("fps") or 30)
+        g.ensure_voiceover_aligned(video_dir, _data.get("scenes", []), fps=_fps)
     sfx_track = video_dir / "sfx_aligned.mp3"
     bgm_track = video_dir / "bgm_aligned.mp3"
     have_sfx = sfx_track.exists()
@@ -85,6 +95,9 @@ def export_video_preview(video_dir):
             print("ERROR: failed to export voiceover-only preview mp3")
             sys.exit(1)
     else:
+        # NOTE: preview mix intentionally omits assemble.py's sidechain ducking
+        # (voiceover-ducked BGM) — the preview runs ~2-3 dB hotter on beds than
+        # the delivered mix. Listen for balance, not absolute BGM level.
         inputs = ["-i", str(aligned)]
         if have_sfx:
             inputs += ["-i", str(sfx_track)]
@@ -204,6 +217,8 @@ def export_catalog_preview():
             })
     tone_rendered = tone_render.render_tone_cues(tone_jobs)
 
+    import html as _html
+    import tempfile as _tf
     for sound in sorted(defs.values(), key=lambda d: d.sound):
         params = sfx.param_defaults(sound)
         if sound.backend == "tone":
@@ -212,24 +227,27 @@ def export_catalog_preview():
             raw = g._normalize(g.decode_to_floats(sfx.ASSETS_DIR / sound.asset), 0.9)
         db = g.cue_gain_db(sound.default_volume, cfg_sfx["full_scale_db"])
         raw = g.apply_gain_db(raw, db)
-        wav = out_dir / f".{sound.sound}.wav"
-        g.write_wav(wav, raw, sr)
-        mp3 = out_dir / f".{sound.sound}.mp3"
-        g.encode_mp3(wav, mp3)
-        b64 = base64.b64encode(mp3.read_bytes()).decode()
-        wav.unlink(missing_ok=True)
-        mp3.unlink(missing_ok=True)
-        moods = ", ".join(sound.moods)
-        tags = ", ".join(sound.tags)
+        # Isolated tmp dir — crash-safe, no repo dotfile litter, no cross-run collision.
+        with _tf.TemporaryDirectory(prefix=f"sfxprev-{sound.sound}-") as _td:
+            wav = Path(_td) / f"{sound.sound}.wav"
+            mp3 = Path(_td) / f"{sound.sound}.mp3"
+            g.write_wav(wav, raw, sr)
+            g.encode_mp3(wav, mp3)
+            b64 = base64.b64encode(mp3.read_bytes()).decode()
+        moods = _html.escape(", ".join(sound.moods))
+        tags = _html.escape(", ".join(sound.tags))
+        desc = _html.escape(sound.description or "")
         params_html = "".join(
-            f"<tr><td><code>{k}</code></td><td>{p.default}</td><td>{p.description}</td></tr>"
+            f"<tr><td><code>{_html.escape(str(k))}</code></td>"
+            f"<td>{_html.escape(str(p.default))}</td>"
+            f"<td>{_html.escape(str(p.description))}</td></tr>"
             for k, p in sound.params.items()
         )
         items.append(f"""
     <div class="sound">
-      <button class="play" data-src="data:audio/mpeg;base64,{b64}">&#9654; {sound.sound}</button>
+      <button class="play" data-src="data:audio/mpeg;base64,{b64}">&#9654; {_html.escape(sound.sound)}</button>
       <div class="meta">
-        <p class="desc">{sound.description}</p>
+        <p class="desc">{desc}</p>
         <p><b>moods:</b> {moods} &nbsp; <b>tags:</b> {tags}</p>
         <table>{params_html}</table>
       </div>
@@ -245,24 +263,26 @@ def export_catalog_preview():
     }
     bgm_items = []
     for track, meta in sorted(sfx.BGM_TRACKS.items()):
-        rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0)))
+        rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0))
+                            & 0xFFFFFFFF)
         loop = g._loop_pad(g.BGM_FUNCS[track](rng, sr, 0.0))
         raw = g.apply_gain_db(loop, g.bed_gain_db(0.6, -12.0))
-        wav = out_dir / f".{track}.wav"
-        g.write_wav(wav, raw, sr)
-        mp3 = out_dir / f".{track}.mp3"
-        g.encode_mp3(wav, mp3)
-        b64 = base64.b64encode(mp3.read_bytes()).decode()
-        wav.unlink(missing_ok=True)
-        mp3.unlink(missing_ok=True)
-        moods = ", ".join(meta["moods"])
-        bpm = f"{meta['bpm']} bpm" if meta["bpm"] else "—"
+        with _tf.TemporaryDirectory(prefix=f"bgmprev-{track}-") as _td:
+            wav = Path(_td) / f"{track}.wav"
+            mp3 = Path(_td) / f"{track}.mp3"
+            g.write_wav(wav, raw, sr)
+            g.encode_mp3(wav, mp3)
+            b64 = base64.b64encode(mp3.read_bytes()).decode()
+        moods = _html.escape(", ".join(meta.get("moods", [])))
+        bpm = f"{meta.get('bpm')} bpm" if meta.get("bpm") else "—"
+        desc = _html.escape(bgm_meta.get(track, meta.get("description", track)))
+        energy = _html.escape(str(meta.get("energy", "")))
         bgm_items.append(f"""
     <div class="sound">
-      <button class="play" data-src="data:audio/mpeg;base64,{b64}">&#9654; {track}</button>
+      <button class="play" data-src="data:audio/mpeg;base64,{b64}">&#9654; {_html.escape(track)}</button>
       <div class="meta">
-        <p class="desc">{bgm_meta[track]}</p>
-        <p><b>moods:</b> {moods} &nbsp; <b>tempo:</b> {bpm} &nbsp; <b>energy:</b> {meta['energy']}</p>
+        <p class="desc">{desc}</p>
+        <p><b>moods:</b> {moods} &nbsp; <b>tempo:</b> {_html.escape(str(bpm))} &nbsp; <b>energy:</b> {energy}</p>
       </div>
     </div>""")
 

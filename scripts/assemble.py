@@ -85,28 +85,62 @@ def detect_mismatch(scenes_dir, scenes):
     return False, "all scenes consistent"
 
 
-def atomic_replace_temp(output_file, cmd, pre_commit=None):
+def atomic_replace_temp(output_file, cmd_argv, pre_commit=None):
     """Run ffmpeg to a temp file, then os.replace to output_file on success.
+
+    cmd_argv: argv list whose LAST element must be the output path (str/Path).
+    The output is swapped for <stem>.tmp<suffix> (cleaned on start, legacy
+    <output>.tmp also cleaned); on success the tmp is atomically renamed.
+    Accepts legacy string cmds (shell) for backward-compat but argv lists
+    are preferred (safe for spaces).
 
     pre_commit: optional callable(tmp_path) -> bool. When given, it runs on the
     finished temp file BEFORE the atomic rename; returning False unlinks the temp
     and aborts the publish (used by the SFX/BGM loudness assertions so a failed
     stitch never leaves a published version on disk).
     """
-    tmp = str(output_file) + ".tmp"
-    ext = Path(output_file).suffix.lstrip(".")
+    output_file = Path(output_file)
+    # Preserve the extension (voiceover_aligned.tmp.mp3, not .mp3.tmp) so
+    # ffmpeg infers the muxer from the filename. Belt-and-braces: also pass
+    # an explicit -f before the output (input `-f concat` is unaffected —
+    # the last -f wins for the output).
+    ext = output_file.suffix.lstrip(".")
     fmt = {"mp4": "mp4", "mp3": "mp3"}.get(ext, ext)
-    full_cmd = cmd.replace(f'"{output_file}"', f' -f {fmt} "{tmp}"', 1)
-    result = pl.run_cmd(full_cmd, check=False)
-    if result.returncode != 0 or not Path(tmp).exists():
-        if Path(tmp).exists():
-            Path(tmp).unlink()
+    tmp = output_file.parent / (output_file.stem + ".tmp" + output_file.suffix)
+    # Clean both new-style and legacy (<output>.tmp) stale tmps.
+    tmp.unlink(missing_ok=True)
+    Path(str(output_file) + ".tmp").unlink(missing_ok=True)
+    if isinstance(cmd_argv, (list, tuple)):
+        argv = [str(a) for a in cmd_argv]
+        # Last element must be the output — swap for tmp with explicit -f.
+        if argv and Path(argv[-1]) == output_file:
+            argv = argv[:-1] + (["-f", fmt] if fmt else []) + [str(tmp)]
+        else:
+            argv = argv + ((["-f", fmt] if fmt else []) + [str(tmp)])
+        result = pl.run_cmd(argv, check=False)
+    else:
+        full_cmd = cmd_argv.replace(f'"{output_file}"', f' -f {fmt} "{tmp}"', 1)
+        result = pl.run_cmd(full_cmd, check=False)
+    if result.returncode != 0 or not tmp.exists():
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
         return False
-    if pre_commit is not None and not pre_commit(Path(tmp)):
-        Path(tmp).unlink(missing_ok=True)
+    if pre_commit is not None and not pre_commit(tmp):
+        tmp.unlink(missing_ok=True)
         return False
-    pl.atomic_replace(Path(tmp), Path(output_file))
+    pl.atomic_replace(tmp, output_file)
     return True
+
+
+def _run_ffmpeg(argv, timeout=120):
+    """subprocess.run wrapper with timeout + missing-binary guard. Returns CompletedProcess or None."""
+    import subprocess as _sp
+    try:
+        return _sp.run(argv, capture_output=True, text=True, timeout=timeout,
+                       encoding="utf-8", errors="replace")
+    except (FileNotFoundError, _sp.TimeoutExpired) as e:
+        print(f"  WARNING: ffmpeg call failed ({type(e).__name__}: {e})")
+        return None
 
 
 def main():
@@ -189,8 +223,9 @@ def main():
         aligned_audio = video_dir / "voiceover_aligned.mp3"
         ok = atomic_replace_temp(
             aligned_audio,
-            f'ffmpeg -y {" ".join(vo_inputs)} -filter_complex "{vo_graph}" '
-            f'-map "[aout]" -c:a libmp3lame -b:a 192k "{aligned_audio}"',
+            ["ffmpeg", "-y", *vo_inputs, "-filter_complex", vo_graph,
+             "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "192k",
+             str(aligned_audio)],
         )
         if not ok or not aligned_audio.exists():
             print("ERROR: Failed to create voiceover_aligned.mp3")
@@ -229,22 +264,31 @@ def main():
 
         # Voiceover loudness anchor (measured once here, reused by the assertions)
         vo_peak_db, vo_I = None, None
-        vd_r = subprocess.run(
+        vd_r = _run_ffmpeg(
             ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "volumedetect", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=30,
-        )
-        m = re.search(
-            r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB", vd_r.stdout + vd_r.stderr)
-        if m:
-            vo_peak_db = float(m.group(1))
-        eb_r = subprocess.run(
+            timeout=30)
+        if vd_r is not None:
+            m = re.search(
+                r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB", vd_r.stdout + vd_r.stderr)
+            if m:
+                try:
+                    vo_peak_db = float(m.group(1))
+                except ValueError:
+                    vo_peak_db = None
+            # volumedetect reports n/a/-inf when silent — treat as unmeasurable.
+            if m and m.group(1).lower() in ("n/a", "-inf", "inf"):
+                vo_peak_db = None
+        eb_r = _run_ffmpeg(
             ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "ebur128", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=30,
-        )
-        ms = re.findall(
-            r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", eb_r.stdout + eb_r.stderr, re.MULTILINE)
-        if ms:
-            vo_I = float(ms[-1])
+            timeout=30)
+        if eb_r is not None:
+            ms = re.findall(
+                r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", eb_r.stdout + eb_r.stderr, re.MULTILINE)
+            if ms:
+                try:
+                    vo_I = float(ms[-1])
+                except ValueError:
+                    vo_I = None
         if vo_I is None:
             print("  WARNING: could not measure voiceover loudness — skipping loudness assertions")
 
@@ -254,18 +298,22 @@ def main():
         with open(video_concat_list, "w", encoding="utf-8") as f:
             for s in scenes:
                 mp4 = (scenes_dir / f"scene-{s['id']:02d}.mp4").resolve().as_posix()
-                f.write(f"file '{mp4}'\n")
+                # Escape single quotes for ffmpeg concat demuxer.
+                mp4_esc = mp4.replace("'", "'\\''")
+                f.write(f"file '{mp4_esc}'\n")
         temp_video = temp_dir / "video_only.mp4"
         if mismatch:
             # Re-encode at the FINAL delivery CRF (not the per-scene render crf):
             # this pass produces the delivered file, so it should match the
             # quality target of the stream-copy path rather than render scratch.
-            cmd = (f'ffmpeg -y -f concat -safe 0 -i "{video_concat_list}" '
-                   f'-c:v {final_codec} -preset ultrafast -crf {final_crf} '
-                   f'-an "{temp_video}"')
+            cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                   "-i", str(video_concat_list),
+                   "-c:v", str(final_codec), "-preset", "ultrafast",
+                   "-crf", str(final_crf), "-an", str(temp_video)]
         else:
-            cmd = (f'ffmpeg -y -f concat -safe 0 -i "{video_concat_list}" '
-                   f'-c:v copy -an "{temp_video}"')
+            cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                   "-i", str(video_concat_list),
+                   "-c:v", "copy", "-an", str(temp_video)]
         ok = atomic_replace_temp(temp_video, cmd)
         if not ok or not temp_video.exists():
             print("ERROR: Failed to create temp video")
@@ -284,13 +332,18 @@ def main():
         limit = 10.0 ** (sfx_cfg.get("true_peak_ceiling_db", -1.0) / 20.0)
 
         def _ffmpeg_measure(cmd, pattern, last=False):
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            r = _run_ffmpeg(cmd, timeout=120)
+            if r is None:
+                return None
             text = r.stdout + r.stderr
-            if last:
-                ms = re.findall(pattern, text, re.MULTILINE)
-                return float(ms[-1]) if ms else None
-            m = re.search(pattern, text)
-            return float(m.group(1)) if m else None
+            try:
+                if last:
+                    ms = re.findall(pattern, text, re.MULTILINE)
+                    return float(ms[-1]) if ms else None
+                m = re.search(pattern, text)
+                return float(m.group(1)) if m else None
+            except ValueError:
+                return None
 
         def _pre_commit(tmp_file):
             """SFX/BGM loudness assertions — run on the tmp file before publishing."""
@@ -323,15 +376,15 @@ def main():
             return True
 
         if not (have_sfx or have_bgm):
-            cmd = (f'ffmpeg -y '
-                   f'-i "{temp_video}" '
-                   f'-i "{aligned_audio}" '
-                   f'-map 0:v:0 -map 1:a:0 '
-                   f'-c:v copy '
-                   f'-c:a {final_audio_codec} -b:a 192k '
-                   f'-shortest '
-                   f'-movflags +faststart '
-                   f'"{output_file}"')
+            cmd = ["ffmpeg", "-y",
+                   "-i", str(temp_video),
+                   "-i", str(aligned_audio),
+                   "-map", "0:v:0", "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", str(final_audio_codec), "-b:a", "192k",
+                   "-shortest",
+                   "-movflags", "+faststart",
+                   str(output_file)]
         else:
             b = (f"threshold={bcfg.get('duck_threshold_db', -25.0)}dB"
                  f":ratio={bcfg.get('duck_ratio', 8.0)}"
@@ -346,25 +399,27 @@ def main():
                       f"[3:a][sc]sidechaincompress={b}[bgmd];"
                       f"[vo][2:a][bgmd]amix=inputs=3:normalize=0:duration=longest:dropout_transition=0"
                       f",{lim}[amx]")
-                inputs = ["-i", str(temp_video), "-i", str(aligned_audio),
-                          "-i", str(sfx_track), "-i", str(bgm_track)]
+                inputs = [str(temp_video), str(aligned_audio),
+                          str(sfx_track), str(bgm_track)]
             elif have_sfx:   # sfx only — no sidechain needed
                 fc = (f"[1:a][2:a]amix=inputs=2:normalize=0:duration=longest:dropout_transition=0"
                       f",{lim}[amx]")
-                inputs = ["-i", str(temp_video), "-i", str(aligned_audio), "-i", str(sfx_track)]
+                inputs = [str(temp_video), str(aligned_audio), str(sfx_track)]
             else:   # bgm only — sidechain needs the asplit on the voiceover
                 fc = (f"[1:a]asplit=2[vo][sc];"
                       f"[2:a][sc]sidechaincompress={b}[bgmd];"
                       f"[vo][bgmd]amix=inputs=2:normalize=0:duration=longest:dropout_transition=0"
                       f",{lim}[amx]")
-                inputs = ["-i", str(temp_video), "-i", str(aligned_audio), "-i", str(bgm_track)]
-            cmd = (f'ffmpeg -y {" ".join(inputs)} '
-                   f'-filter_complex "{fc}" '
-                   f'-map 0:v:0 -map "[amx]" '
-                   f'-c:v copy '
-                   f'-c:a {final_audio_codec} -b:a 192k '
-                   f'-shortest -movflags +faststart '
-                   f'"{output_file}"')
+                inputs = [str(temp_video), str(aligned_audio), str(bgm_track)]
+            argv = ["ffmpeg", "-y"]
+            for inp in inputs:
+                argv += ["-i", inp]
+            cmd = argv + ["-filter_complex", fc,
+                          "-map", "0:v:0", "-map", "[amx]",
+                          "-c:v", "copy",
+                          "-c:a", str(final_audio_codec), "-b:a", "192k",
+                          "-shortest", "-movflags", "+faststart",
+                          str(output_file)]
         ok = atomic_replace_temp(output_file, cmd, pre_commit=_pre_commit)
         if not ok or not output_file.exists():
             print("ERROR: Failed to create final video")
@@ -372,19 +427,26 @@ def main():
 
         # Audio sanity check: volumedetect
         mean_volume = None
-        vd_result = subprocess.run(
+        vd_result = _run_ffmpeg(
             ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=120,
-        )
-        m = re.search(
-            r"mean_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB",
-            vd_result.stdout + vd_result.stderr
-        )
-        if m:
-            mean_volume = float(m.group(1))
-        if mean_volume is None or mean_volume < -40.0:
-            print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
-            sys.exit(1)
+            timeout=120)
+        if vd_result is None:
+            print("  WARNING: could not verify final audio level (ffmpeg unavailable) — publishing anyway")
+        else:
+            m = re.search(
+                r"mean_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB",
+                vd_result.stdout + vd_result.stderr
+            )
+            if m:
+                try:
+                    mean_volume = float(m.group(1))
+                except ValueError:
+                    mean_volume = None
+            if mean_volume is None:
+                print("  WARNING: could not measure final audio level — publishing anyway")
+            elif mean_volume < -40.0:
+                print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
+                sys.exit(1)
         print(f"  Audio level: {mean_volume:.1f} dB")
 
         # Duration sanity check (post-publish, informational — the real sync
@@ -395,7 +457,9 @@ def main():
             expected_total = data.get("total_actual_seconds") or sum(
                 (s.get("actual_duration_seconds") or 0) for s in scenes)
         actual_dur = pl.get_audio_duration(output_file)
-        if abs(actual_dur - expected_total) > 0.5:
+        if actual_dur == 0.0:
+            print("  WARNING: could not measure final duration (ffprobe unavailable)")
+        elif abs(actual_dur - expected_total) > 0.5:
             print(f"  WARNING: final duration {actual_dur:.2f}s vs expected "
                   f"{expected_total:.2f}s (drift {abs(actual_dur-expected_total):.2f}s)")
         else:
@@ -424,7 +488,7 @@ def main():
 
     finally:
         if temp_dir.exists():
-            shutil.rmtree(temp_dir)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

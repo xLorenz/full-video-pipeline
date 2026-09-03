@@ -15,11 +15,17 @@ export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }
       <h1
         style={{
           color: palette.text,
-          fontSize: 80,
+          fontSize: "clamp(48px, 6vw, 80px)",
           fontWeight: 700,
           textAlign: "center",
           margin: "0 80px",
           lineHeight: 1.1,
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          overflowWrap: "break-word",
         }}
       >
         {title}
@@ -28,9 +34,14 @@ export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }
         <p
           style={{
             color: palette.accent,
-            fontSize: 36,
+            fontSize: "clamp(24px, 2.8vw, 36px)",
             fontWeight: 600,
             marginTop: 20,
+            maxWidth: "80%",
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {subtitle}

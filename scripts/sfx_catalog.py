@@ -107,11 +107,17 @@ def validate_catalog() -> list[str]:
     errors = []
     with open(SFX_SCHEMA_PATH, encoding="utf-8") as f:
         schema = json.load(f)
-    manifest_hashes = {e["file"]: e["sha256"] for e in _load_manifest().get("files", [])}
+    try:
+        manifest_hashes = {e["file"]: e["sha256"]
+                           for e in _load_manifest().get("files", [])
+                           if isinstance(e, dict) and "file" in e and "sha256" in e}
+    except (AttributeError, TypeError):
+        return [f"{SFX_SCHEMA_PATH}: malformed manifest.json"]
 
     if not SOUNDS_DIR.is_dir():
         return [f"{SOUNDS_DIR}: missing catalog directory"]
 
+    import tone_render as _tone
     for cfg_path in sorted(SOUNDS_DIR.glob("*/config.json")):
         rel = str(cfg_path.relative_to(REPO_ROOT)).replace("\\", "/")
         try:
@@ -128,8 +134,7 @@ def validate_catalog() -> list[str]:
             recipe = cfg.get("recipe")
             if not recipe:
                 errors.append(f"{rel}: tone backend requires a 'recipe' name")
-            import tone_render
-            err = tone_render.check_recipe_syntax(cfg.get("sound"))
+            err = _tone.check_recipe_syntax(cfg.get("sound"))
             if err:
                 errors.append(err)
         elif cfg.get("backend") == "sample":
@@ -194,9 +199,13 @@ def load_sound_defs() -> dict[str, SoundDef]:
 
 def resolve_sound(name: str, defs: dict[str, SoundDef] | None = None) -> SoundDef | None:
     """Resolve a cue's `sound` field: exact id, then case-insensitive alias. None if unknown."""
+    if not isinstance(name, str):
+        return None
     if defs is None:
         defs = load_sound_defs()
     key = name.strip()
+    if not key:
+        return None
     if key in defs:
         return defs[key]
     lowered = key.lower()
@@ -228,8 +237,11 @@ def fuzzy_candidates(name: str, limit: int = 3) -> list[str]:
 
 
 def resolve_bgm_track(track: str) -> bool:
-    """True if track is a known BGM bed id (exact, lowercase)."""
-    return track in BGM_TRACKS
+    """True if track is a known BGM bed id (case-insensitive, like resolve_sound)."""
+    if not isinstance(track, str):
+        return False
+    lowered = track.strip().lower()
+    return any(t.lower() == lowered for t in BGM_TRACKS)
 
 
 def param_defaults(sound: SoundDef) -> dict:
@@ -253,6 +265,10 @@ def validate_cue_params(sound: SoundDef, params: dict | None) -> list[str]:
         if pdef.type == "number":
             if not isinstance(v, (int, float)) or isinstance(v, bool):
                 errors.append(f"param '{k}' = {v!r} is not a number")
+                continue
+            import math as _math
+            if not _math.isfinite(v):
+                errors.append(f"param '{k}' = {v!r} must be finite (no NaN/Inf)")
                 continue
             if pdef.minimum is not None and v < pdef.minimum:
                 errors.append(f"param '{k}' = {v} out of bounds ({pdef.minimum}..{pdef.maximum})")

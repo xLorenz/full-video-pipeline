@@ -46,16 +46,23 @@ def find_next_thumbnail_version(versions_dir, safe_title):
 def get_last_frame(remotion_dir):
     """Return the last frame index for the Thumbnail composition (durationInFrames-1)."""
     npx_path = shutil.which("npx") or "npx"
-    result = subprocess.run(
-        [npx_path, "remotion", "compositions", "src/Root.tsx", "--json"],
-        capture_output=True, timeout=60, cwd=remotion_dir,
-    )
+    try:
+        result = subprocess.run(
+            [npx_path, "remotion", "compositions", "src/Root.tsx", "--json"],
+            capture_output=True, timeout=60, cwd=remotion_dir,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        print("WARNING: could not list compositions (npx unavailable/timeout) — using frame 0")
+        return 0
     if result.returncode != 0:
+        print("WARNING: `remotion compositions` failed — using frame 0")
         return 0
     try:
-        raw = result.stdout.decode("utf-8", errors="replace").strip()
+        raw = result.stdout.decode("utf-8", errors="replace").strip() \
+            if isinstance(result.stdout, bytes) else (result.stdout or "").strip()
         comps = json.loads(raw)
     except (json.JSONDecodeError, TypeError, AttributeError):
+        print("WARNING: could not parse compositions JSON — using frame 0")
         return 0
     for comp in comps if isinstance(comps, list) else []:
         if comp.get("id") == "Thumbnail":
@@ -248,9 +255,11 @@ def main():
         print(f"ERROR: Low disk space ({int(free)}MB < {min_disk_mb}MB). Aborting.")
         sys.exit(1)
 
-    # TMPDIR setup (platform-appropriate)
+    # TMPDIR setup (platform-appropriate) — thumbnail-scoped subdir.
+    tmpdir = str(Path(tmpdir) / "thumbnail")
     Path(tmpdir).mkdir(parents=True, exist_ok=True)
-    pl.apply_render_env(tmpdir)
+    _prev_env = pl.apply_render_env(tmpdir)
+    _prev_node = os.environ.get("NODE_OPTIONS")
     os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Build props
@@ -258,8 +267,13 @@ def main():
     props = build_thumbnail_props(video_dir, scenes_json)
     props_fd, props_path = tempfile.mkstemp(suffix=".json", prefix="remotion-thumb-props-")
     os.close(props_fd)
-    with open(props_path, "w", encoding="utf-8") as f:
-        json.dump(props, f)
+    try:
+        with open(props_path, "w", encoding="utf-8") as f:
+            json.dump(props, f)
+    except OSError as e:
+        pl.restore_render_env(_prev_env)
+        print(f"ERROR: could not write thumbnail props ({e})")
+        sys.exit(1)
 
     # Determine output path (versioned)
     versions_dir.mkdir(exist_ok=True)
@@ -273,22 +287,26 @@ def main():
     print(f"Title: {props.get('title', '')[:60]}...")
     print(f"Frame: {frame}")
 
-    cmd = (
-        f"npx remotion still src/Root.tsx Thumbnail \"{output_file}\" "
-        f"--props=\"{props_path}\" "
-        f"--frame={frame} "
-        f"--overwrite "
-        f"--log=warn "
-        f"--gl={gl_backend} "
-        f"--timeout {timeout_ms} "
-        f"--quality=100"
-    )
+    cmd = ["npx", "remotion", "still", "src/Root.tsx", "Thumbnail", str(output_file),
+           f"--props={props_path}",
+           f"--frame={frame}",
+           "--overwrite",
+           "--log=warn",
+           f"--gl={gl_backend}",
+           "--timeout", str(timeout_ms),
+           "--quality=100"]
 
     start_time = time.time()
-    result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
+    try:
+        result = pl.run_cmd(cmd, cwd=remotion_dir, check=False, logpath=log_file)
+    finally:
+        Path(props_path).unlink(missing_ok=True)
+        pl.restore_render_env(_prev_env)
+        if _prev_node is None:
+            os.environ.pop("NODE_OPTIONS", None)
+        else:
+            os.environ["NODE_OPTIONS"] = _prev_node
     elapsed = int(time.time() - start_time)
-
-    os.unlink(props_path)
 
     if result.returncode != 0 or not output_file.exists():
         msg = f"Thumbnail still render failed (exit {result.returncode}) after {elapsed}s"

@@ -4,6 +4,7 @@
   "description": "Tracks progress through the 13-step video pipeline (10 original + 11 metadata + 12 thumbnail + 13 thumbnail-render)",
   "type": "object",
   "required": ["video_title", "current_step", "steps"],
+  "additionalProperties": true,
   "properties": {
     "video_title": {
       "type": "string",
@@ -14,6 +15,14 @@
       "minimum": 1,
       "maximum": 13,
       "description": "Currently active pipeline step (1-13)"
+    },
+    "animations_preview_requested": {
+      "type": "boolean",
+      "description": "When true, Step 9 renders on-demand animation previews (orchestrator-owned flag)."
+    },
+    "sfx_preview_requested": {
+      "type": "boolean",
+      "description": "When true, Step 10 exports the SFX audition (orchestrator-owned flag)."
     },
     "steps": {
       "type": "object",
@@ -32,6 +41,7 @@
         "12_thumbnail_generation",
         "13_thumbnail_rendering"
       ],
+      "additionalProperties": false,
       "properties": {
         "1_topic_selection": { "$ref": "#/definitions/stepStatus" },
         "2_research": { "$ref": "#/definitions/stepStatus" },

@@ -1,6 +1,6 @@
 # Full Video Pipeline
 
-Autonomous YouTube video production pipeline for AI agents. Takes a topic idea and produces a fully rendered video with voiceover, visuals, and audio — end to end. Cross-platform (Linux, Windows, macOS).
+Autonomous YouTube video production pipeline for AI agents. Takes a topic idea and produces a fully rendered video with voiceover, visuals, and audio — end to end. Cross-platform (Linux, Windows). macOS is not currently supported (no darwin compositor in package.json).
 
 ## What It Does
 
@@ -25,7 +25,7 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 
 ## Requirements
 
-- Windows 10/11, Linux, or macOS (all tiers tested on Windows + Linux)
+- Windows 10/11 or Linux (all tiers tested on Windows + Linux; macOS not supported — no darwin compositor shipped)
 - Node.js 18+
 - Python 3.9+ (Python 3.10+ if using the pocket-tts engine)
 - ffmpeg / ffprobe

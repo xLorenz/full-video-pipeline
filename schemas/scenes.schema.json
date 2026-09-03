@@ -48,6 +48,7 @@
     },
     "scenes": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "object",
         "required": ["id", "title", "script_text", "voiceover_text"],
@@ -154,8 +155,10 @@
             "description": "Transition style exiting this scene"
           },
           "mood": {
-            "type": ["string", "null"],
-            "enum": ["serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat"],
+            "anyOf": [
+              {"type": "null"},
+              {"type": "string", "enum": ["serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat"]}
+            ],
             "description": "Per-scene mood override. If null, the video's top-level style.mood applies."
           },
           "beats": {

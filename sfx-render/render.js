@@ -64,12 +64,18 @@ async function main() {
   let failed = 0;
 
   for (const job of jobs) {
+    const origRandom = Math.random;
     try {
       const rng = mulberry32((job.seed >>> 0) || 1);
-      const origRandom = Math.random;
       Math.random = () => rng();
-      const mod = await import(pathToFileURL(resolve(job.recipe)).href);
+      if (typeof job.duration !== "number" || !(job.duration > 0)) {
+        throw new Error(`invalid job.duration for ${job.id}: ${job.duration}`);
+      }
+      const mod = await import(pathToFileURL(resolve(job.recipe)).href + `?job=${encodeURIComponent(job.id)}`);
       const duration = mod.duration ?? job.duration;
+      if (typeof duration !== "number" || !(duration > 0)) {
+        throw new Error(`invalid duration for ${job.id}: ${duration}`);
+      }
       const buffer = await Tone.Offline(
         async (ctx) => {
           await mod.default(Tone, {
@@ -84,7 +90,6 @@ async function main() {
         1,
         sr,
       );
-      Math.random = origRandom;
 
       const data = buffer.getChannelData(0);
       let peak = 0;
@@ -114,8 +119,10 @@ async function main() {
       console.error(`[render] ok ${job.id}: ${(data.length / sr).toFixed(3)}s peak=${results[results.length - 1].peak_db.toFixed(1)}dB`);
     } catch (e) {
       failed++;
-      results.push({ id: job.id, ok: false, error: String((e && e.message) || e) });
-      console.error(`[render] FAIL ${job.id}: ${(e && e.stack) || e}`);
+      results.push({ id: job?.id ?? "unknown", ok: false, error: String((e && e.message) || e) });
+      console.error(`[render] FAIL ${job?.id ?? "unknown"}: ${(e && e.stack) || e}`);
+    } finally {
+      Math.random = origRandom;
     }
   }
   process.stdout.write(JSON.stringify(results, null, 2) + "\n");
