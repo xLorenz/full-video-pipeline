@@ -182,6 +182,29 @@ def test_no_loose_element_colors_in_schemas():
     assert bad == [], f"loose element.color without hex pattern: {bad}"
 
 
+def test_publish_rejects_bad_color_once(tmp_path):
+    import json as _json
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "scripts"))
+    import publish_animations as _pub
+    good = _json.loads((ANIM / "data-bars" / "config" / "defaults.json")
+                       .read_text(encoding="utf-8"))
+    good["elements"] = [{"id": "bar-0", "text": "A", "color": "not-a-color"}]
+    d = tmp_path / "defaults.json"
+    d.write_text(_json.dumps(good), encoding="utf-8")
+    errors = _pub.validate_defaults(d, ANIM / "data-bars" / "config" / "schema.json")
+    color_errors = [e for e in errors if "color" in e.lower() or "pattern" in e.lower()]
+    assert len(color_errors) == 1, f"expected exactly one color error, got: {errors}"
+
+
+def test_publish_barrel_names_unique():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "scripts"))
+    import publish_animations as _pub
+    names = [_pub.components_name(p.name) for p in template_dirs()]
+    assert len(names) == len(set(names)), "barrel export collision"
+
+
 def test_glitch_skips_still_band_clones():
     text = (ANIM / "glitch-rip" / "component.tsx").read_text(encoding="utf-8")
     # Zero-displacement bands skip the full-children clone (pixel-identical:

@@ -111,11 +111,12 @@ def _build_referencing() -> "object":
     return Registry().with_resources(resources)
 
 
-def validate_defaults(defaults_path: Path, schema_path: Path) -> list:
+def validate_defaults(defaults_path: Path, schema_path: Path, registry=None) -> list:
     """Validate a template's defaults.json against both global + per-template
     schema. Local-file $ref resolution is wired via `referencing` so the
     `$id: https://full-video-pipeline/...` URIs in our schemas do not trigger
-    network fetches."""
+    network fetches. Pass a prebuilt `registry` (from `_build_referencing()`)
+    to avoid rebuilding it per template (O(T^2) rescans)."""
     errors: list = []
     if not defaults_path.exists():
         return [f"{defaults_path}: defaults.json not found"]
@@ -130,29 +131,41 @@ def validate_defaults(defaults_path: Path, schema_path: Path) -> list:
     except SystemExit:
         return [f"{schema_path}: invalid JSON"]
 
-    registry = _build_referencing()
+    if registry is None:
+        registry = _build_referencing()
+
+    def _key(e):
+        return (e.message, tuple(str(p) for p in e.absolute_path))
+
+    def _fmt(e, tag):
+        loc = '/'.join(str(p) for p in e.absolute_path) or '(root)'
+        return f"{defaults_path.name} ({tag}): {e.message} at /{loc}"
 
     # Per-template schema (extends the global). Validates against both
     # template-specific fields (extras, elements[].id enums) and the core
     # fields (theme/global/elements schema) via $ref.
     validator = jsonschema.Draft7Validator(schema, registry=registry)
-    errors += [
-        f"{defaults_path.name} (per-template): {e.message} at /{'/'.join(str(p) for p in e.absolute_path) or '(root)'}"
-        for e in sorted(validator.iter_errors(defaults), key=lambda x: list(x.absolute_path))
-    ]
+    seen = set()
+    for e in sorted(validator.iter_errors(defaults),
+                    key=lambda x: [str(p) for p in x.absolute_path]):
+        if _key(e) not in seen:
+            seen.add(_key(e))
+            errors.append(_fmt(e, "per-template"))
 
     # Also validate against the bare global schema to catch any template-vs-core
     # conflicts directly. The per-template schema's $refs to the global
     # definitions are resolved by the registry, so this is redundant with the
     # per-template pass when the template opts into all core fields via $ref —
     # but cheap and useful when a template forgot to $ref a core field.
+    # Deduplicated against the per-template pass (same violation reported once).
     if GLOBAL_SCHEMA.exists():
         global_schema = load_json(GLOBAL_SCHEMA)
         g_validator = jsonschema.Draft7Validator(global_schema, registry=registry)
-        errors += [
-            f"{defaults_path.name} (global): {e.message} at /{'/'.join(str(p) for p in e.absolute_path) or '(root)'}"
-            for e in sorted(g_validator.iter_errors(defaults), key=lambda x: list(x.absolute_path))
-        ]
+        for e in sorted(g_validator.iter_errors(defaults),
+                        key=lambda x: [str(p) for p in x.absolute_path]):
+            if _key(e) not in seen:
+                seen.add(_key(e))
+                errors.append(_fmt(e, "global"))
     return errors
 
 
@@ -290,6 +303,25 @@ def main(argv=None):
     templates = collect_templates()
     print(f"Found {len(templates)} animation template(s).")
 
+    # Barrel-name collisions (e.g. `foo-bar` vs `fooBar` -> same export)
+    # would silently shadow one template in the generated index.ts.
+    seen_names: dict = {}
+    collisions = []
+    for t in templates:
+        cname = components_name(t.name)
+        if cname in seen_names:
+            collisions.append(f"{t.name} collides with {seen_names[cname]} (both -> {cname})")
+        else:
+            seen_names[cname] = t.name
+    if collisions:
+        for c in collisions:
+            print(f"ERROR: {c}", file=sys.stderr)
+        sys.exit(1)
+
+    # One shared $ref registry for all templates (rebuilding per template
+    # rescans every schema each time — O(T^2) file reads).
+    registry = _build_referencing()
+
     all_errors = []
     ok_templates = []
     for t in templates:
@@ -301,6 +333,7 @@ def main(argv=None):
         validation_errors = validate_defaults(
             t / "config" / "defaults.json",
             t / "config" / "schema.json",
+            registry,
         )
         all_errors.extend(validation_errors)
         if not validation_errors and layout_ok:
