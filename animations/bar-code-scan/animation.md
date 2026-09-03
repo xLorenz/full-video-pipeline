@@ -66,7 +66,7 @@ Unmatched ids are ignored silently.
 | `barcodeBars` | string[] 1-12 | (REQUIRED) | The bar labels. Schema rejects configs that omit this. |
 | `scanStartSeconds` | number 0-10 | `0.5` | When the sweep begins (after `global.delayOffset`). Speed applies. |
 | `scanLineSeconds` | number 0.4-8 | `2.5` | Sweep duration. Speed applies. |
-| `scanEasing` | EasingName | `"ease-in-out"` | Easing for the sweep. Default reads as deliberate scanning; `ease-out-expo` reads as a sharp final dash to the far edge. |
+| `scanEasing` | EasingName | `"ease-in-out"` | Easing for the sweep. Default reads as deliberate scanning; `ease-out-expo` reads as a sharp final dash to the far edge. Falls back to `global.easing` when unset. |
 | `scanWidthPx` | number 1-6 | `3` | Scanline stroke thickness. |
 | `scanColor` | hex / null | `theme.accent` | Scanline color (single signature accent). |
 | `scanGlow` | boolean | `true` | Soft drop-shadow halo on the scanline. |

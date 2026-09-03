@@ -147,7 +147,8 @@ export const ComparisonGrid: React.FC<ComparisonGridProps> = ({
   const cellPaddingPx = Math.max(0, Number(extras.cellPaddingPx ?? 24));
   const headerCellPaddingPx = Math.max(0, Number(extras.headerCellPaddingPx ?? 16));
   const headerRowRatio = Math.min(1.5, Math.max(0.3, Number(extras.headerRowRatio ?? 0.7)));
-  const flipEasingName = (extras.flipEasing as EasingName) ?? "ease-out-cubic";
+  const flipEasingName = (extras.flipEasing as EasingName | undefined)
+    ?? config.global?.easing ?? "ease-out-cubic";
   const headerRow = Boolean(extras.headerRow ?? false);
   const headerEmphasis = (extras.headerEmphasis as string) ?? "none";
   const cellBorderless = Boolean(extras.cellBorderless ?? false);

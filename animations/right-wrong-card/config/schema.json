@@ -35,7 +35,7 @@
               "scale": {"type": ["number", "null"], "minimum": 0.05, "maximum": 20}
             }
           },
-          "color": {"type": ["string", "null"]},
+          "color": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/color"},
           "hidden": {"type": "boolean", "default": false},
           "custom": {
             "type": "object",

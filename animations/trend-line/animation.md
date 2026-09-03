@@ -93,7 +93,7 @@ Unmatched ids are ignored silently — a warning is logged at preview time.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `drawSeconds` | number 0.5-8 | `1.8` | Time the line takes to draw left→right. |
-| `drawEasing` | easingName | `"ease-out-cubic"` | Easing of the draw. Linear reads "machine-scan"; cubic reads "reveal". |
+| `drawEasing` | easingName | `"ease-out-cubic"` | Easing of the draw. Linear reads "machine-scan"; cubic reads "reveal". Falls back to `global.easing` when unset. |
 | `drawDelayFrames` | integer 0-120 | `10` | Frames before the draw starts (scaled by `global.speed`, offset by `global.delayOffset`). |
 | `showArea` | boolean | `true` | Gradient area fill under the line (advances with the draw). |
 | `areaOpacity` | number 0-1 | `0.32` | Peak opacity of the gradient at the line. |

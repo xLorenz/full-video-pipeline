@@ -92,7 +92,7 @@ Unmatched ids are ignored silently — a warning is logged at preview time.
 | `valueFontRole` | `"heading"` / `"mono"` | `"heading"` | Font family for the central number. |
 | `maxFontPx` | number 8-1000 | `200` | Cap on the resolved number font size (prevents overflow on high `theme.sizes.scale`). |
 | `rowGapPx` | number 0-400 | `24` | Space between the number and the label inside the ring. |
-| `arcEasing` | easingName | `"ease-out-cubic"` | Easing of the sweep + count-up timeline. Cubic keeps the needle visibly moving through most of the sweep and lands number + arc TOGETHER at the end. `"ease-out-expo"` gives the count-up "crawl into the final digit" stall — great for numbers, weak for gauges (the arc seems to stop ~20 frames early). |
+| `arcEasing` | easingName | `"ease-out-cubic"` | Easing of the sweep + count-up timeline. Cubic keeps the needle visibly moving through most of the sweep and lands number + arc TOGETHER at the end. `"ease-out-expo"` gives the count-up "crawl into the final digit" stall — great for numbers, weak for gauges (the arc seems to stop ~20 frames early). Falls back to `global.easing` when unset. |
 
 ### Gauge geometry
 | Key | Type | Default | Description |

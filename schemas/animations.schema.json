@@ -92,7 +92,7 @@
             "scale": { "type": ["number", "null"], "minimum": 0.05, "maximum": 20 }
           }
         },
-        "color": { "type": ["string", "null"] },
+        "color": { "type": ["string", "null"], "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
         "hidden": { "type": "boolean", "default": false },
         "custom": { "type": "object" }
       }

@@ -19,7 +19,7 @@
         "properties": {
           "id": {"type": "string", "pattern": "^cell-[0-5]-[0-5]$"},
           "text": {"type": ["string", "null"]},
-          "color": {"type": ["string", "null"]},
+          "color": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/color"},
           "delay": {"type": ["number", "null"], "minimum": 0, "maximum": 60000},
           "duration": {"type": ["number", "null"], "minimum": 1, "maximum": 60000},
           "easing": {"$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/easingName"},

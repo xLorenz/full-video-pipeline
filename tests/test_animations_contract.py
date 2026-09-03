@@ -183,6 +183,34 @@ def test_no_hand_rolled_override_maps():
     assert bad == [], f"hand-rolled override maps (use useSlotOverrides): {bad}"
 
 
+def test_no_loose_element_colors_in_schemas():
+    import json
+    bad = []
+    for f in sorted(ANIM.rglob("config/schema.json")):
+        text = f.read_text(encoding="utf-8")
+        # Element-level color must $ref the global hex-patterned definition
+        # (custom.* nested colors are template-specific and out of scope).
+        for m in re.finditer(r'"color":\s*\{\s*"type":\s*\[\s*"string",\s*"null"\s*\]\s*\}',
+                             text):
+            # Allow only when nested inside a "custom" block
+            start = text.rfind('"custom"', 0, m.start())
+            elem = text.rfind('"elements"', 0, m.start())
+            if start > elem:
+                continue
+            bad.append(str(f.relative_to(REPO)))
+    assert bad == [], f"loose element.color without hex pattern: {bad}"
+
+
+def test_signature_easings_fall_back_to_global():
+    for folder, knob in [("comparison-grid", "flipEasing"),
+                         ("bar-code-scan", "scanEasing"),
+                         ("radial-gauge", "arcEasing"),
+                         ("trend-line", "drawEasing")]:
+        text = (ANIM / folder / "component.tsx").read_text(encoding="utf-8")
+        assert re.search(rf"{knob}.*\?\?.*config\.global\?\.easing", text, re.DOTALL), \
+            f"{folder}: {knob} must fall back to config.global?.easing"
+
+
 # Demonstrative defaults entries must mirror base content (zero visual delta).
 MIRROR_CASES = {
     "data-bars": ("bar-0", "A", ["labels", 0]),

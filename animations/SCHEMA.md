@@ -87,6 +87,8 @@ Use any of these names in `global.easing` or `elements[].easing`:
 
 Implemented in `animations/_shared/timing.ts`. Anything else routed through `Easing.bezier` is forbidden in templates (we don't expose unbounded bezier control here to keep validations reproducible).
 
+Signature-move easings (`flipEasing`, `scanEasing`, `arcEasing`, `drawEasing`) fall back to `global.easing` when unset, then to their legacy default — so setting one global easing retunes the whole instance unless a move specifically overrides it.
+
 ## Recipes
 
 ### Speed up a whole instance

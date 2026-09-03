@@ -17,6 +17,7 @@ import {
   pickFont,
   type ElementOverride,
   type TemplateConfig,
+  type EasingName,
   useSlotOverrides,
 } from "../_shared";
 
@@ -110,7 +111,8 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({ config, styles, fontSi
     "gridLine",
     "#1A2744",
   );
-  const arcEasing = resolveEasing((extras.arcEasing as never) ?? "ease-out-cubic");
+  const arcEasing = resolveEasing((extras.arcEasing as EasingName | undefined)
+    ?? config.global?.easing ?? "ease-out-cubic");
   const anticipationFrames = Math.max(0, Number(extras.anticipationFrames ?? 6));
   const anticipationScale = Number(extras.anticipationScale ?? 0.92);
   const landPunch = extras.landPunch !== false;

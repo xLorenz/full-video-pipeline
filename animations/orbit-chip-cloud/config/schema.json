@@ -84,10 +84,7 @@
             }
           },
           "color": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "$ref": "https://full-video-pipeline/schemas/animations.schema.json#/definitions/element/properties/color"
           },
           "hidden": {
             "type": "boolean",

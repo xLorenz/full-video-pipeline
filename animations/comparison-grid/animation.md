@@ -91,7 +91,7 @@ Unmatched ids are ignored silently.
 | `cellPaddingPx` | number 0-200 | `24` | Cell padding for body rows. |
 | `headerCellPaddingPx` | number 0-200 | `16` | Cell padding for the header row (tighter since header cells use a larger font). |
 | `headerRowRatio` | number 0.3-1.5 | `0.7` | Header row height as a fraction of a body row height. `0.7` = header is 70% the height of body rows (banner-like); `1` = uniform. |
-| `flipEasing` | EasingName | `ease-out-cubic` | Per-cell flip easing (drives text-reveal opacity timing); the spring drives the actual rotateX. |
+| `flipEasing` | EasingName | `ease-out-cubic` | Per-cell flip easing (drives text-reveal opacity timing); the spring drives the actual rotateX. Falls back to `global.easing` when unset. |
 | `headerRow` | boolean | `false` | First row renders as the banner-row. |
 | `headerEmphasis` | `none` `fill` `border` `both` | `"none"` | ONE emphasis channel for the header. `"none"` (default — accent text + accent rule UNDER the header row); `"fill"` (accent background + body text — legacy); `"border"` (accent top border on body background); `"both"` (rare). |
 | `accentLandFlash` | boolean | `true` | Brief accent top-edge bloom when each cell lands. |

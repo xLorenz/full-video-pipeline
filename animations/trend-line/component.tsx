@@ -17,6 +17,7 @@ import {
   pickFont,
   type ElementOverride,
   type TemplateConfig,
+  type EasingName,
   useSlotOverrides,
 } from "../_shared";
 
@@ -90,7 +91,8 @@ export const TrendLine: React.FC<TrendLineProps> = ({ config, styles, fontSizes 
   const n = points.length;
 
   const drawSec = Math.max(0.5, Number(extras.drawSeconds ?? 1.8));
-  const drawEasing = resolveEasing((extras.drawEasing as never) ?? "ease-out-cubic");
+  const drawEasing = resolveEasing((extras.drawEasing as EasingName | undefined)
+    ?? config.global?.easing ?? "ease-out-cubic");
   const drawDelayFrames = Math.max(0, Math.round(Number(extras.drawDelayFrames ?? 10)));
   const showArea = extras.showArea !== false;
   const areaOpacity = Math.min(1, Math.max(0, Number(extras.areaOpacity ?? 0.32)));

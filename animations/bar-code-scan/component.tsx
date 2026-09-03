@@ -76,7 +76,8 @@ export const BarCodeScan: React.FC<BarCodeScanProps> = ({ config, styles }) => {
     : [];
   const scanStartSec = Math.max(0, Number(extras.scanStartSeconds ?? 0.5));
   const scanLineSec = Math.max(0.4, Number(extras.scanLineSeconds ?? 2.5));
-  const scanEasingName = (extras.scanEasing as EasingName) ?? "ease-in-out";
+  const scanEasingName = (extras.scanEasing as EasingName | undefined)
+    ?? config.global?.easing ?? "ease-in-out";
   const scanWidthPx = Math.max(1, Number(extras.scanWidthPx ?? 3));
   const scanColorOverride = (extras.scanColor as string | undefined) ?? null;
   const scanGlow = extras.scanGlow !== false;
