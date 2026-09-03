@@ -35,7 +35,7 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 > `Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1` and `git config --system core.longpaths true`.
 
 ```bash
-pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
+pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil, referencing
 
 # Optional: pocket-tts CPU neural TTS engine (adds PyTorch wheel, ~1 GB)
 # Only required if you set voiceover.engine to "pocket" (see below).
@@ -53,7 +53,7 @@ cd full-video-pipeline
 pip install -r scripts/requirements.txt
 
 # Check system readiness
-bash scripts/check_system.sh
+python scripts/check_system.py
 
 # Override config from a custom JSON (applied before per-video auto-discovery)
 python3 pipeline.py --config /path/to/custom.json run "my-video-topic"
@@ -102,11 +102,11 @@ full-video-pipeline/
 ├── scripts/
 │   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
 │   ├── validate.py                      # JSON-schema validation for scenes.json + pipeline_state.json
-│   ├── check_system.sh                  # Pre-flight resource check
+│   ├── check_system.py                  # Pre-flight resource check (cross-platform; .sh remains as a shim)
 │   ├── generate_voiceover.py            # edge-tts audio generation (idempotent + parallel) [default engine]
 │   ├── generate_voiceover_pocket.py     # Optional pocket-tts engine (CPU neural, OOM-hardened)
 │   ├── measure_durations.py             # ffprobe duration measurement
-│   ├── render_scene.py                  # Remotion renderer with psutil-based guardrails (Linux)
+│   ├── render_scene.py                  # Remotion renderer with psutil-based guardrails (Windows + Linux)
 │   ├── assemble.py                      # Efficient single-pass stitching (atomic, codec-safe)
 │   ├── render_thumbnail.py              # Remotion still render for YouTube thumbnail
 │   ├── generate_captions.py             # SRT sidecar + per-scene caption cues
@@ -236,7 +236,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   },
   "render": {
     "concurrency": 1,
-    "gl_backend": "swangle",
+    "gl_backend": "auto",
     "image_format": "jpeg",
     "jpeg_quality": 80,
     "codec": "h264",
@@ -275,9 +275,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   "system": {
     "min_available_ram_mb": 200,
     "min_available_disk_mb": 500,
-    "chrome_kill_between_renders": true,
-    "post_render_settle_seconds": 5,
-    "temp_dir": "/tmp/remotion/{title}"
+    "post_render_settle_seconds": 5
   },
   "retention": {
     "keep_versions": 2,
@@ -313,7 +311,7 @@ The pipeline supports two TTS engines, selected via `voiceover.engine` in
 | Engine | Install | Footprint | Offline | Pros | Cons |
 |--------|---------|-----------|---------|------|------|
 | `edge` (default) | `scripts/requirements.txt` | <1 MB | no | 400+ Azure voices, SSML/rate/pitch, fast, light | network-dependent, less-polished legal posture (reverse-engineered Azure endpoint) |
-| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic, voice cloning potential | CPU-bound (~895 MB peak RSS during model load), small voice catalog, no SSML/rate/pitch |
+| `pocket` | `scripts/requirements-pocket.txt` | ~1 GB (PyTorch) | yes | offline, MIT-licensed model, deterministic | CPU-bound (~895 MB peak RSS during model load), small voice catalog, no SSML/rate/pitch, no voice cloning (named presets only) |
 
 Edge-tts remains the zero-config default. Opt into pocket-tts by swapping
 two config keys (per-video auto-discovery makes this a per-project choice):
@@ -491,7 +489,7 @@ python3 scripts/assemble.py videos/my-video/
 python3 scripts/generate_captions.py videos/my-video/
 python3 scripts/render_thumbnail.py videos/my-video/
 python3 scripts/validate.py videos/my-video/
-bash scripts/check_system.sh
+python scripts/check_system.py
 ```
 
 ## License

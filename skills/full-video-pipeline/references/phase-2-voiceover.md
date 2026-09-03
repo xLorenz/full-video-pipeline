@@ -45,9 +45,9 @@ python3 pipeline.py complete <title>
 
 - **Step 5 (Voiceover Generation)**: Runs `generate_voiceover.py` (edge) or
   `generate_voiceover_pocket.py` (when `voiceover.engine == "pocket"` via the
-  per-video `steps.5_voiceover_generation.command_template` override). Both
-  parse VOICEOVER.md delimiters, compute a SHA-256 `voiceover_hash` per scene
-  from `(text, voice, rate, volume, pitch)`, **skip** any scene whose MP3
+   per-video `steps.5_voiceover_generation.command_template` override). Both
+   parse VOICEOVER.md delimiters, compute a SHA-256 `voiceover_hash` per scene
+   from `(text, voice, rate, volume, pitch, engine)`, **skip** any scene whose MP3
   exists AND matches the stored hash (idempotent — editing VOICEOVER.md
   only regenerates changed scenes), update `scenes.json`. Engine-specifics:
   - **edge**: generates MP3s concurrently (config: `voiceover.concurrency`),

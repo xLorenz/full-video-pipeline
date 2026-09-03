@@ -71,7 +71,8 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
       "visual_notes": "",
       "beats": [],      // Step 8 (Remotion coding) fills named timing points — leave empty now
       "sfx": [],        // Step 8 (Remotion coding) fills sound cues — leave empty now
-      "bgm": null,      // Step 8 fills {track, volume} — null = use the global default bed
+      // Step 8 fills {track, volume} — OMIT the key for the global default
+      // bed; explicit null OPTS OUT (silence for this scene)
       "transition_in": "cut",
       "transition_out": "fade"
     }

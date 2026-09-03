@@ -29,10 +29,14 @@ data-driven reusable animations; see the next section.
 
 ### 3a-anim. Animation templates (when to use one)
 
-The repo ships an `animations/` directory with a catalog of **hard-to-hand-code**
-animation templates (judge-style right/wrong cards, racing data bars, count-up
-stats, before/after splits, timelines, comparison grids). Each is a Remotion
-component you customize via **JSON config — never by editing the `.tsx`**.
+The repo ships an `animations/` directory with a catalog of **22 hard-to-hand-code**
+animation templates (verdict cards, data bars, count-ups, gauges, timelines,
+comparison grids, kinetic titles, orbit clouds, plus full-frame treatments:
+glitch, rain, fire, VHS, droplets, page-fold, shatter, decrypt, magnify).
+Each is a Remotion component you customize via **JSON config — never by
+editing the `.tsx`**. Element-driven templates render content from
+`elements[]`; treatments take your content as `children` — see
+`animations/README.md` for the family split.
 
 Use a template when a scene's `visual_notes` describes a complex,
 multi-element, multi-property animation that you couldn't trivially one-shot
@@ -210,8 +214,11 @@ Follow `skills/remotion-best-practices/skills/remotion/rules/transitions.md` ins
 Follow `skills/remotion-best-practices/skills/remotion/rules/sequencing.md` instructions
 Follow `skills/remotion-best-practices/skills/remotion/rules/compositions.md` instructions
 Follow `skills/remotion-best-practices/skills/remotion/rules/effects.md` instructions
-Follow `skills/remotion-best-practices/skills/remotion/rules/voiceover.md` instructions
 Follow `skills/full-video-pipeline/references/sfx-design.md` instructions (SFX/BGM authoring — beats, cues, beds)
+
+> Do NOT follow `skills/remotion-best-practices/skills/remotion/rules/voiceover.md`
+> (baking voiceover via `<Audio>`): it is superseded by this pipeline's
+> render-silent/mux-at-stitch contract — scenes must contain no `<Audio>` at all.
 
 **Contracts specific to this pipeline (these two break the automated steps, not just style):**
 
@@ -225,7 +232,7 @@ Follow `skills/full-video-pipeline/references/sfx-design.md` instructions (SFX/B
 
 Each `SceneXX.tsx` should:
 - Match its `actual_duration_frames` exactly (voiceover sync depends on this — see "Audio Path")
-- Render silent video only for the voiceover track (background music/SFX via `<Audio>` is fine)
+- Render completely silent video: no `<Audio>` for the voiceover, and none for music/SFX either (SFX/BGM are authored as `scenes.json` cues in step 8b and mixed at stitch — baked audio would double-mix)
 - Implement the visual treatment from `visual_notes` in `scenes.json`
 - Follow the style system from STYLES.md
 

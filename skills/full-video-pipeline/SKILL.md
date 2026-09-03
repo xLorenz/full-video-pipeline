@@ -12,7 +12,7 @@ description: >
   render, or publish a YouTube (or similar short-form) video, or mentions this
   pipeline, `pipeline.py`, Remotion scene rendering, retention scripting, or
   YouTube thumbnails/metadata — even if they don't say the word "pipeline."
-  Cross-platform (Windows, Linux, macOS). The default `edge` voiceover engine is lightweight; the optional
+  Cross-platform (Windows, Linux — macOS is not supported: no darwin compositor ships). The default `edge` voiceover engine is lightweight; the optional
   offline `pocket` engine needs meaningfully more RAM (see Prerequisites below).
 triggers:
   - "make a video"
@@ -53,13 +53,13 @@ Before running the pipeline, verify system readiness:
 
 ```bash
 python scripts/check_system.py          # cross-platform (bash scripts/check_system.sh still works as a shim)
-pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil
+pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil, referencing
 ```
 
 If pre-flight fails, resolve issues before proceeding. Required:
 
-- **Cross-platform — Windows, Linux, or macOS.** The render guardrails in `render_scene.py` use `psutil` for RAM/disk/orphan-chrome handling (portable) and
-  Remotion picks the right native GL backend automatically (`swangle` on Linux, `angle` on Windows/macOS; override via `render.gl_backend` if needed).
+- **Cross-platform — Windows and Linux (macOS not supported).** The render guardrails in `render_scene.py` use `psutil` for RAM/disk/orphan-chrome handling (portable) and
+  Remotion picks the right native GL backend automatically (`swangle` on Linux, `angle` on Windows; override via `render.gl_backend` if needed).
 - `node` + `npm` (Node.js 18+, for Remotion)
 - `python3` (3.9+) + `pip` (for edge-tts and helper scripts)
 - `ffmpeg` + `ffprobe` (for audio/video processing)
@@ -156,9 +156,11 @@ video via `videos/<title>/pipeline_config.json`.
 
 ## Audio Path (IMPORTANT — overrides Remotion skill rules)
 
-Voiceover is **NOT** baked into scene MP4s. Scene components render **silent**
-video only — do NOT use `<Audio>` in `SceneXX.tsx` for the voiceover (background
-music/SFX, if any, are still fine via `<Audio>`). At stitch time,
+Voiceover is **NOT** baked into scene MP4s. Scene components render **completely
+silent** video — do NOT use `<Audio>` in `SceneXX.tsx` at all, not for the
+voiceover and not for music/SFX either (SFX/BGM cues live in `scenes.json`
+and are mixed at stitch time — a baked-in `<Audio>` track would double-mix
+and trip the loudness assertions). At stitch time,
 `scripts/assemble.py` concatenates the per-scene MP3s into one
 `voiceover_aligned.mp3` and muxes it onto the concatenated scene MP4s in a
 single ffmpeg pass. This is why it matters, not just a style rule:
@@ -271,7 +273,7 @@ python3 pipeline.py clean <title>
 | pocket-tts mid-batch RAM pressure | Wrapper records a WARN and exits 1; scenes generated before the pressure point are on disk with valid hashes. Re-run `complete` — generated scenes skip, the rest resume. If persistent, reduce `voiceover.language` to the default `english` (avoid `*_24l`) and ensure `voiceover.no_quantize: false`. |
 | pocket-tts model-download failure (first run) | One-time HuggingFace download of weights (~215 MB) failed. Re-run `complete`; HF resumes partial downloads. |
 | pocket-tts ImportError | Run `pip install -r scripts/requirements-pocket.txt`. Base `requirements.txt` does NOT install pocket-tts (optional engine). |
-| Remotion render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill any orphaned `chrome-headless-shell` — the orchestrator does this automatically via `psutil`, or manually: `pkill -f chrome-headless-shell` (Linux/macOS) / `taskkill /F /IM chrome-headless-shell.exe` (Windows) — then wait 60s and re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
+| Remotion render OOM | Scene's `last_render_error` records the OOM. `render_attempts` incremented. Kill any orphaned `chrome-headless-shell` — the orchestrator does this automatically via `psutil`, or manually: `pkill -f chrome-headless-shell` (Linux) / `taskkill /F /IM chrome-headless-shell.exe` (Windows) — then wait 60s and re-run `continue` to retry just that scene. If persistent, reduce `node_max_old_space_size_mb` or video resolution in `pipeline_config.json`. |
 | Remotion render timeout | Increase `timeout_ms` in config, or simplify the scene's visual complexity. |
 | ffmpeg stitch failure | `assemble.py` validates inputs first; on codec/resolution mismatch across scenes it falls back to re-encoding. Re-run `complete`. |
 | Disk full | Run `rm -rf videos/{title}/remotion/node_modules` to free space, or `python3 pipeline.py clean <title>`. |
