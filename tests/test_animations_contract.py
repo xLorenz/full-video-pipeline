@@ -201,6 +201,14 @@ def test_no_loose_element_colors_in_schemas():
     assert bad == [], f"loose element.color without hex pattern: {bad}"
 
 
+def test_glitch_skips_still_band_clones():
+    text = (ANIM / "glitch-rip" / "component.tsx").read_text(encoding="utf-8")
+    # Zero-displacement bands skip the full-children clone (pixel-identical:
+    # the source layer beneath shows the same pixels at the same opacity).
+    assert "!still && renderBandSlice(band)" in text
+    assert "body-${band.y}" in text
+
+
 def test_signature_easings_fall_back_to_global():
     for folder, knob in [("comparison-grid", "flipEasing"),
                          ("bar-code-scan", "scanEasing"),

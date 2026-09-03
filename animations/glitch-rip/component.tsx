@@ -322,48 +322,61 @@ export const GlitchRip: React.FC<GlitchRipProps> = ({
               not from a wholesale colour replacement. The overlay
               AbsoluteFill is transparent so the underlying source
               fills any vertical gaps between shifted bands. */}
-          {bands.map((band, i) => (
-            <div
-              key={`body-${i}`}
-              style={{
-                ...bandBoxStyle(band),
-                translate: `${band.tearPx + band.blockOffset.dx}px ${band.blockOffset.dy}px`,
-              }}
-            >
-              {renderBandSlice(band)}
-              {/* Faint chromatic-aberration residue over the band clone.
-                  Kept intentionally weak (≤0.12 alpha) so the source's
-                  true palette is barely shifted — just enough to read as
-                  a chromatic edge pull during the burst peak, never a
-                  tint over the body of the text. With mix-blend-mode:
-                  screen the residue adds light, it never darkens or
-                  recolours the source pixels underneath. */}
-              {channelOffset > 0.1 && (
-                <>
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      opacity: 0.18,
-                      mixBlendMode: "screen",
-                      translate: `${-channelOffset}px 0`,
-                      background: withAlpha("#FF0033", 0.08 + 0.04 * Math.min(envelope, 1)),
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      opacity: 0.16,
-                      mixBlendMode: "screen",
-                      translate: `${channelOffset}px 0`,
-                      background: withAlpha("#0066FF", 0.08 + 0.04 * Math.min(envelope, 1)),
-                    }}
-                  />
-                </>
-              )}
-            </div>
-          ))}
+          {bands.map((band) => {
+            // Zero-displacement bands show exactly what the always-rendered
+            // source layer beneath shows (same pixels, same overlay opacity
+            // — blending identical colors is a no-op), so their full-children
+            // body clone is skipped. Residue overlays below still render:
+            // they are translated copies that add light even on still bands.
+            // Keyed by band.y (stable per layout) so React reconciles across
+            // frames without remounting on index shifts.
+            const still =
+              band.tearPx === 0 &&
+              band.blockOffset.dx === 0 &&
+              band.blockOffset.dy === 0;
+            return (
+              <div
+                key={`body-${band.y}`}
+                style={{
+                  ...bandBoxStyle(band),
+                  translate: `${band.tearPx + band.blockOffset.dx}px ${band.blockOffset.dy}px`,
+                }}
+              >
+                {!still && renderBandSlice(band)}
+                {/* Faint chromatic-aberration residue over the band clone.
+                    Kept intentionally weak (≤0.12 alpha) so the source's
+                    true palette is barely shifted — just enough to read as
+                    a chromatic edge pull during the burst peak, never a
+                    tint over the body of the text. With mix-blend-mode:
+                    screen the residue adds light, it never darkens or
+                    recolours the source pixels underneath. */}
+                {channelOffset > 0.1 && (
+                  <>
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        opacity: 0.18,
+                        mixBlendMode: "screen",
+                        translate: `${-channelOffset}px 0`,
+                        background: withAlpha("#FF0033", 0.08 + 0.04 * Math.min(envelope, 1)),
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        opacity: 0.16,
+                        mixBlendMode: "screen",
+                        translate: `${channelOffset}px 0`,
+                        background: withAlpha("#0066FF", 0.08 + 0.04 * Math.min(envelope, 1)),
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            );
+          })}
 
           {/* Scanline flicker — every Nth band. White-mix screen over a
               band height. Matches the shader's

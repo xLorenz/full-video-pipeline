@@ -249,4 +249,6 @@ Every template folder **must** conform to this exact layout (no extra source fil
 
 **Can I customize the template itself for one video?** No — templates are intentionally frozen per video. If you need different animation *behavior* (not just config values), create a new template folder and reference it. Frozen templates keep the agent from writing code that breaks lint on the next scaffold.
 
+**Why do components contain `void someVar;` lines?** Deliberate idiom, not dead code: `void fontSizes` keeps hook/prop-shape parity across templates, `void holdAfter*Frames` documents that hold time is owned by the scene duration (not the template), and `void theme`/`void pickColor` mark transparent-overlay designs that resolve no palette of their own. They also satisfy `noUnusedLocals` — do not "clean them up".
+
 **Why copy instead of symlink?** Cross-platform robustness (Windows symlinks are iffy) and consistency with how `remotion-foundation/` is already copied per video.
