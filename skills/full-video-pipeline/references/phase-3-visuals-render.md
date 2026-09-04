@@ -271,7 +271,9 @@ renders and will fail the entire run if anything is broken.
   `scenes.json` scene count.
 - Frame durations match `actual_duration_frames` from `scenes.json`.
 - No CSS transitions or animations used. All animations use `interpolate()` or
-  `spring()`.
+  `spring()`. No `url()` in `backgroundImage` either (upstream Remotion lint
+  bans it — render can't resolve URL assets); gradients and inline SVG
+  (`<feTurbulence>` grain) are the way to do texture.
 - Every scene in `scenes.json` has non-empty `visual_notes` referencing specific
   palette colors from STYLES.md.
 - `npm run lint`, `tsc --noEmit`, and `remotion compositions` all pass.

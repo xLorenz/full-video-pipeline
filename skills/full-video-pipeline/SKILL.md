@@ -323,5 +323,6 @@ python3 pipeline.py sfx my-video --preview     # Also export sfx_preview.mp3 + w
 python3 pipeline.py audit my-video             # Audit for violations — always run after a --force
 python3 pipeline.py doctor my-video            # System + project diagnostics
 python3 pipeline.py clean my-video             # Free disk space (all safe-to-delete items)
+python3 pipeline.py redo my-video 5            # Reset completed Step 5 (+ dependents) to pending, e.g. after editing VOICEOVER.md; then `continue`
 python3 pipeline.py complete my-video --step 7 --force  # Out-of-order override (use with care, then audit)
 ```

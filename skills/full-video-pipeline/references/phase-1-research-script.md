@@ -17,8 +17,12 @@ discrete ~10-second scenes structured as `SCRIPT.md` + `scenes.json`.
 
 ## Follow these instructions
 
-Follow `skills/claude-youtube/skills/claude-youtube/sub-skills/script.md` instructions
-Follow `skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md` instructions
+Follow `skills/video-composer/SKILL.md` instructions
+Follow `skills/video-composer/references/stage-1-ideation.md` instructions
+Follow `skills/video-composer/references/stage-2-packaging-first.md` instructions
+Follow `skills/video-composer/references/stage-3-scripting.md` instructions
+Follow `skills/video-composer/references/stage-4-storytelling-loop.md` instructions
+Follow `skills/video-composer/references/stage-5-voiceover-delivery.md` instructions
 
 ## SCRIPT.md format
 
@@ -95,6 +99,12 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
 - Total estimated duration matches target length (within 10%).
 - Hook has all 3 elements (grab, promise, stakes) — derivable from titles.
 - Pattern interrupts every 3-5 scenes (the Pattern Interrupt Log proves it).
+  The machine bar is tighter than that rule of thumb: average log interval
+  must be ≤15s for videos under 120s total, ≤90s above — and Step 3
+  `complete` runs validation with `--strict`, which promotes these
+  warnings (plus CTA presence) to hard errors. Note the cliff: trimming a
+  130s cut to 115s moves it into the stricter 15s bucket, so budget
+  interrupts for the length you plan to ship.
 - Mid-CTA present around 25% mark. Retention re-hook around 60% mark.
 - Script reads as natural spoken language, not written prose.
 

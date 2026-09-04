@@ -27,7 +27,9 @@ Generates `videos/<title>/<title>.srt` (YouTube sidecar) and populates per-scene
 
 - Windows 10/11 or Linux (all tiers tested on Windows + Linux; macOS not supported — no darwin compositor shipped)
 - Node.js 18+
-- Python 3.9+ (Python 3.10+ if using the pocket-tts engine)
+- Python 3.9+ (Python 3.10+ if using the pocket-tts engine). All docs/commands
+  say `python3`; on Windows boxes where only `python` exists, substitute it
+  1:1 (`check_system.py` warns when no `python3` launcher is found).
 - ffmpeg / ffprobe
 - Git
 
@@ -133,7 +135,8 @@ full-video-pipeline/
 ├── sfx-render/                  # Node/WebAudio offline renderer for tone-backend recipes
 ├── skills/
 │   ├── full-video-pipeline/     # THIS PIPELINE'S SKILL — source of truth (SKILL.md + references/)
-│   ├── claude-youtube/          # Script writing reference (submodule)
+│   ├── video-composer/          # Video composition playbook: ideation → scripting → editing → packaging (in-repo)
+│   ├── claude-youtube/          # Legacy reference (submodule, no longer wired into any phase)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
 └── videos/                      # Auto-managed per-video projects (gitignored)
 ```
@@ -178,12 +181,20 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   "skills": {
     "sources": [
       {
-        "name": "claude-youtube",
-        "path": "skills/claude-youtube/skills/claude-youtube",
+        "name": "video-composer",
+        "path": "skills/video-composer",
         "phases": {
-          "1": ["sub-skills/script.md", "references/retention-scripting-guide.md"],
-          "4": ["sub-skills/metadata.md", "references/seo-playbook.md",
-                 "sub-skills/thumbnail.md", "references/thumbnail-ctr-guide.md"]
+          "1": ["SKILL.md", "references/stage-1-ideation.md",
+                 "references/stage-2-packaging-first.md",
+                 "references/stage-3-scripting.md",
+                 "references/stage-4-storytelling-loop.md",
+                 "references/stage-5-voiceover-delivery.md"],
+          "2": ["references/stage-5-voiceover-delivery.md"],
+          "3": ["references/stage-6-visual-editing.md",
+                 "references/stage-7-audio-music.md"],
+          "4": ["SKILL.md", "references/stage-2-packaging-first.md",
+                 "references/stage-8-title-thumbnail.md",
+                 "references/stage-9-qa-publish.md"]
         }
       },
       {
@@ -440,7 +451,7 @@ Every `continue`/`complete`/`run` invocation ends with a `__PIPELINE_NEXT__`
 JSON line for agents that prefer to skip text parsing:
 
 ```json
-__PIPELINE_NEXT__ {"step":3,"name":"Script Writing","kind":"creative","action":"await_complete","exit":0,"phase":1,"next_cmd":"python3 pipeline.py complete my-video","skills_section":"#phase-1-research--script","skills_files":["skills/claude-youtube/skills/claude-youtube/sub-skills/script.md","skills/claude-youtube/skills/claude-youtube/references/retention-scripting-guide.md"],"expected_artifacts":["SCRIPT.md"]}
+__PIPELINE_NEXT__ {"step":3,"name":"Script Writing","kind":"creative","action":"await_complete","exit":0,"phase":1,"next_cmd":"python3 pipeline.py complete my-video","skills_section":"#phase-1-research--script","skills_files":["skills/video-composer/SKILL.md","skills/video-composer/references/stage-1-ideation.md","skills/video-composer/references/stage-2-packaging-first.md","skills/video-composer/references/stage-3-scripting.md","skills/video-composer/references/stage-4-storytelling-loop.md","skills/video-composer/references/stage-5-voiceover-delivery.md"],"expected_artifacts":["SCRIPT.md"]}
 ```
 
 Fields: `step` (0 for terminal), `kind` (`creative`/`automated`/`done`),
@@ -479,6 +490,7 @@ python3 pipeline.py sfx my-video --preview         # Also export sfx_preview.mp3
 python3 pipeline.py audit my-video                # Audit for violations (always after a --force)
 python3 pipeline.py doctor my-video                # System + project diagnostics
 python3 pipeline.py clean my-video                 # Free disk space (all safe-to-delete items)
+python3 pipeline.py redo my-video 5                # Reset completed Step 5 (+ dependents) to pending, e.g. after editing VOICEOVER.md; then `continue`
 
 # Individual scripts (orchestrator runs these for you — only call manually for debugging)
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
