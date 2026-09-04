@@ -83,6 +83,10 @@ def read_title_md(video_dir):
     if not title_md.exists():
         return None
     text = title_md.read_text(encoding="utf-8")
+    # Strip HTML comments first: agents sometimes paste the template's own
+    # `<!-- ... "Hybrid |" ... -->` annotation, whose "|" would otherwise
+    # parse as a hybrid-title separator and yield comment garbage.
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
 
     def _extract_value(line):
         # "Hybrid | <value>" -> split on the first "|"
@@ -178,16 +182,17 @@ def build_thumbnail_props(video_dir, scenes_json):
     if not title:
         title = data.get("video_title", "Video Title")
 
-    # Try STYLES.md for palette, fallback to defaults
-    palette = read_styles_md(video_dir)
-    if not palette:
-        palette = {
-            "primary": "#0F1B2D",
-            "secondary": "#00BFA6",
-            "accent": "#FFB300",
-            "background": "#0A1220",
-            "text": "#FFFFFF",
-        }
+    # Try STYLES.md for palette, merged per-key over defaults so a
+    # STYLES.md missing one label (e.g. no Accent:) can't leave that
+    # slot undefined downstream.
+    palette = {
+        "primary": "#0F1B2D",
+        "secondary": "#00BFA6",
+        "accent": "#FFB300",
+        "background": "#0A1220",
+        "text": "#FFFFFF",
+        **read_styles_md(video_dir),
+    }
 
     props = {
         "title": title,
