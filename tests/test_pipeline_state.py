@@ -104,6 +104,101 @@ def test_trailer_emits_parseable_json(capsys):
     assert "expected_artifacts" in payload
 
 
+def _write_state(tmp_path, statuses, current_step=7):
+    vdir = tmp_path / "videos" / "demo"
+    vdir.mkdir(parents=True, exist_ok=True)
+    state = {"video_title": "demo", "current_step": current_step, "steps": {}}
+    for i, key in enumerate(pl.STEP_KEYS, start=1):
+        state["steps"][key] = {"status": statuses.get(i, "pending"), "attempts": 2}
+    (vdir / "pipeline_state.json").write_text(json.dumps(state))
+    return state
+
+
+def _args(step):
+    return type("Args", (), {"title": "demo", "step": step})()
+
+
+def test_redo_resets_step_and_dependents(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_state(tmp_path, {1: "complete", 2: "complete", 3: "complete",
+                             4: "complete", 5: "complete", 6: "complete"})
+    pipeline.cmd_redo(_args(5))
+    out = capsys.readouterr().out
+    assert "Reset Step 5" in out and "Reset Step 6" in out
+    state = pl.load_state("demo")
+    assert state["steps"]["5_voiceover_generation"]["status"] == "pending"
+    assert state["steps"]["6_duration_measurement"]["status"] == "pending"
+    assert state["steps"]["5_voiceover_generation"]["attempts"] == 2
+    assert "redo" in state["steps"]["5_voiceover_generation"]["last_error"]
+    # untouched steps keep status
+    assert state["steps"]["4_voiceover_writing"]["status"] == "complete"
+    n, key = pipeline.find_next_step(state)
+    assert (n, key) == (5, "5_voiceover_generation")
+
+
+def test_redo_refuses_creative_step(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_state(tmp_path, {3: "complete"})
+    with pytest.raises(SystemExit) as e:
+        pipeline.cmd_redo(_args(3))
+    assert e.value.code == 2
+    assert pl.load_state("demo")["steps"]["3_script_writing"]["status"] == "complete"
+
+
+def test_redo_noop_when_not_complete(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_state(tmp_path, {})
+    pipeline.cmd_redo(_args(5))
+    assert "nothing to reset" in capsys.readouterr().out.lower()
+
+
+def test_redo_rejects_out_of_range(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_state(tmp_path, {})
+    with pytest.raises(SystemExit) as e:
+        pipeline.cmd_redo(_args(99))
+    assert e.value.code == 2
+
+
+def _write_scenes(tmp_path, ids):
+    vdir = tmp_path / "videos" / "demo"
+    vdir.mkdir(parents=True, exist_ok=True)
+    scenes = [{"id": i, "title": f"s{i}"} for i in ids]
+    (vdir / "scenes.json").write_text(json.dumps(
+        {"video_title": "demo", "fps": 30, "width": 1920, "height": 1080,
+         "scenes": scenes}))
+
+
+def test_regen_scene_map_all_ids(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_scenes(tmp_path, [1, 2, 3])
+    vdir = tmp_path / "videos" / "demo"
+    ok, msg = pipeline.regen_scene_map(vdir, "demo")
+    assert ok
+    text = (vdir / "remotion" / "src" / "scenes" / "SceneMap.generated.ts").read_text()
+    assert "Scene01" in text and "Scene03" in text and "2: Scene02" in text
+
+
+def test_regen_scene_map_only_existing(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_scenes(tmp_path, [1, 2])
+    vdir = tmp_path / "videos" / "demo"
+    (vdir / "remotion" / "src" / "scenes").mkdir(parents=True, exist_ok=True)
+    (vdir / "remotion" / "src" / "scenes" / "Scene01.tsx").write_text("x")
+    ok, msg = pipeline.regen_scene_map(vdir, "demo", only_existing=True)
+    assert ok
+    text = (vdir / "remotion" / "src" / "scenes" / "SceneMap.generated.ts").read_text()
+    assert "Scene01" in text and "Scene02" not in text
+
+
+def test_regen_scene_map_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
+    _write_scenes(tmp_path, [])
+    vdir = tmp_path / "videos" / "demo"
+    ok, msg = pipeline.regen_scene_map(vdir, "demo")
+    assert not ok and "no scenes" in msg
+
+
 def test_load_state_backfills_missing_step_keys(tmp_path, monkeypatch):
     monkeypatch.setattr(pl, "REPO_ROOT", tmp_path)
     vdir = tmp_path / "videos" / "demo"

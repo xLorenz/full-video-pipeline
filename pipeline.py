@@ -17,6 +17,7 @@ Usage:
     ./pipeline.py audit <title>          Audit for violations (always after --force)
     ./pipeline.py doctor <title>         System + project diagnostics
     ./pipeline.py clean <title>          Free disk space (safe-to-delete items)
+    ./pipeline.py redo <title> <step>    Reset a completed automated step to pending (then continue)
 """
 
 import argparse
@@ -446,6 +447,91 @@ def cmd_complete(args):
 
 
 # ---------------------------------------------------------------------------
+# REDO subcommand — reset a completed automated step to pending
+# ---------------------------------------------------------------------------
+
+# Redoing an automated step invalidates the steps that derive from its
+# artifacts, so they reset together (e.g. redoing voiceover generation
+# also re-measures durations). Creative steps are never reset here —
+# creative work is redone by editing artifacts + `complete`.
+REDO_DEPENDENTS = {
+    "5_voiceover_generation": ["6_duration_measurement"],
+    "6_duration_measurement": [],
+    "9_scene_rendering": ["10_stitching"],
+    "10_stitching": [],
+    "13_thumbnail_rendering": [],
+}
+
+
+def cmd_redo(args):
+    """Reset a completed automated step (and its dependents) to pending.
+
+    The supported loop for "I edited VOICEOVER.md after Step 5" is now:
+        python3 pipeline.py redo <title> 5
+        python3 pipeline.py continue <title>   # re-runs Step 5 (idempotent skip
+                                               # for unchanged scenes), then 6
+    Guards:
+      - `--step N` must be in 1..13 (bounds check)
+      - creative steps refused (redo them via edit + `complete`)
+      - resetting an already-pending step is a noop (exit 0)
+    """
+    title = _safe_title(args.title)
+    vdir = video_dir(title)
+
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    state = _require_state(title)
+
+    step_num = int(args.step)
+    if not (1 <= step_num <= len(STEP_KEYS)):
+        print(f"ERROR: step must be 1..{len(STEP_KEYS)}, got {step_num}")
+        pl.emit_trailer(0, "", "fix_and_continue", 2)
+        sys.exit(2)
+    step_key = STEP_KEYS[step_num - 1]
+    step_name = STEP_NAMES.get(step_key, step_key)
+
+    if step_key in CREATIVE_STEPS:
+        print(f"ERROR: Step {step_num} ({step_name}) is creative — redo it by "
+              f"editing its artifacts, then run: python3 pipeline.py complete {title}")
+        pl.emit_trailer(step_num, step_key, "fix_and_continue", 2,
+                        next_cmd=f"python3 pipeline.py complete {title}",
+                        expected_artifacts=EXPECTED_ARTIFACTS.get(step_key, []))
+        sys.exit(2)
+
+    reset_keys = [step_key] + REDO_DEPENDENTS.get(step_key, [])
+    already = [k for k in reset_keys
+               if state["steps"].get(k, {}).get("status") != "complete"]
+    if len(already) == len(reset_keys):
+        print(f"Step {step_num} ({step_name}) is not complete — nothing to reset.")
+        pl.emit_trailer(step_num, step_key, "noop", 0,
+                        next_cmd=f"python3 pipeline.py continue {title}")
+        return
+
+    stamp = now_iso()
+    for key in reset_keys:
+        prior = state["steps"].get(key, {})
+        if prior.get("status") != "complete":
+            continue
+        state["steps"][key] = {
+            "status": "pending",
+            "attempts": prior.get("attempts", 0),
+            "last_error": f"reset by `redo` at {stamp} (was complete)",
+        }
+        n = STEP_KEYS.index(key) + 1
+        print(f"  Reset Step {n} ({STEP_NAMES.get(key, key)}) to pending.")
+    # find_next_step scans from step 1, so current_step needs no change;
+    # keep it monotonic anyway.
+    save_state(title, state)
+
+    print(f"\nStep {step_num} ({step_name}) reset. Re-run with:")
+    next_cmd = f"python3 pipeline.py continue {title}"
+    print(f"  {next_cmd}")
+    pl.emit_trailer(step_num, step_key, "run_continue", 0, next_cmd=next_cmd)
+
+
+# ---------------------------------------------------------------------------
 # Automated step dispatch — shared by cmd_continue and auto_run_automated_steps
 # ---------------------------------------------------------------------------
 
@@ -725,6 +811,54 @@ def lint_gate(title, vdir):
     return True, "lint/typecheck/compositions OK"
 
 
+def regen_scene_map(vdir, title, only_existing=False):
+    """(Re)generate SceneMap.generated.ts from scenes.json.
+
+    MainVideo.tsx imports SCENE_MAP from this file; callers never edit the
+    agent-owned MainVideo.tsx, only this generated map. Returns (ok, message).
+    With only_existing=True, scene ids without a SceneXX.tsx on disk are
+    skipped (with a warning) so partial Step-8 trees still render the scenes
+    that exist — used by preview/preview-frame for pre-Step-9 QA.
+    """
+    rdir = vdir / "remotion"
+    scenes = [s for s in load_scenes(title)
+              if isinstance(s, dict) and isinstance(s.get("id"), int)]
+    if not scenes:
+        return False, ("no scenes in scenes.json — run Step 3 (script) "
+                        "+ Step 8 (Remotion code) first.")
+    scene_ids = sorted(set(s["id"] for s in scenes))
+    if only_existing:
+        missing = [sid for sid in scene_ids
+                   if not (rdir / "src" / "scenes" / f"Scene{sid:02d}.tsx").exists()]
+        if missing:
+            print(f"  NOTE: no SceneXX.tsx yet for scenes {missing} — "
+                  f"they will show the fallback until written.")
+            scene_ids = [sid for sid in scene_ids
+                         if (rdir / "src" / "scenes" / f"Scene{sid:02d}.tsx").exists()]
+        if not scene_ids:
+            return False, "no SceneXX.tsx files yet — write at least one scene first."
+    import_lines = []
+    map_entries = []
+    for sid in scene_ids:
+        padded = f"{sid:02d}"
+        import_lines.append(f'import {{ Scene{padded} }} from "./Scene{padded}";')
+        map_entries.append(f"  {sid}: Scene{padded},")
+    scenemap_content = (
+        '// AUTO-GENERATED by pipeline.py — do not edit.\n'
+        + "import React from 'react';\n"
+        + "import type { SceneTiming } from 'remotion-foundation';\n"
+        + "\n".join(import_lines)
+        + "\n\n"
+        + "export const SCENE_MAP: Record<number, React.FC<{ scene: SceneTiming }>> = {\n"
+        + "\n".join(map_entries)
+        + "\n};\n"
+    )
+    sm_path = rdir / "src" / "scenes" / "SceneMap.generated.ts"
+    _atomic_write_text(sm_path, scenemap_content)
+    return True, (f"Regenerated SceneMap.generated.ts with {len(scene_ids)} "
+                  f"static scene import(s)")
+
+
 def run_step_9(title, vdir):
     """Scene rendering — one scene at a time. Resumable, non-fatal per-scene.
 
@@ -748,31 +882,13 @@ def run_step_9(title, vdir):
     # Regenerate SceneMap.generated.ts with static scene imports.
     # MainVideo.tsx imports SCENE_MAP from this file; we only overwrite the map,
     # never the agent-owned MainVideo.tsx.
+    ok, msg = regen_scene_map(vdir, title)
+    if not ok:
+        print(f"  ERROR: {msg}")
+        return False
+    print(f"  {msg}")
     scenes = [s for s in load_scenes(title)
               if isinstance(s, dict) and isinstance(s.get("id"), int)]
-    if not scenes:
-        print("  ERROR: no scenes in scenes.json — run Step 3 (script) + Step 8 (Remotion code) first.")
-        return False
-    scene_ids = sorted(set(s["id"] for s in scenes))
-    import_lines = []
-    map_entries = []
-    for sid in scene_ids:
-        padded = f"{sid:02d}"
-        import_lines.append(f'import {{ Scene{padded} }} from "./Scene{padded}";')
-        map_entries.append(f"  {sid}: Scene{padded},")
-    scenemap_content = (
-        '// AUTO-GENERATED by pipeline.py — do not edit.\n'
-        + "import React from 'react';\n"
-        + "import type { SceneTiming } from 'remotion-foundation';\n"
-        + "\n".join(import_lines)
-        + "\n\n"
-        + "export const SCENE_MAP: Record<number, React.FC<{ scene: SceneTiming }>> = {\n"
-        + "\n".join(map_entries)
-        + "\n};\n"
-    )
-    sm_path = rdir / "src" / "scenes" / "SceneMap.generated.ts"
-    _atomic_write_text(sm_path, scenemap_content)
-    print(f"  Regenerated SceneMap.generated.ts with {len(scene_ids)} static scene import(s)")
 
     # Lint gate (fail fast before any render work)
     ok, msg = lint_gate(title, vdir)
@@ -1208,7 +1324,7 @@ def show_all_statuses():
 
     entries = []
     for d in sorted(videos_dir.iterdir()):
-        if d.is_dir():
+        if d.is_dir() and d.name != ".trash":
             sp = d / "pipeline_state.json"
             if sp.exists():
                 with open(sp, "r", encoding="utf-8") as f:
@@ -1647,6 +1763,19 @@ def cmd_clean(args):
             )
         print(f"  Rotated logs in: {log_dir}")
 
+    # 9. Prune this title's --force backups (videos/.trash/<title>-*).
+    trash = REPO_ROOT / "videos" / ".trash"
+    if trash.is_dir():
+        for old in sorted(trash.glob(f"{title}-*")):
+            try:
+                sz = sum(f.stat().st_size for f in old.rglob("*") if f.is_file()) \
+                    if old.is_dir() else old.stat().st_size
+            except OSError:
+                sz = 0
+            shutil.rmtree(old, ignore_errors=True)
+            freed += sz
+            print(f"  Pruned backup: .trash/{old.name} ({sz/1024/1024:.1f} MB)")
+
     print(f"\nTotal freed: {freed/1024/1024:.1f} MB")
 
 
@@ -1701,6 +1830,14 @@ def cmd_preview(args):
         print("ERROR: scene 1 missing actual_duration_frames (run step 6 first)")
         sys.exit(2)
     frame_end = min(20, first["actual_duration_frames"])
+
+    # Refresh the scene map so the preview renders real scenes (the scaffold
+    # map only has scene 1; pre-Step-9 QA needs whatever SceneXX exist).
+    ok, msg = regen_scene_map(vdir, title, only_existing=True)
+    if not ok:
+        print(f"PREVIEW FAILED ({msg})")
+        sys.exit(2)
+    print(f"  {msg}")
 
     # Build scene props so the preview renders real content, not the fallback.
     import tempfile as _tempfile
@@ -1781,6 +1918,17 @@ def cmd_preview_frame(args):
     if not matches[0].get("actual_duration_frames"):
         print(f"ERROR: scene {scene_id} missing actual_duration_frames (run step 6 first)")
         sys.exit(2)
+    if not (rdir / "src" / "scenes" / f"Scene{scene_id:02d}.tsx").exists():
+        print(f"ERROR: Scene{scene_id:02d}.tsx not found — write the scene first (Step 8)")
+        sys.exit(2)
+
+    # Refresh the scene map so any written scene is QA-able pre-Step-9
+    # (the scaffold/Step-9 map would otherwise resolve it to the fallback).
+    ok, msg = regen_scene_map(vdir, title, only_existing=True)
+    if not ok:
+        print(f"PREVIEW-FRAME FAILED ({msg})")
+        sys.exit(2)
+    print(f"  {msg}")
 
     # Build props (reuses render_scene.build_props_json). Returns (start, end).
     import tempfile as _tempfile
@@ -1906,7 +2054,9 @@ def cmd_run(args):
     - If videos/<title>/ doesn't exist: scaffold via cmd_new, then continue.
     - If videos/<title>/pipeline_state.json exists: resume via continue.
     - If videos/<title>/ exists but has no state file: refuse (use --force).
-    - --force: destructive re-scaffold (deletes existing dir first).
+    - --force: re-scaffold, moving the existing dir to a timestamped backup
+      under videos/.trash/ first (never deletes — restore by renaming back,
+      purge with `clean`, which also prunes this title's old backups).
 
     This is the recommended "don't get lost" path. The agent runs `run` once,
     sees the Phase 1 creative brief, does the work, then calls `complete` which
@@ -1918,8 +2068,12 @@ def cmd_run(args):
 
     if vdir.exists():
         if getattr(args, "force", False):
-            print(f"--force: removing existing {vdir}")
-            shutil.rmtree(vdir, ignore_errors=True)
+            trash = REPO_ROOT / "videos" / ".trash"
+            trash.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            backup = trash / f"{title}-{stamp}"
+            print(f"--force: backing up existing {vdir} -> {backup}")
+            shutil.move(str(vdir), str(backup))
         elif (vdir / "pipeline_state.json").exists():
             # Resume — just call cmd_continue (preserves args.title)
             print(f"Resuming existing project: {title}")
@@ -1927,7 +2081,8 @@ def cmd_run(args):
             return
         else:
             print(f"ERROR: {vdir} exists but has no pipeline_state.json.")
-            print("  Use --force to re-scaffold (destructive) or pick a different title.")
+            print("  Use --force to re-scaffold (existing dir is backed up to "
+                  "videos/.trash/) or pick a different title.")
             sys.exit(2)
 
     # Scaffold (cmd_new expects args.title — present here)
@@ -1966,7 +2121,7 @@ def main():
     run_p = sub.add_parser("run", help="One-shot: scaffold (if absent) + advance pipeline")
     run_p.add_argument("title", help="Video title")
     run_p.add_argument("--force", action="store_true",
-                       help="Re-scaffold (destructive) if dir exists")
+                       help="Re-scaffold if dir exists (backs up to videos/.trash/ first)")
 
     status_p = sub.add_parser("status", help="Show pipeline state")
     status_p.add_argument("title", nargs="?", help="Video title (omit to show all)")
@@ -2006,6 +2161,10 @@ def main():
     clean_p = sub.add_parser("clean", help="Free disk space for a completed video")
     clean_p.add_argument("title", help="Video title")
 
+    redo_p = sub.add_parser("redo", help="Reset a completed automated step to pending")
+    redo_p.add_argument("title", help="Video title")
+    redo_p.add_argument("step", type=int, help="Automated step number to reset (5, 6, 9, 10, 13)")
+
     args = parser.parse_args()
 
     if args.config:
@@ -2035,6 +2194,8 @@ def main():
         cmd_sfx(args)
     elif args.command == "clean":
         cmd_clean(args)
+    elif args.command == "redo":
+        cmd_redo(args)
     elif args.command == "audit":
         cmd_audit(args)
     elif args.command == "doctor":
