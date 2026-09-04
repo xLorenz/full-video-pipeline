@@ -122,6 +122,29 @@ export interface RollingDigitCounterProps {
 // showing the target digit as the "lock" position (max headroom).
 const REEL_COPIES = 4;
 
+/**
+ * Per-column land frames: column 0 lands first, column N-1 lands last
+ * (left-to-right reading), each earlier column landing one stagger step
+ * before the last. The total spread is capped at `rollFrames` so wide
+ * numbers with a large stagger can never push early columns to negative
+ * frames (which makes downstream `interpolate()` inputRanges decrease
+ * and throw). For configs that already fit, output is identical to the
+ * uncapped formula.
+ */
+export function colLandFrames(
+  digitCount: number,
+  rollFrames: number,
+  staggerFrames: number,
+): number[] {
+  if (digitCount <= 0) return [];
+  const steps = Math.max(0, digitCount - 1);
+  const step = steps === 0 ? 0 : Math.min(staggerFrames, rollFrames / steps);
+  return Array.from(
+    { length: digitCount },
+    (_, i) => rollFrames - (steps - i) * step,
+  );
+}
+
 export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
   config,
   styles,
@@ -229,22 +252,25 @@ export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
   const rawDigitChars = targetText.replace(/[,.]/g, "");
   const digitCount = rawDigitChars.length;
 
-  // Per-column land frames.
-  //   Column 0 lands first, column N-1 lands last (left-to-right reading).
-  //   Last column lands exactly at rollFrames (the whole window), earlier
-  //   columns land proportionally earlier by `perColStaggerPct * rollFrames`
-  //   per column. The stagger is capped at 0.5 in the schema, so the
-  //   spread between first and last land is at most half the roll.
+  // Per-column land frames (left-to-right reading; last column lands
+  // exactly at rollFrames). Spread is capped inside colLandFrames so
+  // schema-legal staggers on wide numbers can't drive early columns
+  // negative (which used to throw in interpolate()).
   const rollFrames = Math.round(rollSec * fps * g.speed);
   const staggerFrames = Math.round(rollFrames * perColStaggerPct);
-  const colLandFrames = rawDigitChars.split("").map((_, i) => {
-    // column i lands (digitCount - 1 - i) stagger steps earlier than the last
-    return rollFrames - (digitCount - 1 - i) * staggerFrames;
-  });
 
   // delayOffset shifts the whole sequence forward in the timeline.
   const landStartFrame = g.delayOffset;
   const scrollStartFrame = landStartFrame - headstartFrames;
+
+  // Absolute land frames, floored strictly above scrollStartFrame: every
+  // downstream interpolate() needs a strictly increasing inputRange, and
+  // the degenerate case (fully compressed spread + headstart 0) would
+  // otherwise land exactly on scrollStartFrame and throw. No-op for all
+  // configs that already fit.
+  const landFrames = colLandFrames(digitCount, rollFrames, staggerFrames).map(
+    (f) => Math.max(landStartFrame + f, scrollStartFrame + 1),
+  );
 
   // --- Per-column reel geometry ----------------------------------------
   //
@@ -311,7 +337,7 @@ export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
   const targetDigits = rawDigitChars.split("").map((c) => Number(c));
 
   const columns = targetDigits.map((targetDigit, i) => {
-    const landFrame = landStartFrame + colLandFrames[i];
+    const landFrame = landFrames[i];
 
     // Eased scroll progress 0..1 from scrollStartFrame to landFrame.
     // ease-out-cubic gives a brisk start and a long deceleration — the
@@ -482,8 +508,8 @@ export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
             opacity: interpolate(
               frame,
               [
-                landStartFrame + colLandFrames[columnCursor] - 6,
-                landStartFrame + colLandFrames[columnCursor],
+                landFrames[columnCursor] - 6,
+                landFrames[columnCursor],
               ],
               [0, 1],
               { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
@@ -546,7 +572,7 @@ export const RollingDigitCounter: React.FC<RollingDigitCounterProps> = ({
   }
 
   const containerWidth = Math.round((canvasWidth * containerWidthPct) / 100);
-  const lastLandFrame = landStartFrame + colLandFrames[colLandFrames.length - 1];
+  const lastLandFrame = landFrames[landFrames.length - 1];
 
   // NOTE: this template deliberately does NOT fade the value (or label)
   // out at the end of the scene. The locked number IS the scene — once
