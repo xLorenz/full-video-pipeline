@@ -13,8 +13,10 @@ Read `scenes.json` for accurate chapter timestamps based on cumulative
 
 #### Follow these instructions
 
-Follow `skills/claude-youtube/skills/claude-youtube/sub-skills/metadata.md` instructions
-Follow `skills/claude-youtube/skills/claude-youtube/references/seo-playbook.md` instructions
+Follow `skills/video-composer/SKILL.md` instructions
+Follow `skills/video-composer/references/stage-2-packaging-first.md` instructions
+Follow `skills/video-composer/references/stage-8-title-thumbnail.md` instructions
+Follow `skills/video-composer/references/stage-9-qa-publish.md` instructions
 
 ```markdown
 # Title Variants
@@ -67,8 +69,9 @@ yourself.
 
 #### Follow these instructions
 
-Follow `skills/claude-youtube/skills/claude-youtube/sub-skills/thumbnail.md` instructions
-Follow `skills/claude-youtube/skills/claude-youtube/references/thumbnail-ctr-guide.md` instructions
+Follow `skills/video-composer/SKILL.md` instructions
+Follow `skills/video-composer/references/stage-8-title-thumbnail.md` instructions
+Follow `skills/video-composer/references/stage-9-qa-publish.md` instructions
 
 > **Back-reference: Phase 3's CTR palette (your STYLES.md).** The palette you
 > chose in Phase 3 was already CTR-safe for mobile legibility at 168×94px —

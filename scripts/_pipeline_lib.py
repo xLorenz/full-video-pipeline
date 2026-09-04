@@ -113,12 +113,22 @@ def _phase_for_step(step_key: str):
 # the agent is told to load.
 _DEFAULT_SKILLS_SOURCES = [
     {
-        "name": "claude-youtube",
-        "path": "skills/claude-youtube/skills/claude-youtube",
+        "name": "video-composer",
+        "path": "skills/video-composer",
         "phases": {
-            "1": ["sub-skills/script.md", "references/retention-scripting-guide.md"],
-            "4": ["sub-skills/metadata.md", "references/seo-playbook.md",
-                   "sub-skills/thumbnail.md", "references/thumbnail-ctr-guide.md"],
+            "1": ["SKILL.md",
+                  "references/stage-1-ideation.md",
+                  "references/stage-2-packaging-first.md",
+                  "references/stage-3-scripting.md",
+                  "references/stage-4-storytelling-loop.md",
+                  "references/stage-5-voiceover-delivery.md"],
+            "2": ["references/stage-5-voiceover-delivery.md"],
+            "3": ["references/stage-6-visual-editing.md",
+                  "references/stage-7-audio-music.md"],
+            "4": ["SKILL.md",
+                  "references/stage-2-packaging-first.md",
+                  "references/stage-8-title-thumbnail.md",
+                  "references/stage-9-qa-publish.md"],
         },
     },
     {
