@@ -45,6 +45,18 @@ Calibration: stakes mean personally relevant to your viewer, not objectively
 huge. "48 hours to fix the spend or burn it all" retains its audience better
 than a generic catastrophe retains no one.
 
+- **Stack stakes — density beats drama.** Layer at least 3 per opening:
+  scale (how big), personal proximity (how close to the character's people),
+  failed precedent (who tried and never came back), irreversibility (what
+  cannot be undone), and the clock. A viewer cares despite knowing the plot
+  when stake layers compound — the flat-vs-looped difference is density of
+  stakes, not theatricality.
+- **Prime the housing.** Before events start, spend 1–2 sensory or
+  social-proof lines on the arena itself — atmosphere, the sounds of others
+  winning and losing, why this table is yours — plus explicit ownership
+  ("your budget / rank / deadline on the table"). Ambient context makes
+  everything inside it matter before the first card is dealt.
+
 Most common failure: skipping stakes entirely and jumping to events. Second
 most common: dramatic stakes nobody watching cares about.
 
@@ -65,7 +77,10 @@ Tactic — pause, back up, then reveal:
 
 1. When approaching an important reveal, stop.
 2. Add concrete situational detail first (numbers, constraints, odd facts).
-3. State or imply the question.
+3. State the question, then voice 2–3 specific candidate answers aloud
+   ("maybe X, maybe Y — or the dark outcome, Z"). Forcing the viewer to place
+   a bet focuses the prediction; unvoiced questions get unfocused guesses and
+   weak head fakes.
 4. Let the viewer predict, then reveal.
 
 Every great piece needs one massive Big Question early — the earlier it
@@ -98,6 +113,12 @@ triggers the single largest dopamine burst available — small surprise, small
 spike; large surprise, large spike; no surprise, no spike. After being wrong
 once, the brain pays more attention to avoid being caught again, so attention
 compounds.
+
+**Valence-independent:** a crushing, well-foreshadowed loss spikes like a
+win. What matters is the magnitude of the broken prediction, not its
+positivity — a backdoor defeat lands as hard as a miracle win. When
+brainstorming twists, generate one win-variant and one loss-variant and pick
+the larger error.
 
 Good vs bad surprise:
 
@@ -159,9 +180,17 @@ night before hadn't just made it impossible). New prediction instantly.
 Weak shape to never use: resolve, summarize, then drift ("that was a great
 call — anyways, next…"). Dead air between loops is an exit door.
 
-Rules: every section end gets a bridge sentence. The new question should
-escalate prior stakes, not start an unrelated thread. One loop closed, one
-loop opened, no gap.
+Rules: every section end gets a bridge sentence. Bridge with one of three —
+a **new question**, a **new complication**, or a **new implication /
+escalation of prior stakes** — whichever fires fastest; it need not always be
+a question. The bridge should escalate prior stakes, not start an unrelated
+thread. One loop closed, one loop opened, no gap.
+
+**Compress the payoff — resolution gives no hit.** Dopamine fires in
+anticipation, not on receipt: nobody feels anything the second after a goal
+is accomplished. Cap celebration and result-lingering at one beat, then
+bridge in the same breath. Admiring the win is dead air by chemistry, not
+taste.
 
 ## 5. Explainer adaptations
 
@@ -187,3 +216,6 @@ loop opened, no gap.
   no resolved-and-paused transitions remain.
 - [ ] Full draft labels S / BQ / HF / RH with no vending-machine stretch
   longer than a few sentences.
+- [ ] Flat-test passed: compress each section to pure chronology — if the flat
+  version carries the same facts with zero pull, the fix is loop density
+  (rewrite with S/BQ/HF/RH), not a new premise.

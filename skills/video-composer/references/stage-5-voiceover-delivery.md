@@ -46,11 +46,23 @@ Because TTS cannot improvise enthusiasm, script it explicitly:
   excitement → worry → discovery → unease → payoff. Constant intensity is
   white noise; contrast makes each mood hit harder.
 
-Body-language equivalents for faceless: what a face would do (raised eyebrows
-for interest, squint for a key detail, wide arms for big, pinched fingers for
-precise) must become a visual move instead — a zoom, a highlight pulse, a
-scale cue (Stage 6). Note the intended gesture in brackets next to the line
-so the edit implements it.
+Body-language equivalents for faceless: what a face would do must become a
+visual move instead — note the intended gesture in brackets next to the line
+so the edit implements it:
+- Raised eyebrows (interest) → zoom or highlight pulse.
+- Squint (key detail) → tight punch-in on the detail.
+- Head nod in sync with words (emphasis) → beat-hit or scale pop on the
+  stressed word.
+- Hands shifting side-to-side (separating ideas) → split-wipe or alternating
+  left/right placement of successive graphics.
+- Wide arms (big) → full-frame scale cue; pinched fingers (precise) → magnify
+  or fine underline.
+
+For unknown creators with no credentials, scripted energy plus specificity
+functions as the trust signal: raw enthusiasm convinces a cold viewer that
+something worth sharing is here, before any proof arrives. Test: would a
+stranger infer "this must be important" from the read alone? If not, raise
+the energy and sharpen the specifics — do not add more claims.
 
 ## 3. The friend frame (for writers)
 

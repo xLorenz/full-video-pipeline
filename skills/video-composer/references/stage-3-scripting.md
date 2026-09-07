@@ -66,6 +66,14 @@ Application:
 
 - After drafting, audit each section. If any of the three is missing, add it
   — in an explainer this is usually a voiceover line, not new footage.
+- **Lower competence to raise uncertainty.** When a stretch has no natural
+  danger, frame the subject as underprepared rather than inflating the task:
+  state the task is dangerous or hard for the inexperienced, admit missing
+  preparation, name the hostile conditions, and hint failure is likely. A
+  journey with uncertain success is as interesting as the destination; the
+  same journey presented as safe and inevitable is dead air. This framing can
+  be added entirely in voiceover after the fact when the raw material lacks
+  stakes.
 - If you cannot create curiosity or expectation for a section at all, cut it:
   summarize in a sentence or two and move on. Sunk cost ("we researched /
     filmed a lot") is not a reason to keep a conflict-free stretch.
@@ -143,7 +151,27 @@ is clear to you because you have full context. The viewer arrives with zero.
   multiple locations) into a tight emotional rollercoaster. Clever density of
   highs, lows, and novelty beats expensive footage.
 
-## 8. Mid-video energy defense
+## 8. Macro-template for mechanism explainers
+
+For lessons that teach how a system works, use Theory → Paired demo →
+Playbook:
+
+1. **Theory.** State the claim plus an everyday analogy that makes it
+   intuitive (a casino, a game, a familiar transaction). Keep it short —
+   just enough to load the mental model.
+2. **Paired demo.** Tell the same mini-story twice with identical facts:
+   first flat (pure chronology, no stakes, no questions — the vending-machine
+   version), then looped (stakes, Big Question, head fake, re-hook per
+   Stage 4). The contrast isolates structure as the variable and proves the
+   lesson by feel, not assertion.
+3. **Playbook.** Walk each loop step as a tactic with phrasing patterns plus
+   a weak-vs-strong example per step, so the viewer leaves with applicable
+   moves rather than admiration.
+
+Why: the viewer feels the difference before being asked to believe it, which
+carries skeptical audiences further than claims alone.
+
+## 9. Mid-video energy defense
 
 - Around 60–70%, when energy naturally dips, introduce a second objective, a
   new complication, or a higher rung on the ladder. A fresh goal layers new

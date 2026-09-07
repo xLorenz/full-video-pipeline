@@ -95,6 +95,12 @@ is excellent.
 - **Visual variety overdose — harmful.** Too fast means no time to process:
   the viewer cannot absorb anything, and the stream becomes visual mush. If
   frames blur together on a timeline scrub, slow down or simplify.
+- **Modulate hold duration with the mood block.** Cut cadence is part of the
+  mood, not just the track: shorter holds and quicker cuts for tension and
+  excitement, longer holds for reflection and dread. When the mood block
+  changes, change the cut rate with it — a new bed over an unchanged cadence
+  reads as a costume change with no performance. Verify per block: does the
+  hold length feel the assigned emotion?
 
 Test per addition: what effect does this cut/effect/graphic create, and how
 much of it is needed for the perfect experience? If the answer is "it looks

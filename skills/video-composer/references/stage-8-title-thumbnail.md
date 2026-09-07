@@ -59,11 +59,18 @@
   repels older ones, and vice versa.
 - **Spotlight element (pick exactly one).** For faceless work the spotlight
   is usually (a) a familiar object with a weird twist, shown huge, or (b)
-  very short text, 1–3 words. A face (shock/fear, clearly readable, gazing at
-  the subject) is optional and only if it matches the video's real tone —
-  mismatched fear-face on a calm tutorial reads as deception. One spotlight
-  at 2× the visual weight of anything else; never face + object + sentence
-  competing.
+  very short text, 1–3 words. A face is optional and only if it matches the
+  video's real tone — mismatched fear-face on a calm tutorial reads as
+  deception. One spotlight at 2× the visual weight of anything else; never
+  face + object + sentence competing.
+- **If a face is used, default to shock or fear.** Those two expressions win
+  because they do three jobs at once: they read instantly as a reaction to
+  something extraordinary (which makes the viewer crave the cause — "what are
+  they reacting to?" — and stare longer to find it), and they forecast the
+  video's dominant emotion before a word is read. Gaze the face at the
+  subject or anomaly so the eye path runs face → cause. Match the expression
+  to the video's real tone; the forecast is a promise the first 30 seconds
+  must keep.
 - **Familiarity bias.** Anchor abstract topics to a concrete icon the audience
   already recognizes (a universal object, symbol, or situation). The brain
   prioritizes the known in a scan; novelty without a familiar entry point is

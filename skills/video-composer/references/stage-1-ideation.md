@@ -67,6 +67,27 @@ explainers, strong starting shapes include:
   difficulty ladder, elimination). Even an explainer can frame as "can I rank
   / test / survive / build X under constraint Y?" Works because conflict
   drives scenes forward and who-wins curiosity is universal.
+- **Antagonist / hunter opposition.** A goal plus an active opposer trying to
+  stop you — a person, team, rival method, or personified constraint fighting
+  back. Works because it manufactures an underdog to root for, a constant
+  threat of failure, escalating worry, and creative conquests that each check
+  multiple entertainment boxes at once. Run the cycle: underdog position →
+  threat cadence (the hunter closes in) → novel escape or solution. Explainer
+  port: "method X vs. a skeptical tester actively trying to break it" or a
+  myth/misconception cast as the villain the facts must defeat.
+- **Competition-ize anything.** Bolt a head-to-head contest onto any flat
+  showcase: X vs. X, taste / test / rank everything to one winner, last to
+  remain, bracket to a final. Works because who-wins curiosity plus ranking
+  conflict turns catalog content into drama. Doubles as a mid-video rescue:
+  when a section goes stale, introduce a ranking or elimination rather than
+  more exposition.
+- **Timer-plus-forfeit conversion.** Impose a short visible countdown on any
+  boring task and link expiry to an explicit, visible forfeit — destroyed
+  reward, lost prize pool, public penalty. "5 minutes to finish, or the
+  reward burns" turns doing into a thriller. Works because the clock creates
+  urgency and the forfeit makes failure concrete and watchable. State both
+  the clock and the forfeit before action starts, and restate the clock on
+  each new loop.
 - **Progression ladder.** Cheapest-to-best, worst-to-best, easiest-to-hardest,
   countdown, elimination to one winner. Works because it gives a constant
   "what's next?" pull and a visible finish line. Random order with no
@@ -92,6 +113,19 @@ Every premise needs an answer to three questions before scripting starts:
 Stakes do not mean life-or-death. They mean personally relevant to your
 viewer: "48 hours to fix the budget or burn it all" retains a media buyer
 better than a generic apocalypse retains no one.
+
+Two zero-budget stakes templates (no prize money required):
+
+- **Elicit the personal why in the subject's own words.** Script one
+  on-camera (or voiceover) line per subject stating why winning matters
+  personally — family, pride, insecurity, a debt to repay. A stated human
+  reason makes the audience care about the outcome more than any prize
+  amount. Explainer port: attach the lesson to a decision cost the viewer
+  already feels ("choose wrong and lose a month of work").
+- **Social-forfeit bet.** When no prize exists, manufacture stakes with a
+  public humiliation or forfeit wager: loser performs a dare on camera, takes
+  a public penalty, or lands on a visible scoreboard. State the exact loser
+  penalty up front — the reputational risk is real stakes and costs nothing.
 
 Common mistake: high action or dense facts with no stated consequence. Or
 stakes that are dramatic but irrelevant to the named viewer.
