@@ -104,6 +104,35 @@ def test_trailer_emits_parseable_json(capsys):
     assert "expected_artifacts" in payload
 
 
+def test_continue_gate_follows_next_pending_not_pointer(tmp_path):
+    # After `redo 5` (steps 5-6 pending, pointer still at 7), the continue
+    # gate must validate step 5's requirements (voiceover files exist), not
+    # step 6's (transcript that only Step 6 can rebuild). Gating at
+    # current_step - 1 deadlocks the documented redo + continue loop.
+    st = _state({1: "complete", 2: "complete", 3: "complete", 4: "complete",
+                 5: "complete"})
+    st["current_step"] = 7
+    assert pipeline._continue_gate_step(st) == 5
+
+
+def test_continue_gate_normal_path_matches_pointer():
+    # No gaps: next pending == current_step, gate is the step before it.
+    st = _state({1: "complete", 2: "complete", 3: "complete", 4: "complete",
+                 5: "complete", 6: "complete"})
+    st["current_step"] = 7
+    assert pipeline._continue_gate_step(st) == 6
+
+
+def test_continue_gate_fresh_project_is_schema_only():
+    assert pipeline._continue_gate_step(_state({})) == 0
+
+
+def test_continue_gate_all_done_falls_back_to_pointer():
+    st = _state({i: "complete" for i in range(1, 14)})
+    st["current_step"] = 13
+    assert pipeline._continue_gate_step(st) == 12
+
+
 def _write_state(tmp_path, statuses, current_step=7):
     vdir = tmp_path / "videos" / "demo"
     vdir.mkdir(parents=True, exist_ok=True)

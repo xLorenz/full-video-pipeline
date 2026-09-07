@@ -102,6 +102,7 @@ def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
             dur_s = s.get("actual_duration_seconds")
             if dur_s is None or dur_s <= 0:
                 errors.append(f"Scene {s['id']}: missing or invalid actual_duration_seconds for step {step}")
+        errors.extend(check_transcript(video_dir, data))
 
     if step >= 9:
         for s in scenes:
@@ -139,6 +140,108 @@ def check_captions(data: dict) -> list:
                 errors.append(f"Scene {s['id']} cue {i}: start ({cue['start']}) > end ({cue['end']})")
             if scene_dur > 0 and cue.get("end", 0) > scene_dur:
                 errors.append(f"Scene {s['id']} cue {i}: end ({cue['end']}) > scene duration ({scene_dur})")
+    return errors
+
+
+def check_transcript(video_dir: Path, data: dict) -> list:
+    """Validate the Step 6 transcript artifacts (always auto-built, no opt-out).
+
+    Checks voiceover_timings.json structure + TRANSCRIPT.md presence:
+    per-scene id/duration/source, word monotonicity + clamping, frame math
+    (frame = round(t * fps)), and global continuity against the padded
+    durations the stitcher muxes by. Videos built before this feature fail
+    here until Step 6 is re-run (redo 5 + continue regenerates).
+    """
+    errors = []
+    tj_path = video_dir / "voiceover_timings.json"
+    md_path = video_dir / "TRANSCRIPT.md"
+    for fname, fpath in (("voiceover_timings.json", tj_path), ("TRANSCRIPT.md", md_path)):
+        if not fpath.exists():
+            errors.append(f"Transcript artifact missing: {fname} (re-run Step 6)")
+        elif fpath.stat().st_size == 0:
+            errors.append(f"Transcript artifact empty: {fname} (re-run Step 6)")
+    if not tj_path.exists():
+        return errors
+    try:
+        with open(tj_path, "r", encoding="utf-8") as f:
+            tj = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return errors + [f"voiceover_timings.json: invalid JSON ({e})"]
+
+    fps = data.get("fps") or tj.get("fps") or 30
+    try:
+        fps = int(fps)
+    except (TypeError, ValueError):
+        errors.append("voiceover_timings.json: invalid fps")
+        return errors
+    scenes = {s["id"]: s for s in data.get("scenes", []) if isinstance(s, dict)}
+    tj_scenes = tj.get("scenes")
+    if not isinstance(tj_scenes, list) or len(tj_scenes) != len(scenes):
+        errors.append(f"voiceover_timings.json: expected {len(scenes)} scenes, "
+                      f"found {len(tj_scenes) if isinstance(tj_scenes, list) else tj_scenes!r}")
+        return errors
+
+    # Global continuity reference: cumulative padded durations.
+    expected_global = {}
+    running = 0.0
+    for sid in sorted(scenes):
+        s = scenes[sid]
+        frames = s.get("actual_duration_frames")
+        padded = (float(frames) / float(fps)) if frames else float(
+            s.get("actual_duration_seconds") or 0.0)
+        expected_global[sid] = round(running, 3)
+        running += padded
+
+    for entry in tj_scenes:
+        if not isinstance(entry, dict):
+            errors.append("voiceover_timings.json: malformed scene entry (not an object)")
+            continue
+        sid = entry.get("id")
+        s = scenes.get(sid)
+        if s is None:
+            errors.append(f"voiceover_timings.json: unknown scene id {sid!r}")
+            continue
+        if entry.get("source") not in ("measured", "aligned", "estimated"):
+            errors.append(f"Scene {sid}: bad transcript source {entry.get('source')!r}")
+        dur = float(s.get("actual_duration_seconds") or 0.0)
+        entry_dur = entry.get("duration")
+        if entry_dur is None or abs(float(entry_dur) - dur) > 0.002:
+            errors.append(f"Scene {sid}: transcript duration {entry.get('duration')} != "
+                          f"scenes.json {dur}")
+        entry_gs = entry.get("global_start")
+        if entry_gs is None or abs(float(entry_gs) - expected_global[sid]) > 0.005:
+            errors.append(f"Scene {sid}: transcript global_start {entry.get('global_start')} != "
+                          f"expected {expected_global[sid]} (padded-duration drift)")
+        words = entry.get("words")
+        if not isinstance(words, list):
+            errors.append(f"Scene {sid}: transcript words must be a list")
+            continue
+        if entry.get("source") == "estimated" and words:
+            errors.append(f"Scene {sid}: source is estimated but words are non-empty "
+                          f"(estimated scenes must carry no fake timings)")
+        prev_end = 0.0
+        for i, w in enumerate(words):
+            if not isinstance(w, dict) or not isinstance(w.get("w"), str) or not w["w"]:
+                errors.append(f"Scene {sid} word {i}: missing word text")
+                continue
+            st, en = float(w.get("start", -1)), float(w.get("end", -1))
+            if st < 0 or en < 0:
+                errors.append(f"Scene {sid} word {i} ({w['w']}): negative time")
+            if en < st:
+                errors.append(f"Scene {sid} word {i} ({w['w']}): end < start")
+            if en > dur + 0.05:
+                errors.append(f"Scene {sid} word {i} ({w['w']}): end {en} > duration {dur}")
+            if st < prev_end - 0.001:
+                errors.append(f"Scene {sid} word {i} ({w['w']}): not monotonic "
+                              f"(start {st} < prev end {prev_end})")
+            if w.get("start_frame") != int(round(st * fps)) or \
+                    w.get("end_frame") != int(round(en * fps)):
+                errors.append(f"Scene {sid} word {i} ({w['w']}): frame math mismatch "
+                              f"(frame must equal round(t * {fps}))")
+            gs = float(w.get("global_start", -1))
+            if abs(gs - (expected_global[sid] + st)) > 0.005:
+                errors.append(f"Scene {sid} word {i} ({w['w']}): global_start drift")
+            prev_end = max(prev_end, en)
     return errors
 
 

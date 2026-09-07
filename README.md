@@ -105,9 +105,10 @@ full-video-pipeline/
 │   ├── _pipeline_lib.py                # Shared helpers (config, paths, atomic IO, ffprobe, hashing)
 │   ├── validate.py                      # JSON-schema validation for scenes.json + pipeline_state.json
 │   ├── check_system.py                  # Pre-flight resource check (cross-platform; .sh remains as a shim)
-│   ├── generate_voiceover.py            # edge-tts audio generation (idempotent + parallel) [default engine]
+│   ├── generate_voiceover.py            # edge-tts audio generation (idempotent + parallel, word timings) [default engine]
 │   ├── generate_voiceover_pocket.py     # Optional pocket-tts engine (CPU neural, OOM-hardened)
 │   ├── measure_durations.py             # ffprobe duration measurement
+│   ├── generate_transcript.py           # Word-level transcript (voiceover_timings.json + TRANSCRIPT.md, Step 6 tail)
 │   ├── render_scene.py                  # Remotion renderer with psutil-based guardrails (Windows + Linux)
 │   ├── assemble.py                      # Efficient single-pass stitching (atomic, codec-safe)
 │   ├── render_thumbnail.py              # Remotion still render for YouTube thumbnail
@@ -120,6 +121,7 @@ full-video-pipeline/
 │   ├── preview_animations.py            # Render on-demand 3s stubs of every published template
 │   ├── requirements.txt                 # Python deps (edge-tts, jsonschema, psutil)
 │   └── requirements-pocket.txt          # Optional pocket-tts deps (pocket-tts + PyTorch 2.5+)
+│   └── requirements-transcript.txt      # Optional vosk fallback for pocket-engine transcripts
 ├── animations/                  # Animation template catalog (see animations/README.md)
 │   ├── README.md, CATALOG.md, SCHEMA.md  # Agent-facing manual + field reference
 │   ├── _shared/                           # Reusable TypeScript helpers (theme/timing/layout)
@@ -143,6 +145,8 @@ full-video-pipeline/
     └── {video-title}/
         ├── SCRIPT.md               # Full script
         ├── VOICEOVER.md            # Parseable voiceover text
+        ├── TRANSCRIPT.md           # Word-level voiceover timings (Step 6, always auto-built)
+        ├── voiceover_timings.json  # Same timings machine-readable
         ├── STYLES.md               # Visual style guide
         ├── TITLE.md                # 3 YouTube title variants (Step 11)
         ├── DESCRIPTION.md          # YouTube description with timestamps (Step 11)
@@ -161,7 +165,7 @@ full-video-pipeline/
         │   │   ├── lib/{types,config,styles}.ts
         │   │   └── scenes/
         │   └── public/
-        ├── voiceover/               # Generated .mp3 files
+        ├── voiceover/               # Generated .mp3 files + per-scene .words.json timing sidecars
         ├── scenes/                  # Rendered .mp4 scene files (silent video)
         └── versions/                # Final stitched .mp4 videos + thumbnail .png
             ├── {title}-v1.mp4

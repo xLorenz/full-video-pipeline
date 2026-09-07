@@ -1,0 +1,17 @@
+# Optional transcript fallback: vosk (offline word-level alignment for scenes
+# without edge-tts WordBoundary timings — i.e. the pocket engine, or audio
+# generated before the transcript feature existed).
+#
+# NOT installed by `pip install -r scripts/requirements.txt`. The default
+# edge-tts path needs no extra dependency (word timings arrive with the audio).
+# Install this file only when you use the pocket engine or want aligned
+# timings for legacy audio:
+#
+#     pip install -r scripts/requirements-transcript.txt
+#
+# Plus a model (~50 MB, downloaded once, cached under models/ and gitignored):
+#     download from https://alphacephei.com/vosk/models
+#     unzip vosk-model-small-en-us-0.15.zip into models/
+# Without vosk or a model, affected scenes are marked "estimated" (scene
+# totals only, no fake word timings) — Step 6 still succeeds.
+vosk>=0.3.45

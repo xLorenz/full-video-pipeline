@@ -90,6 +90,10 @@
         "language": "english",
         "no_quantize": false
     },
+    "transcript": {
+        "vosk_model": "models/vosk-model-small-en-us-0.15",
+        "align_min_match": 0.5
+    },
     "render": {
         "concurrency": 1,
         "gl_backend": "auto",

@@ -208,9 +208,22 @@ animation timings live:
   visually. Or run `python3 pipeline.py sfx <title> --preview` any time.
 - Full playbook: `skills/full-video-pipeline/references/sfx-design.md` + `sfx/README.md`.
 
-## Optional: Captions
+## Voiceover transcript (auto-built in Phase 2)
 
-After Phase 2 (`complete` auto-runs Steps 5-6), you can generate captions:
+`complete` on Phase 2 auto-runs Steps 5-6, which always emit word-level
+voiceover timings — no opt-in needed:
+
+- `videos/<title>/TRANSCRIPT.md` — readable word table per scene (open this at
+  Step 8 for beats, synced captions, word highlights; `frame = round(t * fps)`).
+- `videos/<title>/voiceover_timings.json` — the same data machine-readable.
+
+Each scene carries `source: measured | aligned | estimated` (edge-tts word
+boundaries | vosk fallback for the pocket engine | no timings — sync to scene
+totals only). Full semantics: `references/phase-2-voiceover.md`.
+
+## Optional: Captions (SRT sidecar)
+
+After Phase 2 you can additionally generate a YouTube caption sidecar:
 
 ```bash
 python3 pipeline.py captions <title>

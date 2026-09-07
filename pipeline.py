@@ -738,8 +738,8 @@ def run_step_5(title, vdir):
 
 
 def run_step_6(title, vdir):
-    """Duration measurement."""
-    print("--- Running Step 6: Duration Measurement ---")
+    """Duration measurement + transcript build."""
+    print("--- Running Step 6: Duration Measurement + Transcript ---")
     cfg = load_pipeline_config(video_dir=vdir)
     template = pl.get_step_command_template("6_duration_measurement", cfg)
     cmd = pl.render_step_command(template, vdir, cfg=cfg)
@@ -751,6 +751,18 @@ def run_step_6(title, vdir):
         if not isinstance(s, dict) or s.get("actual_duration_frames") is None:
             print(f"  ERROR: Scene {s.get('id', '?') if isinstance(s, dict) else '?'} "
                   f"missing actual_duration_frames")
+            return False
+
+    # Transcript tail: merge word timings into voiceover_timings.json + TRANSCRIPT.md.
+    # Always auto-runs (no opt-out) — the agent needs it for A/V sync at Step 8.
+    print("--- Running Step 6 (tail): Transcript Build ---")
+    tcmd = [sys.executable, str(REPO_ROOT / "scripts" / "generate_transcript.py"), str(vdir)]
+    run_cmd(tcmd, cwd=REPO_ROOT, logpath=log_file)
+
+    for fname in ("voiceover_timings.json", "TRANSCRIPT.md"):
+        fpath = vdir / fname
+        if not fpath.is_file() or fpath.stat().st_size == 0:
+            print(f"  ERROR: Step 6 transcript artifact missing or empty: {fname}")
             return False
     return True
 
@@ -1123,6 +1135,25 @@ def _clean_after_assemble(vdir):
             print(f"  Cleaned: scenes/*.mp4 (clean_scene_mp4s_after_stitch=True)")
 
 
+def _continue_gate_step(state):
+    """Step number whose requirements `continue` validates before running.
+
+    Gates against the requirements of the steps already completed — i.e. the
+    step before the next pending one — not the step about to run (whose
+    artifacts don't exist yet). Deliberately derived from ``find_next_step``
+    rather than ``current_step``: ``redo`` resets step statuses without
+    rewinding ``current_step``, so gating at ``current_step - 1`` would
+    validate a still-pending step's not-yet-produced artifacts and deadlock
+    the documented ``redo N`` + ``continue`` loop (e.g. Step 5 regenerates
+    audio with new durations, then the gate demands Step 6's transcript match
+    before Step 6 — the step that rebuilds it — is allowed to run).
+    """
+    next_num, _ = find_next_step(state)
+    if next_num is None:
+        return max(0, state.get("current_step", 0) - 1)
+    return max(0, next_num - 1)
+
+
 def cmd_continue(args):
     title = _safe_title(args.title)
     vdir = video_dir(title)
@@ -1136,7 +1167,7 @@ def cmd_continue(args):
     # Schema validation gate: refuse to run automated steps on invalid state.
     # Gate against the prior step's requirements (the steps already completed),
     # not the step we're about to run (whose artifacts don't exist yet).
-    gate_step = max(0, state.get("current_step", 0) - 1)
+    gate_step = _continue_gate_step(state)
     ok, errs = validate_project(title, step=gate_step)
     if not ok:
         print("VALIDATION FAILED — refusing to continue:")

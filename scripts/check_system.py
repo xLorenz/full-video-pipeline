@@ -227,6 +227,21 @@ def main():
                 errors.append(pkg)
             else:
                 print(f"WARN: {pkg} not installed (run: {hint})")
+    # Transcript fallback (warning-only — the edge engine needs no extra deps;
+    # vosk + model only matter for the pocket engine or legacy audio).
+    try:
+        __import__("vosk")
+        print("OK: vosk installed (transcript fallback available)")
+        _m = REPO_ROOT / "models" / "vosk-model-small-en-us-0.15"
+        if _m.is_dir() and ((_m / "am" / "final.mdl").exists()
+                            or (_m / "model.conf").exists()):
+            print(f"OK: vosk model present ({_m.name})")
+        else:
+            print("WARN: vosk installed but no model under models/ — pocket-engine "
+                  "scenes will be 'estimated' (see scripts/requirements-transcript.txt)")
+    except ImportError:
+        print("WARN: vosk not installed (only needed for pocket-engine transcripts; "
+              "run: pip install -r scripts/requirements-transcript.txt)")
     print()
 
     # 5. Browser (Remotion)

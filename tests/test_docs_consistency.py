@@ -83,3 +83,15 @@ def test_skill_audio_path_matches_assembler():
     skill = _read(SKILL / "SKILL.md")
     assert "voiceover_aligned.mp3" in skill
     assert re.search(r"sidechain", skill, re.IGNORECASE)
+
+
+def test_transcript_artifacts_documented():
+    skill = _read(SKILL / "SKILL.md")
+    assert "TRANSCRIPT.md" in skill and "voiceover_timings.json" in skill
+    phase2 = _read(SKILL / "references" / "phase-2-voiceover.md")
+    assert "TRANSCRIPT.md" in phase2
+    assert "measured" in phase2 and "aligned" in phase2 and "estimated" in phase2
+    phase3 = _read(SKILL / "references" / "phase-3-visuals-render.md")
+    assert "TRANSCRIPT.md" in phase3
+    directory = _read(SKILL / "references" / "directory-structure.md")
+    assert "TRANSCRIPT.md" in directory and "voiceover_timings.json" in directory

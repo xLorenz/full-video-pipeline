@@ -155,20 +155,31 @@ layout, and element positions — detailed enough for Step 8 to implement direct
 
 ### 8b. Author audio: beats, sfx, bgm (Step 8)
 
-After coding each scene you know its exact timing — mirror it into `scenes.json`:
+After coding each scene you know its exact timing — mirror it into `scenes.json`.
+For **narration timing**, open `TRANSCRIPT.md` (built in Step 6 — word-level
+voiceover timings per scene, with `frame = round(t * fps)` precomputed):
 
 1. **beats** — one entry per animated moment you might want to sound: `{"name": "cards_in", "time": 2.4}`.
    Names: `^[a-z][a-z0-9_]*$` (lowercase snake). Times are seconds from scene start,
-   converted from the frames you wrote (`frame / fps`).
-2. **sfx** — cues referencing beats or seconds: `{"sound": "whoosh", "when": "beat:cards_in", "volume": 0.5}`.
+   converted from the frames you wrote (`frame / fps`). To hit a spoken word, read its
+   `start` from the transcript and use that time directly — no guessing from scene totals.
+2. **Word highlights / synced captions** — find the active word by frame:
+   `active = words.find(w => frame >= w.start_frame && frame < w.end_frame)`.
+   Group words into caption cues however fits the scene (e.g. ≤100 chars, ≤3.5s per
+   cue); the transcript never groups words for you. Only attempt word sync on scenes
+   whose `source` is `measured` or `aligned` — `estimated` scenes carry no word
+   timings (sync those to scene totals only).
+3. **sfx** — cues referencing beats or seconds: `{"sound": "whoosh", "when": "beat:cards_in", "volume": 0.5}`.
    Read `sfx/CATALOG.md` and the sound's `sfx.md` before choosing. Defaults: 1-3 cues per
    scene max; prefer `beat:` over raw seconds so timing edits stay in one place.
-3. **bgm** — per scene: `{"track": "pulse_light", "volume": 0.6}` or `null` for silence.
+   For SFX that must land on a spoken word, set the beat time to that word's transcript
+   time, then reference `beat:<name>`.
+4. **bgm** — per scene: `{"track": "pulse_light", "volume": 0.6}` or `null` for silence.
    Omit the key to use the global default bed (`bgm.default_track`).
-4. **style.mood** (top-level scenes.json) — set it from STYLES.md: serious / tense / calm /
+5. **style.mood** (top-level scenes.json) — set it from STYLES.md: serious / tense / calm /
    neutral / playful / humorous / upbeat. Validation warns on mood clashes; the agent-facing
    rules are in `references/sfx-design.md`.
-5. Optional audition: set `"sfx_preview_requested": true` in `pipeline_state.json` before
+6. Optional audition: set `"sfx_preview_requested": true` in `pipeline_state.json` before
    `complete` — Step 10 will export `sfx_preview.mp3` + `sfx_preview.png` (waveform with
    scene/cue markers) for you to inspect; iterate cues and re-run
    `python3 pipeline.py sfx <title> --preview`.

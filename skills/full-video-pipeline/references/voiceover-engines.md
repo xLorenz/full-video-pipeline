@@ -11,6 +11,19 @@ The pipeline ships two TTS engines, selected via `voiceover.engine` in
 `edge` is the zero-config default: network-dependent (reverse-engineered
 Azure endpoint, less-polished legal posture) but fast and light.
 
+## Word timings per engine (Step 6 transcript)
+
+| Engine | Transcript source | Accuracy | Extra setup |
+|--------|-------------------|----------|-------------|
+| `edge` | `measured` — word boundaries captured during synthesis | ms | none |
+| `pocket` | `aligned` — vosk fallback aligns the MP3 to the known text | ~word | `pip install -r scripts/requirements-transcript.txt` + model under `models/` (see below) |
+
+Without vosk or a model, affected scenes are `estimated` (scene totals only,
+`words` empty — never faked). The transcript always builds; only the source
+degrades. Vosk model: download `vosk-model-small-en-us-0.15` (~50 MB) from
+<https://alphacephei.com/vosk/models>, unzip under `models/` (gitignored).
+Override via `transcript.vosk_model` in `pipeline_config.json`.
+
 ## Opting into pocket-tts
 
 Override these keys per video (auto-discovery is on by default):

@@ -4,6 +4,9 @@
 videos/{video-title}/
 ├── SCRIPT.md                  # Phase 1: full retention-optimized script
 ├── VOICEOVER.md               # Phase 2: parseable voiceover text per scene
+├── TRANSCRIPT.md                # Phase 2 (Step 6, always auto-built): word-level voiceover
+│                                # timings per scene — open at Step 8 for A/V sync
+├── voiceover_timings.json       # Same timings machine-readable (source of truth)
 ├── STYLES.md                  # Phase 3: visual style guide
 ├── TITLE.md                   # Phase 4: 3 YouTube title variants
 ├── DESCRIPTION.md             # Phase 4: YouTube description with timestamps
@@ -31,7 +34,7 @@ videos/{video-title}/
 │   │       ├── SceneMap.generated.ts   # auto-generated in Step 9 — do NOT edit
 │   │       └── SceneXX.tsx
 │   └── public/
-├── voiceover/                 # Generated .mp3 files
+├── voiceover/                 # Generated .mp3 files + per-scene .words.json timing sidecars (Step 5)
 ├── scenes/                    # Rendered .mp4 scene files (silent video)
 ├── logs/                      # Per-step + per-scene append-only logs
 └── versions/                  # Final stitched .mp4 + thumbnail .png

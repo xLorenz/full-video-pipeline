@@ -58,10 +58,44 @@ python3 pipeline.py complete <title>
     WAV-to-disk (no full-audio tensor in RAM), RAM floor pre-check + mid-run
     pulse check. `rate`/`volume`/`pitch` flags accepted but ignored (kept
     for hash-compat only). Full detail: `references/voiceover-engines.md`.
-- **Step 6 (Duration Measurement)**: Runs `measure_durations.py` — uses ffprobe
+- **Step 6 (Duration Measurement + Transcript)**: Runs `measure_durations.py` — uses ffprobe
   on each MP3, computes `actual_duration_frames = ceil(duration * fps)`, updates
-  `scenes.json` with real values. **Do NOT proceed to Phase 3 until Step 6
-  succeeds — all Remotion compositions depend on exact frame counts.**
+  `scenes.json` with real values — then runs `generate_transcript.py`, which merges
+  per-scene word timings into `voiceover_timings.json` + `TRANSCRIPT.md` (see below).
+  **Do NOT proceed to Phase 3 until Step 6 succeeds — all Remotion compositions
+  depend on exact frame counts, and all A/V sync depends on the transcript.**
+
+## Voiceover transcript (auto-built, always — no opt-out)
+
+Step 6 always emits two files at the video root (validated before Step 6 completes):
+
+- `voiceover_timings.json` — machine-readable source of truth: per scene
+  `{id, text, audio_file, duration, padded_duration, global_start, source, words[]}`,
+  where each word is `{w, start, end, global_start, global_end, start_frame, end_frame}`
+  (seconds from scene start, ms-rounded; `frame = round(t * fps)`).
+- `TRANSCRIPT.md` — the same data as a readable word table per scene. **Open this
+  at Step 8 whenever you need to sync visuals to narration** (beats, captions,
+  word highlights). You decide which words form a sentence, cue, or highlight —
+  the transcript is word-level only and never groups words for you.
+
+Per-scene `source` tells you whether ms-sync is safe:
+
+| source | meaning | trust |
+|--------|---------|-------|
+| `measured` | edge-tts word boundaries captured during synthesis | ms-accurate — sync freely |
+| `aligned` | vosk fallback alignment of the MP3 against the known text (pocket engine, or legacy audio) | word-accurate (~100ms) — fine for captions/highlights, avoid sub-frame choreography |
+| `estimated` | no timings (`words` is empty — never faked) | scene totals only — do not attempt word sync for this scene |
+
+Timing math (same as the stitcher — use it or drift):
+
+- Scene-local word times are seconds from scene start. Global time =
+  `global_start[scene] + local` (precomputed per word as `global_start/global_end`).
+- `global_start[N]` = sum of prior scenes' **padded** durations
+  (`ceil(duration * fps) / fps` — the exact padding `assemble.py` muxes by).
+  Never use raw TTS durations for cue math; the ~0.5-frame/scene padding
+  accumulates into visible drift on late scenes.
+- The transcript's `source` and frame fields already encode all of this —
+  prefer reading them over recomputing.
 
 The chain stops at the Phase 3 brief (Step 7 is creative). If Step 5 or 6 fails,
 `complete` emits `fix_and_continue` and exits 1 — fix the issue and re-run
