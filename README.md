@@ -9,13 +9,23 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 | Phase | Steps | Agent produces | Auto-runs after `complete` |
 |-------|-------|----------------|-----------------------------|
 | **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
-| **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel), Step 6 (ffprobe duration measurement) |
+| **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel, captures word timings), Step 6 (ffprobe duration measurement + word-level `TRANSCRIPT.md` / `voiceover_timings.json`) |
 | **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
 | **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
 
 The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, Remotion coding, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
 
-## Optional: Captions
+## Voiceover transcript (auto-built in Phase 2)
+
+`complete` on Phase 2 auto-runs Steps 5-6, which always emit word-level voiceover
+timings — `videos/<title>/TRANSCRIPT.md` (readable word table per scene, for beats,
+synced captions, and word highlights at Step 8) plus `voiceover_timings.json`
+(machine-readable). Each scene carries `source: measured | aligned | estimated`
+(edge-tts word boundaries | vosk fallback for the pocket engine | no timings).
+Pocket-engine timings need `pip install -r scripts/requirements-transcript.txt`
+plus a ~50 MB vosk model under `models/`.
+
+## Optional: Captions (SRT sidecar)
 
 ```bash
 python3 pipeline.py captions <title>
@@ -42,6 +52,10 @@ pip install -r scripts/requirements.txt   # edge-tts, jsonschema, psutil, refere
 # Optional: pocket-tts CPU neural TTS engine (adds PyTorch wheel, ~1 GB)
 # Only required if you set voiceover.engine to "pocket" (see below).
 pip install -r scripts/requirements-pocket.txt
+
+# Optional: vosk fallback for pocket-engine word timings (edge needs nothing extra)
+# Plus a ~50 MB model from https://alphacephei.com/vosk/models, unzipped under models/
+pip install -r scripts/requirements-transcript.txt
 ```
 
 ## Quick Start
@@ -249,6 +263,10 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "language": "english",
     "no_quantize": false
   },
+  "transcript": {
+    "vosk_model": "models/vosk-model-small-en-us-0.15",
+    "align_min_match": 0.5
+  },
   "render": {
     "concurrency": 1,
     "gl_backend": "auto",
@@ -436,7 +454,7 @@ into 4.
 
 Each video tracks progress in `pipeline_state.json`:
 - Steps 1-4: creative input required (topic, research, script, voiceover text)
-- Steps 5-6: automated (TTS generation [idempotent], duration measurement)
+- Steps 5-6: automated (TTS generation [idempotent, word timings], duration measurement + transcript build)
 - Steps 7-8: creative input required (style definition, Remotion coding)
 - Steps 9-10: automated (resumable scene rendering, atomic stitching)
 - Steps 11-12: creative input required (metadata, thumbnail composition)
@@ -500,6 +518,7 @@ python3 pipeline.py redo my-video 5                # Reset completed Step 5 (+ d
 python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
 python3 scripts/generate_voiceover_pocket.py videos/my-video/ --voice alba  # Optional pocket-tts engine
 python3 scripts/measure_durations.py videos/my-video/
+python3 scripts/generate_transcript.py videos/my-video/  # Step 6 tail: word timings + TRANSCRIPT.md
 python3 scripts/render_scene.py videos/my-video/ 1
 python3 scripts/assemble.py videos/my-video/
 python3 scripts/generate_captions.py videos/my-video/

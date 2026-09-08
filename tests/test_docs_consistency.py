@@ -95,3 +95,16 @@ def test_transcript_artifacts_documented():
     assert "TRANSCRIPT.md" in phase3
     directory = _read(SKILL / "references" / "directory-structure.md")
     assert "TRANSCRIPT.md" in directory and "voiceover_timings.json" in directory
+
+
+def test_transcript_script_never_manually_invoked():
+    # generate_transcript.py is orchestrator-run (Step 6 tail) like every other
+    # step script — all three agent-facing docs must ban manual invocation.
+    for rel in [SKILL / "SKILL.md", REPO / "AGENTS.md"]:
+        assert "generate_transcript" in _read(rel), f"{rel.name} omits generate_transcript ban"
+
+
+def test_readme_config_sample_includes_transcript():
+    text = _read(README)
+    assert '"vosk_model"' in text and '"align_min_match"' in text
+    assert "TRANSCRIPT.md" in text and "requirements-transcript" in text

@@ -110,7 +110,8 @@ brief (or "All steps complete!").
 ### Hard rules (non-negotiable)
 
 - **Never manually invoke** `render_scene.py`, `assemble.py`, `render_thumbnail.py`,
-  `generate_voiceover.py`, `generate_voiceover_pocket.py`, or `measure_durations.py`
+  `generate_voiceover.py`, `generate_voiceover_pocket.py`, `measure_durations.py`,
+  or `generate_transcript.py`
   yourself. The orchestrator runs them with idempotency checks, lint gates,
   atomic writes, and per-step logging that you would bypass.
 - **Don't hand-edit `pipeline_state.json`'s step-tracking fields** — `current_step`,
