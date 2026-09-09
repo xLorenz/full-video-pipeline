@@ -823,25 +823,128 @@ def hash_voiceover(text, voice, rate, volume, pitch, engine="edge") -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+# ---------------------------------------------------------------------------
+# Speech duration estimates (truncation detection + script-time estimates)
+# ---------------------------------------------------------------------------
+
+# Approximate speech rates in characters/second per language family, measured
+# from engine outputs (edge-tts + pocket-tts). Deliberately conservative
+# (slightly slow) so `expected` is an upper-ish bound; the truncation gate
+# only fires when actual audio is FAR shorter than expected.
+SPEECH_CHARS_PER_SEC = {
+    "english": 14.0,
+    "spanish": 17.0,
+    "french": 14.0,
+    "german": 13.0,
+    "italian": 15.0,
+    "portuguese": 14.0,
+}
+
+# Actual < 70% of expected duration => almost certainly truncated audio.
+TTS_TRUNCATION_RATIO = 0.7
+# Skip the check for tiny scenes (per-scene rate variance is high there).
+TTS_TRUNCATION_MIN_EXPECTED = 4.0
+
+
+def speech_rate_for_language(language) -> float:
+    """Chars/sec for a language tag like 'english' or 'spanish_24l'."""
+    lang = (language or "english").strip().lower()
+    base = re.split(r"[_\-\s]", lang)[0] if lang else "english"
+    return SPEECH_CHARS_PER_SEC.get(base, SPEECH_CHARS_PER_SEC["english"])
+
+
+def _resolve_speech_rate(language, rate_override) -> float:
+    """Explicit chars/sec override wins; otherwise the language table."""
+    try:
+        rate = float(rate_override) if rate_override else 0.0
+    except (TypeError, ValueError):
+        rate = 0.0
+    if rate <= 0:
+        rate = speech_rate_for_language(language)
+    return rate
+
+
+def estimate_audio_seconds_for_chars(n_chars, language="english",
+                                     rate_override=None) -> float:
+    """Expected TTS seconds for a character count (script-time estimates)."""
+    rate = _resolve_speech_rate(language, rate_override)
+    return (max(int(n_chars or 0), 0)) / rate if rate > 0 else 0.0
+
+
+def estimate_speech_duration(text, language="english", rate_override=None) -> float:
+    """Expected TTS seconds for `text`. `rate_override` (chars/sec, from
+    `voiceover.chars_per_sec`) wins over the language table."""
+    return estimate_audio_seconds_for_chars(len((text or "").strip()),
+                                            language, rate_override)
+
+
+def check_audio_duration_plausible(text, actual_seconds, language="english",
+                                  rate_override=None):
+    """Return (ok, expected, ratio) for freshly synthesized audio.
+
+    ok=False means the audio is far shorter than the text can explain —
+    almost certainly truncated synthesis, not natural rate variance.
+    """
+    expected = estimate_speech_duration(text, language, rate_override)
+    if expected < TTS_TRUNCATION_MIN_EXPECTED:
+        return True, expected, 1.0
+    ratio = (actual_seconds or 0.0) / expected
+    return ratio >= TTS_TRUNCATION_RATIO, expected, ratio
+
+
+# ---------------------------------------------------------------------------
+# Cached-audio verification (stale-MP3 detection for idempotent skips)
+# ---------------------------------------------------------------------------
+
+# A cached MP3 whose measured duration drifts further than this from the
+# registered actual_duration_seconds is stale (e.g. left behind by a scene
+# renumber) and must be regenerated, never skipped.
+AUDIO_STALE_TOLERANCE_SEC = 0.5
+AUDIO_STALE_TOLERANCE_RATIO = 0.05
+
+
+def check_cached_audio(mp3_path, voice_hash, stored_hash, stored_duration):
+    """Classify a cached scene MP3. Returns (status, actual_seconds).
+
+    Statuses: "missing" (no file/empty), "hash_mismatch" (text/voice
+    changed), "unmeasurable" (ffprobe failed), "stale" (hash matches but
+    audio bytes don't match the registered duration — e.g. renumber
+    leftovers), "current" (safe to skip).
+    """
+    if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) == 0:
+        return "missing", 0.0
+    if (stored_hash or None) != voice_hash:
+        return "hash_mismatch", 0.0
+    actual = get_audio_duration(mp3_path)
+    if actual <= 0:
+        return "unmeasurable", 0.0
+    if not stored_duration or stored_duration <= 0:
+        return "stale", actual
+    tol = max(AUDIO_STALE_TOLERANCE_SEC,
+              float(stored_duration) * AUDIO_STALE_TOLERANCE_RATIO)
+    if abs(actual - float(stored_duration)) <= tol:
+        return "current", actual
+    return "stale", actual
+
+
 def hash_sfx(obj) -> str:
     """SHA-256 of a canonically-serialized object (dict/list/primitive)."""
     blob = json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
-def compute_scene_render_hashes(video_dir) -> dict:
-    """{scene_id: sha256} over each scene's Remotion render inputs.
+def split_render_hashes(video_dir) -> tuple:
+    """(shared_digest_hex, {scene_id: combined_hash}) over Remotion inputs.
 
-    Per-scene hash = sha256(shared_project_digest + bytes(scenes/SceneXX.tsx)).
-    The shared digest covers every file under remotion/src EXCEPT the
-    per-scene TSX files (lib/, components/, Root.tsx, index.css,
-    SceneMap.generated.ts ...), so editing one scene's TSX invalidates only
-    that scene, while editing styles/config/shared components invalidates all.
-    Returns {} before Step 8 exists (no remotion/src).
+    Shared core of compute_scene_render_hashes, exposed separately so
+    callers (Step 9) can tell a scene-file edit apart from a shared-source
+    edit when explaining WHY a scene invalidated. `node_modules`,
+    `package-lock.json`, and SceneMap.generated.ts never participate —
+    reinstalling dependencies after retention cleanup cannot invalidate.
     """
     src = Path(video_dir) / "remotion" / "src"
     if not src.is_dir():
-        return {}
+        return "", {}
     scene_re = re.compile(r"^Scene(\d+)\.tsx$")
     shared_h = hashlib.sha256()
     scene_bytes = {}
@@ -865,14 +968,51 @@ def compute_scene_render_hashes(video_dir) -> dict:
     for rel, data in sorted(shared_files):
         shared_h.update(rel.encode("utf-8"))
         shared_h.update(data)
-    shared_digest = shared_h.hexdigest().encode("utf-8")
+    shared_digest = shared_h.hexdigest()
     out = {}
+    shared_bytes = shared_digest.encode("utf-8")
     for sid, data in scene_bytes.items():
         sh = hashlib.sha256()
-        sh.update(shared_digest)
+        sh.update(shared_bytes)
         sh.update(data)
         out[sid] = sh.hexdigest()
-    return out
+    return shared_digest, out
+
+
+def describe_render_staleness(video_dir, scene_id, stored_hash, stored_shared) -> str:
+    """Human-readable reason why a rendered scene's sources no longer match.
+
+    Distinguishes "SceneXX.tsx changed" (re-render just that scene) from
+    "shared sources changed" (all scenes invalidate — e.g. a scaffold
+    republish overwrote src/components/animations/). A bare dependency
+    reinstall can never be the reason: node_modules is not hashed.
+    """
+    shared, hashes = split_render_hashes(video_dir)
+    current = hashes.get(scene_id)
+    if current is None:
+        return f"scenes/Scene{scene_id:02d}.tsx missing from remotion/src"
+    if stored_hash and current == stored_hash:
+        return "unchanged"
+    if stored_shared and shared != stored_shared:
+        return ("shared remotion sources changed (lib/components/styles/animations "
+                "— invalidates all scenes; a scaffold republish overwrites "
+                "src/components/animations/)")
+    if stored_hash:
+        return f"scenes/Scene{scene_id:02d}.tsx changed"
+    return "no stored hash (legacy render — recording now)"
+
+
+def compute_scene_render_hashes(video_dir) -> dict:
+    """{scene_id: sha256} over each scene's Remotion render inputs.
+
+    Per-scene hash = sha256(shared_project_digest + bytes(scenes/SceneXX.tsx)).
+    The shared digest covers every file under remotion/src EXCEPT the
+    per-scene TSX files (lib/, components/, Root.tsx, index.css,
+    SceneMap.generated.ts ...), so editing one scene's TSX invalidates only
+    that scene, while editing styles/config/shared components invalidates all.
+    Returns {} before Step 8 exists (no remotion/src).
+    """
+    return split_render_hashes(video_dir)[1]
 
 
 # ---------------------------------------------------------------------------

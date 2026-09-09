@@ -205,8 +205,8 @@ Before any code, write the per-video Remotion rebuild plan:
 - Visual: {visual_notes from scenes.json}
 - Audio: voiceover/scene-01.mp3 (muted — muxed at stitch)
 - Key elements: [what needs to animate]
-- Transition in: {transition_in}
-- Transition out: {transition_out}
+- Transition in: {transition_in} (ADVISORY — MainVideo hard-cuts; hand-code any fade/wipe/slide inside this scene's TSX)
+- Transition out: {transition_out} (ADVISORY — same)
 
 ### Scene 2: ...
 
@@ -245,6 +245,7 @@ Each `SceneXX.tsx` should:
 - Match its `actual_duration_frames` exactly (voiceover sync depends on this — see "Audio Path")
 - Render completely silent video: no `<Audio>` for the voiceover, and none for music/SFX either (SFX/BGM are authored as `scenes.json` cues in step 8b and mixed at stitch — baked audio would double-mix)
 - Implement the visual treatment from `visual_notes` in `scenes.json`
+- Hand-code its own enter/exit fade (or wipe/slide) inside the scene when `transition_in/out` asks for one: `MainVideo.tsx` sequences scenes with hard cuts and its duration math assumes zero overlap, so do NOT use `<TransitionSeries>` or touch `MainVideo.tsx` — fade the scene's own content over its first/last ~10 frames instead
 - Follow the style system from STYLES.md
 
 **Optional:** Render `<Captions cues={scene.captions} fps={fps} />` from

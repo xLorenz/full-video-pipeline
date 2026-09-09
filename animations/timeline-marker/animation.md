@@ -53,6 +53,7 @@ export const Scene07: React.FC<{ scene: SceneTiming }> = () => (
 ```json
 {
   "global": { "speed": 1.0 },
+  "elements": [ { "id": "event-3", "color": "#00BFA6" } ],
   "extras": {
     "foregroundLabel": "How we got here",
     "events": [
@@ -61,11 +62,13 @@ export const Scene07: React.FC<{ scene: SceneTiming }> = () => (
       { "label": "1998", "caption": "ISS" },
       { "label": "2024", "caption": "Starship", "icon": "✦" }
     ],
-    "staggerSeconds": 0.3,
-    "elements": [ { "id": "event-3", "color": "#00BFA6" } ]
+    "staggerSeconds": 0.3
   }
 }
 ```
+
+> `elements[]` lives at the **top level**, next to `extras` — never nested
+> inside it (the schema rejects unknown `extras` keys).
 
 ## Recognized element ids
 

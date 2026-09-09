@@ -5,10 +5,19 @@ generate_voiceover.py
 Parses VOICEOVER.md and generates separate MP3 audio files for each scene
 using edge-tts. Idempotent + parallel-safe.
 
-Idempotency: a scene's MP3 is skipped if both (a) the file already exists
-and (b) the stored voiceover_hash matches the current (text, voice, rate,
-volume, pitch) tuple. The hash is recomputed from VOICEOVER.md content, so
-editing the script and re-running will regenerate only the changed scenes.
+Idempotency: a scene's MP3 is skipped only if (a) the file already
+exists, (b) the stored voiceover_hash matches the current (text, voice,
+rate, volume, pitch) tuple, AND (c) the cached audio's measured duration
+still matches the registered actual_duration_seconds (a scene renumber
+can leave a valid-hash MP3 holding another scene's audio — such stale
+files are regenerated, never skipped). The hash is recomputed from
+VOICEOVER.md content, so editing the script and re-running will
+regenerate only the changed scenes.
+
+Truncation gate: freshly synthesized audio is sanity-checked against a
+chars/sec estimate for the configured language. Audio far shorter than
+the text can explain is discarded and retried once; a second short
+result fails the scene (never marked complete).
 
 Word timings: generation requests `boundary="WordBoundary"` from the
 edge-tts service, so every synthesized word arrives with offset/duration
@@ -134,7 +143,8 @@ def update_scene_in_scenes_json(video_dir_path, scene_id, audio_rel, duration, v
 
 
 async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pitch,
-                       sem, logpath, engine="edge"):
+                       sem, logpath, engine="edge", language="english",
+                       rate_override=None):
     scene_id = scene["id"]
     text = scene["text"]
     output_file = f"scene-{scene_id:02d}.mp3"
@@ -142,20 +152,34 @@ async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pit
     relative_path = f"voiceover/{output_file}"
     voice_hash = pl.hash_voiceover(text, voice, rate, volume, pitch, engine=engine)
 
-    # Idempotency check: skip if file exists and hash matches.
+    # Idempotency check: skip only when the cached file exists, the hash
+    # matches, AND the audio bytes still match the registered duration.
+    # A renumber can leave a valid-hash MP3 holding another scene's audio;
+    # check_cached_audio catches that as "stale" so we regenerate.
     if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
         scenes_path = os.path.join(video_dir, "scenes.json")
         with open(scenes_path, "r", encoding="utf-8") as f:
             existing = next((s for s in json.load(f).get("scenes", [])
                             if s["id"] == scene_id), None)
-        if existing and existing.get("voiceover_hash") == voice_hash:
-            existing_dur = existing.get("actual_duration_seconds") or 0
+        status, cached_dur = pl.check_cached_audio(
+            output_path, voice_hash,
+            (existing or {}).get("voiceover_hash"),
+            (existing or {}).get("actual_duration_seconds"))
+        if status == "current":
             msg = (f"Scene {scene_id}: skip (unchanged) — "
-                   f"{output_file} ({existing_dur:.2f}s)")
+                   f"{output_file} ({cached_dur:.2f}s)")
             print(msg)
             with open(logpath, "a", encoding="utf-8") as logf:
                 logf.write(msg + "\n")
             return ("skipped", scene_id, voice_hash)
+        if status == "stale":
+            reg = (existing or {}).get("actual_duration_seconds") or 0
+            msg = (f"Scene {scene_id}: cached audio is STALE "
+                   f"(file {cached_dur:.2f}s vs registered {reg:.2f}s) — "
+                   f"regenerating {output_file}")
+            print(msg)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(msg + "\n")
 
     async with sem:
         msg = f"Scene {scene_id}: generating audio..."
@@ -216,6 +240,73 @@ async def generate_one(scene, voiceover_dir, video_dir, voice, rate, volume, pit
             except OSError:
                 pass
             return ("failed", scene_id, voice_hash)
+        plausible, expected, ratio = pl.check_audio_duration_plausible(
+            text, duration, language, rate_override)
+        if not plausible:
+            trunc_msg = (f"  ERROR: Scene {scene_id}: audio looks TRUNCATED "
+                         f"({duration:.2f}s for ~{len(text.strip())} chars; "
+                         f"expected ~{expected:.1f}s, ratio {ratio:.2f}) — "
+                         f"discarding and retrying once")
+            print(trunc_msg)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(trunc_msg + "\n")
+            for p in (output_path,
+                      os.path.join(voiceover_dir, f"scene-{scene_id:02d}.words.json")):
+                try:
+                    if os.path.exists(p):
+                        os.unlink(p)
+                except OSError:
+                    pass
+            await asyncio.sleep(5)
+            try:
+                words = await generate_audio_with_words(text, output_path, voice, rate,
+                                                        volume, pitch)
+            except Exception as e2:
+                err = f"ERROR: Scene {scene_id}: truncation retry failed ({e2})"
+                print(err)
+                with open(logpath, "a", encoding="utf-8") as logf:
+                    logf.write(err + "\n")
+                try:
+                    if os.path.exists(output_path):
+                        os.unlink(output_path)
+                except OSError:
+                    pass
+                return ("failed", scene_id, voice_hash)
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                err = f"ERROR: Scene {scene_id}: truncation retry produced no audio"
+                print(err)
+                with open(logpath, "a", encoding="utf-8") as logf:
+                    logf.write(err + "\n")
+                return ("failed", scene_id, voice_hash)
+            duration = pl.get_audio_duration(output_path)
+            size = os.path.getsize(output_path)
+            if duration <= 0.0:
+                err = (f"ERROR: Scene {scene_id}: ffprobe could not measure "
+                       f"retry audio — discarding")
+                print(err)
+                with open(logpath, "a", encoding="utf-8") as logf:
+                    logf.write(err + "\n")
+                try:
+                    os.unlink(output_path)
+                except OSError:
+                    pass
+                return ("failed", scene_id, voice_hash)
+            plausible2, expected2, ratio2 = pl.check_audio_duration_plausible(
+                text, duration, language, rate_override)
+            if not plausible2:
+                err = (f"ERROR: Scene {scene_id}: still truncated after retry "
+                       f"({duration:.2f}s vs expected ~{expected2:.1f}s, "
+                       f"ratio {ratio2:.2f}) — marking failed")
+                print(err)
+                with open(logpath, "a", encoding="utf-8") as logf:
+                    logf.write(err + "\n")
+                try:
+                    os.unlink(output_path)
+                except OSError:
+                    pass
+                return ("failed", scene_id, voice_hash)
+            print(f"  Scene {scene_id}: retry recovered "
+                  f"({size} bytes, {duration:.2f}s)")
         if not words:
             print(f"  WARN: Scene {scene_id}: no WordBoundary events received — "
                   f"Step 6 will fall back to alignment for this scene")
@@ -270,6 +361,13 @@ async def main():
     rate = args.rate or vo.get("rate", "+0%")
     volume = args.volume or vo.get("volume", "+0%")
     pitch = args.pitch or vo.get("pitch", "+0Hz")
+    language = vo.get("language", "english")
+    try:
+        chars_per_sec = (float(vo.get("chars_per_sec"))
+                         if vo.get("chars_per_sec") else None)
+    except (TypeError, ValueError):
+        print("ERROR: voiceover.chars_per_sec must be a number", file=sys.stderr)
+        sys.exit(2)
     try:
         concurrency = int(args.concurrency or vo.get("concurrency", 3))
     except (TypeError, ValueError):
@@ -296,16 +394,18 @@ async def main():
         sys.exit(2)
     print(f"Found {len(scenes)} scenes to generate")
     print(f"Voice: {voice}, Rate: {rate}, Volume: {volume}, Pitch: {pitch}, "
-          f"Concurrency: {concurrency}")
+          f"Concurrency: {concurrency}, Language: {language}")
     with open(log_file, "a", encoding="utf-8") as logf:
         logf.write(f"\n=== generate_voiceover.py run {pl.now_iso()} ===\n")
         logf.write(f"voice={voice} rate={rate} volume={volume} "
-                   f"pitch={pitch} concurrency={concurrency}\n")
+                   f"pitch={pitch} concurrency={concurrency} "
+                   f"language={language}\n")
 
     sem = asyncio.Semaphore(concurrency)
     engine = vo.get("engine", "edge")
     tasks = [generate_one(s, voiceover_dir, video_dir, voice, rate, volume, pitch,
-                          sem, log_file, engine=engine) for s in scenes]
+                          sem, log_file, engine=engine, language=language,
+                          rate_override=chars_per_sec) for s in scenes]
     results = await asyncio.gather(*tasks)
 
     # Memory guard during the gather — note this only catches AFTER all tasks finish

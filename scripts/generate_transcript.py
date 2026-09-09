@@ -9,14 +9,23 @@ Merges per-scene timing data into two agent-facing artifacts:
 
 Per-scene timing source (recorded per scene as `source`):
   - "measured"  — voiceover/scene-NN.words.json from Step 5 (edge engine)
-                  exists AND its voice_hash matches scenes.json (same audio).
+                   exists AND its voice_hash matches scenes.json (same audio).
   - "aligned"   — vosk fallback: the scene's MP3 was decoded to 16 kHz mono
-                  and recognized with word timestamps, then aligned to the
-                  known voiceover text. Used for the pocket engine and for
-                  any scene whose sidecar is missing or stale.
-  - "estimated" — vosk unavailable (not installed / no model) or alignment
-                  failed: `words` is EMPTY. No fake timings are ever emitted;
-                  the agent must treat these scenes as scene-total-only.
+                   and recognized with word timestamps, then aligned to the
+                   known voiceover text. Used for the pocket engine and for
+                   any scene whose sidecar is missing or stale.
+  - "estimated" — vosk unavailable (not installed / no model), so alignment
+                   was never attempted: `words` is EMPTY. No fake timings
+                   are ever emitted; the agent must treat these scenes as
+                   scene-total-only.
+
+Alignment failures are HARD ERRORS, not estimates: if vosk runs but the
+recognized words don't match the script (match ratio < align_min_match),
+the audio almost certainly doesn't contain the script text (wrong or
+truncated MP3, e.g. renumber leftovers) — the scene is recorded with
+empty words AND the run exits 1 so the pipeline stops instead of
+carrying silent wrong-audio scenes forward. Fix the audio (re-run Step
+5 — its stale-audio check regenerates bad files) and re-run Step 6.
 
 Word-level only by design: the agent decides which words form a sentence,
 caption cue, or highlight. This script never groups words.
@@ -353,6 +362,7 @@ def main():
 
     scenes_out = []
     global_t = 0.0
+    align_failed = []
     for s in scenes:
         sid = s["id"]
         text = s.get("voiceover_text") or ""
@@ -390,7 +400,13 @@ def main():
                     log(f"Scene {sid}: vosk-aligned {len(words)} words "
                         f"(match {ratio:.2f}) from {len(rec)} recognized")
                 except Exception as e:
-                    log(f"Scene {sid}: vosk alignment failed ({e}) — marking estimated")
+                    # Hard failure, NOT a silent estimate: recognition ran
+                    # but the audio doesn't match the script (low match
+                    # ratio, empty recognition, decode error). This is
+                    # almost certainly wrong audio, not aligner bad luck.
+                    log(f"ERROR: Scene {sid}: vosk alignment failed ({e}) — "
+                        f"audio does not match script text")
+                    align_failed.append(sid)
                     words, source = [], "estimated"
             else:
                 log(f"Scene {sid}: no measured sidecar, no vosk model — estimated")
@@ -429,6 +445,11 @@ def main():
         f"(measured={n_measured} aligned={n_aligned} estimated={n_estimated})")
     log(f"  JSON: {video_dir / TIMINGS_FILENAME}")
     log(f"  MD:   {video_dir / TRANSCRIPT_FILENAME}")
+    if align_failed:
+        log(f"ERROR: alignment failed for scenes {align_failed} — audio does "
+            f"not match script text (wrong/truncated MP3?). Re-run Step 5 "
+            f"(stale-audio check regenerates bad files), then re-run Step 6.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

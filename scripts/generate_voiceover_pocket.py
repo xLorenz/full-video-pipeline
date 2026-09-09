@@ -33,11 +33,20 @@ OOM defenses (any one alone is sufficient in normal operation):
      + mid-run pulse check (stops early, leaves scenes resumable via
      the same idempotent-skip mechanism as the edge-tts path)
 
-Idempotency: identical to edge-tts. A scene is skipped if its MP3 exists
-and `voiceover_hash` in scenes.json matches the recomputed hash. The hash
-is computed from (text, voice, rate, volume, pitch) using the same
-`pl.hash_voiceover` so a swap of engines regenerates all scenes (intended
-— different audio), and an unchanged script on re-run skips everything.
+Idempotency: identical to edge-tts. A scene is skipped only if its MP3
+exists, `voiceover_hash` in scenes.json matches the recomputed hash, AND
+the cached audio's measured duration still matches the registered
+actual_duration_seconds (a renumber can leave a valid-hash MP3 holding
+another scene's audio — such stale files are regenerated, never
+skipped). The hash is computed from (text, voice, rate, volume, pitch)
+using the same `pl.hash_voiceover` so a swap of engines regenerates all
+scenes (intended — different audio), and an unchanged script on re-run
+skips everything.
+
+Truncation gate: freshly synthesized audio is sanity-checked against a
+chars/sec estimate for the configured language. Audio far shorter than
+the text can explain is discarded and retried once; a second short
+result fails the scene (never marked complete).
 
 Voice catalog (named only in v1; cloning deferred):
   alba, anna, azelma, bill_boerst, caro_davy, charles, cosette, eponine,
@@ -139,14 +148,15 @@ def scene_is_current(scene, existing_idx, voiceover_dir, voice, rate, volume, pi
     1 GB t3.micro. So we pre-flight before loading anything.
     """
     mp3_path = os.path.join(voiceover_dir, f"scene-{scene['id']:02d}.mp3")
-    if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) == 0:
-        return False
     existing = existing_idx.get(scene["id"])
     if not existing:
         return False
     voice_hash = pl.hash_voiceover(scene["text"], voice, rate, volume, pitch,
                                    engine="pocket")
-    return existing.get("voiceover_hash") == voice_hash
+    status, _ = pl.check_cached_audio(mp3_path, voice_hash,
+                                      existing.get("voiceover_hash"),
+                                      existing.get("actual_duration_seconds"))
+    return status == "current"
 
 
 def available_ram_mb() -> float:
@@ -227,7 +237,8 @@ def encode_mp3(wav_path: str, mp3_path: str, timeout: int = 120) -> None:
 
 
 def generate_one(model, voice_state, scene, voiceover_dir, video_dir,
-                 voice, rate, volume, pitch, logpath, min_ram_mb, existing_idx):
+                 voice, rate, volume, pitch, logpath, min_ram_mb, existing_idx,
+                 language="english", rate_override=None):
     """Generate one scene's MP3 with idempotency + RAM pulse check.
 
     `existing_idx` is the {scene_id: scene_dict} from a single prior
@@ -255,6 +266,20 @@ def generate_one(model, voice_state, scene, voiceover_dir, video_dir,
         with open(logpath, "a", encoding="utf-8") as logf:
             logf.write(msg + "\n")
         return ("skipped", scene_id, voice_hash)
+
+    # Not current: distinguish stale-audio regen from content-change regen
+    # so renumber leftovers are visible in the log instead of silent.
+    _existing = existing_idx.get(scene_id, {})
+    _st, _actual = pl.check_cached_audio(
+        mp3_path, voice_hash, _existing.get("voiceover_hash"),
+        _existing.get("actual_duration_seconds"))
+    if _st == "stale":
+        _reg = _existing.get("actual_duration_seconds") or 0
+        msg = (f"Scene {scene_id}: cached audio is STALE "
+               f"(file {_actual:.2f}s vs registered {_reg:.2f}s) — regenerating")
+        print(msg)
+        with open(logpath, "a", encoding="utf-8") as logf:
+            logf.write(msg + "\n")
 
     msg = f"Scene {scene_id}: generating audio (pocket-tts)..."
     print(msg)
@@ -297,6 +322,69 @@ def generate_one(model, voice_state, scene, voiceover_dir, video_dir,
 
     duration = pl.get_audio_duration(mp3_path)
     size = os.path.getsize(mp3_path)
+    plausible, expected, ratio = pl.check_audio_duration_plausible(
+        text, duration, language, rate_override)
+    if not plausible:
+        trunc_msg = (f"  ERROR: Scene {scene_id}: audio looks TRUNCATED "
+                     f"({duration:.2f}s for ~{len(text.strip())} chars; "
+                     f"expected ~{expected:.1f}s, ratio {ratio:.2f}) — "
+                     f"discarding and retrying once")
+        print(trunc_msg)
+        with open(logpath, "a", encoding="utf-8") as logf:
+            logf.write(trunc_msg + "\n")
+        try:
+            if os.path.exists(mp3_path):
+                os.remove(mp3_path)
+        except OSError:
+            pass
+        try:
+            stream_to_wav(model, voice_state, text, wav_path)
+            encode_mp3(wav_path, mp3_path)
+        except Exception as e2:
+            err = f"  ERROR: truncation retry failed on scene {scene_id}: {e2}"
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
+            return ("failed", scene_id, voice_hash)
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) == 0:
+            err = f"  ERROR: truncation retry produced no audio for scene {scene_id}"
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            return ("failed", scene_id, voice_hash)
+        duration = pl.get_audio_duration(mp3_path)
+        size = os.path.getsize(mp3_path)
+        if duration <= 0.0:
+            err = (f"  ERROR: ffprobe could not measure retry audio "
+                   f"for scene {scene_id} — discarding")
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            try:
+                os.unlink(mp3_path)
+            except OSError:
+                pass
+            return ("failed", scene_id, voice_hash)
+        plausible2, expected2, ratio2 = pl.check_audio_duration_plausible(
+            text, duration, language, rate_override)
+        if not plausible2:
+            err = (f"  ERROR: Scene {scene_id}: still truncated after retry "
+                   f"({duration:.2f}s vs expected ~{expected2:.1f}s, "
+                   f"ratio {ratio2:.2f}) — marking failed")
+            print(err)
+            with open(logpath, "a", encoding="utf-8") as logf:
+                logf.write(err + "\n")
+            try:
+                os.unlink(mp3_path)
+            except OSError:
+                pass
+            return ("failed", scene_id, voice_hash)
+        print(f"  Scene {scene_id}: retry recovered "
+              f"({size} bytes, {duration:.2f}s)")
     msg = (f"Scene {scene_id}: generated {mp3_file} "
            f"({size} bytes, {duration:.2f}s)")
     print(msg)
@@ -364,6 +452,12 @@ def main():
     rate = args.rate or vo.get("rate", "+0%")
     volume = args.volume or vo.get("volume", "+0%")
     pitch = args.pitch or vo.get("pitch", "+0Hz")
+    try:
+        chars_per_sec = (float(vo.get("chars_per_sec"))
+                         if vo.get("chars_per_sec") else None)
+    except (TypeError, ValueError):
+        print("ERROR: voiceover.chars_per_sec must be a number", file=sys.stderr)
+        sys.exit(2)
     # Mid-run pulse check floor: separate from the pre-load floor defined
     # later (MIN_FREE_FOR_POCKET_MB, ~534 MB, used only as a model-load
     # gate). `min_ram_mb` here is the user's operating-system floor — the
@@ -485,7 +579,8 @@ def main():
     for scene in scenes:
         result = generate_one(model, voice_state, scene, voiceover_dir, video_dir,
                              voice, rate, volume, pitch, log_file, min_ram_mb,
-                             existing_idx)
+                             existing_idx, language=language,
+                             rate_override=chars_per_sec)
         results.append(result)
         if result[0] == "stopped":
             break  # RAM pressure; halt gracefully

@@ -191,7 +191,8 @@ animation timings live:
   later nudge the animation timing, update the one `beats` entry; cues follow.
 - Sounds come from the repo-root `sfx/` catalog (CATALOG.md). Every sound has machine-checked
   `moods`; a cue whose moods clash with the video's `style.mood` triggers a validation
-  WARNING. If you cannot justify a sound's character against the mood, don't use it.
+  WARNING — except `neutral` sounds (whoosh, tick, chime…), which fit everywhere by
+  design and never warn. If you cannot justify a non-neutral sound's character against the mood, don't use it.
 - Volume is a 0..1 knob — the engine measures the real voiceover peak and places cues 10 dB
   (volume 1.0) to 20 dB (volume 0) below it, then asserts the final mix never clips and never
   rises more than 1.5 LUFS over the voiceover. You cannot drown the narration by accident.
@@ -220,7 +221,9 @@ voiceover timings — no opt-in needed:
 
 Each scene carries `source: measured | aligned | estimated` (edge-tts word
 boundaries | vosk fallback for the pocket engine | no timings — sync to scene
-totals only). Full semantics: `references/phase-2-voiceover.md`.
+totals only). If recognition runs but the words don't match the script, Step 6
+fails outright (wrong audio is never silently estimated). Full semantics:
+`references/phase-2-voiceover.md`.
 
 ## Optional: Captions (SRT sidecar)
 
@@ -243,10 +246,12 @@ Defaults are in `pipeline_config.json`. Override per-video as needed:
 
 - `video.fps`, `video.width`, `video.height` — composition settings
 - `video.burn_captions` — render `<Captions>` layer when scene has cues (default `false`)
+- `video.target_duration_seconds` — optional total-length target (`null` = off); Step 3 validation warns when the chars/sec script estimate drifts >10% from it
 - `voiceover.engine` — `edge` (default) or `pocket` (optional CPU neural TTS;
   see `references/voiceover-engines.md`)
 - `voiceover.voice` — TTS voice name. For `edge`: Azure neural voice (`edge-tts --list-voices`). For `pocket`: a named preset voice (full catalog in the voiceover-engines reference)
 - `voiceover.language` — pocket-tts language model (default `english`; non-English `*_24l` variants are heavier)
+- `voiceover.chars_per_sec` — optional measured rate override (`null` = language table); set from `voice-test` output for exact estimates and truncation gates
 - `voiceover.no_quantize` — disables int8 quantization of the pocket model (default `false` — quantization has no measurable quality loss and halves runtime memory)
 - `render.*` — rendering guardrails (concurrency, codec, memory limits)
 - `system.*` — resource thresholds
@@ -283,6 +288,10 @@ python3 pipeline.py clean <title>
 | Error | Recovery |
 |-------|----------|
 | `edge-tts` network failure | Step 5 retries each scene once after 5s backoff. Re-run `complete` — unchanged scenes skipped (idempotent). |
+| Truncated TTS audio (far shorter than the chars/sec estimate) | Step 5 discards it, retries once, then fails the scene — never marked complete. Check `step-5.log` for the TRUNCATED line, then re-run `complete`. |
+| Stale cached MP3 after a scene renumber | Step 5 detects the duration mismatch (valid hash, wrong audio), logs STALE, and regenerates. Step 6 then re-runs clean. Never hand-delete voiceover files to "fix" this. |
+| Step 6 alignment failure (words don't match script) | Audio is wrong, not the aligner — exit 1 by design. Re-run `complete` (Step 5 heals the file first). |
+| Script total surprise at Step 6 ("5 min" came out 6:11) | Run `python3 pipeline.py voice-test <title>` before Step 5 to project the total from a measured rate; set `video.target_duration_seconds` so Step 3 warns early. |
 | pocket-tts insufficient RAM at start | Wrapper refuses to load model and exits 2 with a diagnostic. Free RAM on the host (kill chrome, drop caches) or switch `voiceover.engine` back to `edge` in the per-video config. |
 | pocket-tts mid-batch RAM pressure | Wrapper records a WARN and exits 1; scenes generated before the pressure point are on disk with valid hashes. Re-run `complete` — generated scenes skip, the rest resume. If persistent, reduce `voiceover.language` to the default `english` (avoid `*_24l`) and ensure `voiceover.no_quantize: false`. |
 | pocket-tts model-download failure (first run) | One-time HuggingFace download of weights (~215 MB) failed. Re-run `complete`; HF resumes partial downloads. |
@@ -330,11 +339,13 @@ python3 pipeline.py status my-video            # Show specific project (with att
 python3 pipeline.py status                     # Show all projects
 python3 pipeline.py validate my-video          # Standalone schema validation
 python3 pipeline.py validate my-video --step 6 # Step-specific requirements
+python3 pipeline.py validate my-video --step 8 --strict # SFX gates, warnings as errors
+python3 pipeline.py voice-test my-video         # Synth 1 line, measure chars/sec, project script total
 python3 pipeline.py preview my-video           # Smoke-render scene 1
 python3 pipeline.py captions my-video          # Generate SRT + populate captions
 python3 pipeline.py sfx my-video               # Generate SFX/BGM tracks (idempotent)
 python3 pipeline.py sfx my-video --preview     # Also export sfx_preview.mp3 + waveform PNG
-python3 pipeline.py audit my-video             # Audit for violations — always run after a --force
+python3 pipeline.py audit my-video             # Audit for violations — always run after a --force (scans each step log's last run only; superseded killed-run history is ignored)
 python3 pipeline.py doctor my-video            # System + project diagnostics
 python3 pipeline.py clean my-video             # Free disk space (all safe-to-delete items)
 python3 pipeline.py redo my-video 5            # Reset completed Step 5 (+ dependents) to pending, e.g. after editing VOICEOVER.md; then `continue`

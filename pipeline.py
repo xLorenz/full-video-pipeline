@@ -9,6 +9,7 @@ Usage:
     ./pipeline.py complete <title> [--step N] [--force]  Validate creative artifacts + auto-run automated steps
     ./pipeline.py status [title] [--scenes]  Show pipeline state
     ./pipeline.py validate <title> [--step N]  Standalone schema validation
+    ./pipeline.py voice-test <title> [--scene N]  Synth 1 line, measure chars/sec, project script total
     ./pipeline.py lint-script <title>    Lint scenes.json voiceover_text for AI-isms
     ./pipeline.py preview <title>        Smoke-render scene 1 (low-res)
     ./pipeline.py preview-frame <title> <scene> <frame>  Single still for visual QA
@@ -942,7 +943,7 @@ def run_step_9(title, vdir):
     # skipped when its Remotion inputs are unchanged. Legacy scenes rendered
     # before hashes existed are backfilled (NOT force-re-rendered) so future
     # edits start invalidating from now on.
-    render_hashes = pl.compute_scene_render_hashes(vdir)
+    render_shared, render_hashes = pl.split_render_hashes(vdir)
     backfills = []
     for s in scenes:
         if not isinstance(s, dict) or not isinstance(s.get("id"), int):
@@ -959,7 +960,9 @@ def run_step_9(title, vdir):
             if current:
                 backfills.append((sid, current))
         else:
-            print(f"  Scene {sid}: source changed since last render — re-rendering")
+            reason = pl.describe_render_staleness(
+                vdir, sid, stored, s.get("render_shared"))
+            print(f"  Scene {sid}: source changed since last render ({reason}) — re-rendering")
             s["render_status"] = "pending"
     if backfills:
         full_path = vdir / "scenes.json"
@@ -969,6 +972,7 @@ def run_step_9(title, vdir):
             for s in full.get("scenes", []):
                 if s["id"] == sid:
                     s["render_hash"] = h
+                    s["render_shared"] = render_shared
         pl.save_scenes_full(vdir, full)
 
     failed_scenes = []
@@ -1461,12 +1465,17 @@ def cmd_audit(args):
     else:
         print("  (no version MP4s)")
 
-    # 4. Cross-reference log errors against step status
+    # 4. Cross-reference log errors against step status. Only the LAST run
+    # block of each log is scanned (text after the final "=== <script> run
+    # <iso> ===" header): earlier blocks are history from killed/superseded
+    # attempts, and flagging them against a now-complete step produced
+    # false-positive LOG_ERROR violations that hid real problems.
     print(f"\n--- Consistency checks ---")
     if log_dir.exists():
         _err_re = re.compile(r"^\s*(ERROR|Error|error)[\s:]", re.MULTILINE)
         _exit_re = re.compile(r"exit code [1-9]", re.IGNORECASE)
         _ffmpeg_re = re.compile(r"\[(error|failed)\]", re.IGNORECASE)
+        _run_header_re = re.compile(r"^=== \S+ run \S+", re.MULTILINE)
         for lf in sorted(log_dir.glob("step-*.log")):
             try:
                 with open(lf, "r", encoding="utf-8", errors="replace") as f:
@@ -1479,10 +1488,13 @@ def cmd_audit(args):
             if step_num is not None and step_num <= len(STEP_KEYS):
                 key = STEP_KEYS[step_num - 1]
                 status = state["steps"].get(key, {}).get("status", "")
-                has_error = bool(_err_re.search(text) or _exit_re.search(text)
-                                 or _ffmpeg_re.search(text))
+                # Last-run-block scope: ignore superseded history.
+                headers = list(_run_header_re.finditer(text))
+                last_block = text[headers[-1].start():] if headers else text
+                has_error = bool(_err_re.search(last_block) or _exit_re.search(last_block)
+                                 or _ffmpeg_re.search(last_block))
                 if status == "complete" and has_error:
-                    violations.append(f"LOG_ERROR: {lf.name} marked complete but log contains errors")
+                    violations.append(f"LOG_ERROR: {lf.name} marked complete but its last run contains errors")
                 elif status == "complete":
                     pass  # all good
         if not any("LOG_ERROR" in v for v in violations):
@@ -1664,11 +1676,14 @@ def cmd_validate(args):
     if not video_dir(title).exists():
         print(f"ERROR: Video directory not found: {video_dir(title)}")
         sys.exit(2)
-    p = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
-         str(video_dir(title))],
-        cwd=REPO_ROOT,
-    )
+    argv = [sys.executable, str(REPO_ROOT / "scripts" / "validate.py"),
+            str(video_dir(title))]
+    step = getattr(args, "step", 0) or 0
+    if step:
+        argv += ["--step", str(step)]
+    if getattr(args, "strict", False):
+        argv += ["--strict"]
+    p = subprocess.run(argv, cwd=REPO_ROOT)
     sys.exit(p.returncode)
 
 
@@ -1689,6 +1704,118 @@ def cmd_lint_script(args):
         cwd=REPO_ROOT,
     )
     sys.exit(p.returncode)
+
+
+def cmd_voice_test(args):
+    """Synthesize one sample line with the configured voice, measure the
+    real chars/sec rate, and project the full script's audio total from
+    the MEASURED rate (validates cross-lingual voices before committing
+    to a full Step 5 run). Temp audio is deleted afterwards."""
+    import tempfile as _tf
+    title = _safe_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    scenes = [s for s in (load_scenes(title) or [])
+              if isinstance(s, dict) and isinstance(s.get("id"), int)]
+    if not scenes:
+        print(f"ERROR: no scenes in {scenes_json_path(title)} — write the script first")
+        sys.exit(2)
+
+    sample = (args.text or "").strip()
+    if sample:
+        label = "custom --text"
+    else:
+        sid = args.scene or 1
+        match = next((s for s in scenes if s.get("id") == sid), None)
+        if match is None or not (match.get("voiceover_text") or "").strip():
+            print(f"ERROR: scene {sid} has no voiceover_text to sample")
+            sys.exit(2)
+        sample = match["voiceover_text"].strip()
+        label = f"scene {sid}"
+
+    cfg = load_pipeline_config(video_dir=vdir)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    vo = cfg.get("voiceover") or {}
+    if not isinstance(vo, dict):
+        vo = {}
+    engine = (args.engine or vo.get("engine", "edge") or "edge").strip().lower()
+    language = vo.get("language", "english")
+    rate_override = vo.get("chars_per_sec")
+    rate = vo.get("rate", "+0%")
+    volume = vo.get("volume", "+0%")
+    pitch = vo.get("pitch", "+0Hz")
+
+    fd, tmp = _tf.mkstemp(suffix=".mp3", prefix="voice-test-")
+    os.close(fd)
+    tmp_wav = tmp + ".wav"
+    try:
+        if engine == "edge":
+            voice = args.voice or vo.get("voice", "en-GB-RyanNeural")
+            import generate_voiceover as _gv
+            import asyncio as _aio
+            words = _aio.run(_gv.generate_audio_with_words(
+                sample, tmp, voice, rate, volume, pitch))
+        elif engine == "pocket":
+            voice = args.voice or vo.get("voice", "alba")
+            try:
+                from pocket_tts import TTSModel
+            except ImportError:
+                print("ERROR: pocket-tts not installed. "
+                      "Run: pip install -r scripts/requirements-pocket.txt",
+                      file=sys.stderr)
+                sys.exit(2)
+            import generate_voiceover_pocket as _pv
+            quantize = not vo.get("no_quantize", False)
+            print(f"Loading pocket-tts model (language={language}) for one sample...")
+            model = TTSModel.load_model(language=language, quantize=quantize)
+            voice_state = model.get_state_for_audio_prompt(voice)
+            _pv.stream_to_wav(model, voice_state, sample, tmp_wav)
+            _pv.encode_mp3(tmp_wav, tmp)
+            words = []
+        else:
+            print(f"ERROR: unknown voiceover engine {engine!r} (want edge|pocket)")
+            sys.exit(2)
+
+        duration = pl.get_audio_duration(tmp)
+        if duration <= 0:
+            print("ERROR: ffprobe could not measure the sample audio", file=sys.stderr)
+            sys.exit(1)
+        chars = len(sample)
+        measured = chars / duration
+        expected = pl.estimate_audio_seconds_for_chars(chars, language, rate_override)
+        table_rate = pl._resolve_speech_rate(language, rate_override)
+        total_chars = sum(len((s.get("voiceover_text") or "").strip()) for s in scenes)
+        projected = total_chars / measured if measured > 0 else 0.0
+        sum_targets = sum(s.get("target_duration_seconds") or 0 for s in scenes)
+
+        def _mmss(sec):
+            sec = max(0, int(round(sec)))
+            return f"{sec // 60}:{sec % 60:02d}"
+
+        print(f"=== voice-test: {title} ({label}, engine={engine}, voice={voice}) ===")
+        print(f"  Sample: {chars} chars -> {duration:.2f}s audio "
+              f"({measured:.1f} chars/s, {len(words)} word timings)")
+        print(f"  Table estimate for sample: ~{expected:.1f}s "
+              f"({language} @~{table_rate:.1f} chars/s) — "
+              f"measured/table ratio {duration / expected:.2f}" if expected > 0 else
+              "  Table estimate for sample: n/a")
+        print(f"  Full script: {total_chars} chars across {len(scenes)} scenes")
+        print(f"  Projected audio total @measured rate: ~{projected:.0f}s ({_mmss(projected)})")
+        if sum_targets > 0:
+            drift = abs(projected - sum_targets) / sum_targets
+            flag = "  <-- OVER 10%: retarget before Step 5" if drift > 0.10 else ""
+            print(f"  Sum of target_duration_seconds: {sum_targets:.0f}s "
+                  f"(drift {drift * 100:.0f}%){flag}")
+    finally:
+        for p in (tmp, tmp_wav):
+            try:
+                if os.path.exists(p):
+                    os.unlink(p)
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -2161,9 +2288,24 @@ def main():
 
     validate_p = sub.add_parser("validate", help="Validate scenes.json + pipeline_state.json against schemas")
     validate_p.add_argument("title", help="Video title")
+    validate_p.add_argument("--step", type=int, default=0,
+                            help="Also run step-N requirements (e.g. --step 8 for SFX/BGM gates)")
+    validate_p.add_argument("--strict", action="store_true",
+                            help="Promote Phase-1 content warnings to errors")
 
     lint_p = sub.add_parser("lint-script", help="Lint scenes.json voiceover_text for AI-isms / banned phrases")
     lint_p.add_argument("title", help="Video title")
+
+    vt_p = sub.add_parser("voice-test", help="Synth 1 line, measure chars/sec, project script total")
+    vt_p.add_argument("title", help="Video title")
+    vt_p.add_argument("--scene", type=int, default=1,
+                      help="Scene id to sample (default 1; ignored with --text)")
+    vt_p.add_argument("--text", default="",
+                      help="Custom sample text instead of a scene's voiceover_text")
+    vt_p.add_argument("--voice", default="",
+                      help="Override the configured voice for this sample only")
+    vt_p.add_argument("--engine", choices=["edge", "pocket"], default="",
+                      help="Override the configured engine for this sample only")
 
     preview_p = sub.add_parser("preview", help="Quick low-res smoke render of scene 1")
     preview_p.add_argument("title", help="Video title")
@@ -2215,6 +2357,8 @@ def main():
         cmd_validate(args)
     elif args.command == "lint-script":
         cmd_lint_script(args)
+    elif args.command == "voice-test":
+        cmd_voice_test(args)
     elif args.command == "preview":
         cmd_preview(args)
     elif args.command == "preview-frame":

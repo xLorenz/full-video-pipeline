@@ -92,15 +92,35 @@ Follow `skills/video-composer/references/stage-9-qa-publish.md` instructions
 - The `Thumbnail` composition is already registered in `Root.tsx` — don't
   duplicate it. Just write the component body in `Thumbnail.tsx`.
 
+#### The overlay pattern (spotlight + supporting title)
+
+`render_thumbnail.py` passes the full `TITLE.md` Recommended Title as the
+`title` prop (falling back to `scenes.json video_title`) and `""` as
+`subtitle` — but the ≤3-word overlay rule still applies to what you
+*render*. Resolve it with this pattern, every time:
+
+1. **Spotlight (exactly one, 1–3 words, huge):** distill the title to its
+   hook — the object, symbol, number, or short phrase that carries the
+   click. This is the only large text on the canvas (>40% visual weight).
+2. **Supporting line (optional, short):** a few-word amplifier that adds
+   information the title doesn't (stakes, quantity, timeframe) — never the
+   full title repeated verbatim. Set it from the title's substance, or leave
+   the canvas to a visual spotlight (object/symbol) with no second line.
+3. **Standalone test:** hide the YouTube title — does the thumbnail alone
+   still earn the click? If it only makes sense next to the title text,
+   the spotlight is wrong.
+
 ```tsx
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import type { ThumbnailProps } from "remotion-foundation";
 
+// title = full video title (drives the spotlight choice — do NOT render it whole)
 export const Thumbnail: React.FC<ThumbnailProps> = ({ title, subtitle, palette }) => {
+  const spotlight = "5:11 MISTAKE"; // 1-3 word hook distilled from `title`
   return (
     <AbsoluteFill style={{ backgroundColor: palette.background }}>
-      {/* ... your composition ... */}
+      {/* ... spotlight huge, supporting line small, subject >40% of frame ... */}
     </AbsoluteFill>
   );
 };

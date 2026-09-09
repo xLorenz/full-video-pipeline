@@ -78,6 +78,7 @@
         "width": 1920,
         "height": 1080,
         "target_scene_duration_seconds": 10,
+        "target_duration_seconds": null,
         "burn_captions": false
     },
     "voiceover": {
@@ -88,6 +89,7 @@
         "pitch": "+0Hz",
         "concurrency": 3,
         "language": "english",
+        "chars_per_sec": null,
         "no_quantize": false
     },
     "transcript": {

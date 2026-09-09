@@ -198,3 +198,65 @@ def test_find_versions_to_prune_clamps_keep_to_one(tmp_path):
     # keep=0 is clamped to 1 -> only v1 exceeds the retention window
     assert [p.name for p in pl.find_versions_to_prune(
         versions, "a", r"{title}-v(\d+)\.mp4", 0)] == ["a-v1.mp4"]
+
+
+# ---------------------------------------------------------------------------
+# Speech duration estimates + truncation gate
+# ---------------------------------------------------------------------------
+
+def test_speech_rate_strips_engine_suffix():
+    assert pl.speech_rate_for_language("spanish_24l") == \
+        pl.SPEECH_CHARS_PER_SEC["spanish"]
+    assert pl.speech_rate_for_language("ENGLISH") == \
+        pl.SPEECH_CHARS_PER_SEC["english"]
+    assert pl.speech_rate_for_language("klingon") == \
+        pl.SPEECH_CHARS_PER_SEC["english"]  # unknown -> default
+
+
+def test_estimate_speech_duration_override_wins():
+    assert pl.estimate_speech_duration("x" * 100, "english") == \
+        pytest.approx(100 / pl.SPEECH_CHARS_PER_SEC["english"])
+    assert pl.estimate_speech_duration("x" * 100, "english",
+                                       rate_override=20.0) == pytest.approx(5.0)
+
+
+def test_truncation_gate_catches_short_audio():
+    # Reporter's incident: ~405 chars of Spanish at ~13s (real rate ~18/s).
+    text = "x" * 405
+    ok, expected, ratio = pl.check_audio_duration_plausible(text, 13.28, "spanish")
+    assert not ok
+    assert expected == pytest.approx(405 / pl.SPEECH_CHARS_PER_SEC["spanish"])
+    assert ratio == pytest.approx(13.28 / expected)
+
+
+def test_truncation_gate_passes_normal_audio():
+    text = "x" * 405
+    ok, _, ratio = pl.check_audio_duration_plausible(text, 23.0, "spanish")
+    assert ok and ratio == pytest.approx(23.0 / (405 / 17.0))
+
+
+def test_truncation_gate_skips_tiny_scenes():
+    ok, _, _ = pl.check_audio_duration_plausible("hi", 0.5, "english")
+    assert ok
+
+
+def test_check_cached_audio_statuses(tmp_path, monkeypatch):
+    mp3 = tmp_path / "scene-01.mp3"
+    mp3.write_bytes(b"fake")
+    # Missing hash -> hash_mismatch (no ffprobe needed).
+    assert pl.check_cached_audio(
+        str(mp3), "new-hash", "old-hash", 5.0)[0] == "hash_mismatch"
+    # Missing file.
+    assert pl.check_cached_audio(
+        str(tmp_path / "nope.mp3"), "h", "h", 5.0)[0] == "missing"
+    # Hash matches: verdict depends on measured vs registered duration.
+    monkeypatch.setattr(pl, "get_audio_duration", lambda p: 10.0)
+    assert pl.check_cached_audio(
+        str(mp3), "h", "h", 10.0) == ("current", 10.0)
+    assert pl.check_cached_audio(
+        str(mp3), "h", "h", 20.0)[0] == "stale"  # renumber leftover
+    assert pl.check_cached_audio(
+        str(mp3), "h", "h", 0)[0] == "stale"  # no registered duration
+    monkeypatch.setattr(pl, "get_audio_duration", lambda p: 0.0)
+    assert pl.check_cached_audio(
+        str(mp3), "h", "h", 10.0)[0] == "unmeasurable"

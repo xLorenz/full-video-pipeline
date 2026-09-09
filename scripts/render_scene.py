@@ -54,14 +54,17 @@ def kill_orphaned_chrome():
             if ppid:
                 try:
                     parent = psutil.Process(ppid)
-                    parent_cmd = " ".join(parent.cmdline(timeout=2) or [])
+                    # NOTE: Process.cmdline() takes no kwargs on any psutil
+                    # version — never pass timeout= here (raises TypeError).
+                    parent_cmd = " ".join(parent.cmdline() or [])
                     parent_alive = "node" in parent_cmd or "remotion" in parent_cmd
                 except (psutil.NoSuchProcess, psutil.AccessDenied,
-                        psutil.TimeoutExpired, psutil.ZombieProcess):
+                        psutil.TimeoutExpired, psutil.ZombieProcess,
+                        TypeError):
                     parent_alive = False
             if not parent_alive:
                 orphans.append(proc)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except (psutil.NoSuchProcess, psutil.AccessDenied, TypeError):
             continue
     for proc in orphans:
         try:
@@ -164,11 +167,13 @@ def update_scene_status(video_dir_path: Path, scene_id: int,
             if status == "rendered":
                 s["scene_file"] = f"scenes/scene-{scene_id:02d}.mp4"
                 s["last_render_error"] = None
-                # Record the source hash this render was produced from so Step 9
-                # can detect stale scenes when SceneXX.tsx / shared sources change.
-                hashes = pl.compute_scene_render_hashes(video_dir_path)
+                # Record the source hashes this render was produced from so
+                # Step 9 can detect stale scenes when SceneXX.tsx / shared
+                # sources change (render_shared lets it name WHICH changed).
+                shared, hashes = pl.split_render_hashes(video_dir_path)
                 if hashes.get(scene_id):
                     s["render_hash"] = hashes[scene_id]
+                    s["render_shared"] = shared
             else:
                 s["render_attempts"] = s.get("render_attempts", 0) + 1
                 if error:

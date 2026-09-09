@@ -384,6 +384,19 @@ def check_phase1_content(video_dir, data):
             threshold = 15.0 if total_dur < 120 else 90.0
             if avg > threshold:
                 warnings.append(f"Pattern-interrupt average interval {avg:.1f}s exceeds {threshold:.0f}s target")
+        if ts_entries:
+            # Hand-written log timestamps drift from real scene lengths as the
+            # script is trimmed — flag a log that runs past the video itself.
+            max_ts = max(ts_entries)
+            total_ref = (sum(s.get("actual_duration_seconds") or 0 for s in scenes)
+                         or sum(s.get("target_duration_seconds") or 0 for s in scenes))
+            if total_ref > 0 and max_ts > total_ref * 1.1:
+                warnings.append(
+                    f"Pattern-interrupt log's latest timestamp "
+                    f"{int(max_ts // 60)}:{int(max_ts % 60):02d} runs past the "
+                    f"total duration (~{total_ref:.0f}s) — timestamps drifted "
+                    f"from real scene lengths; regenerate them from "
+                    f"scenes.json cumulative durations")
 
     # Warning: per-scene duration drift (actual vs target).
     for s in scenes:
@@ -395,6 +408,51 @@ def check_phase1_content(video_dir, data):
                 warnings.append(
                     f"Scene {s['id']} duration drift {drift*100:.0f}% "
                     f"(target {tgt}s, actual {act:.1f}s) > {DURATION_DRIFT_WARN*100:.0f}%")
+
+    # Warning: script-time audio estimate (chars/sec per language) vs the
+    # summed targets. Catches a mistargeted script BEFORE Step 5 burns
+    # minutes synthesizing audio that Step 6 reveals as the wrong total
+    # length (e.g. a "5 min" script that comes out 6:11).
+    try:
+        cfg = pl.load_config(video_dir=video_dir)
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    vo = cfg.get("voiceover") or {}
+    if not isinstance(vo, dict):
+        vo = {}
+    language = vo.get("language", "english")
+    rate_override = vo.get("chars_per_sec")
+    total_chars = sum(len((s.get("voiceover_text") or "").strip()) for s in scenes)
+    if scenes and total_chars > 0:
+        expected_total = pl.estimate_audio_seconds_for_chars(
+            total_chars, language, rate_override)
+        rate = pl._resolve_speech_rate(language, rate_override)
+        sum_targets = sum(s.get("target_duration_seconds") or 0 for s in scenes)
+        if sum_targets > 0:
+            drift = abs(expected_total - sum_targets) / sum_targets
+            if drift > 0.10:
+                warnings.append(
+                    f"Script audio estimate ~{expected_total:.0f}s from "
+                    f"{total_chars} chars (@~{rate:.1f} chars/s, {language}) vs "
+                    f"sum of target_duration_seconds {sum_targets:.0f}s "
+                    f"(drift {drift*100:.0f}% > 10%) — retarget scenes before "
+                    f"Step 5 or the video will come out the estimated length, "
+                    f"not the targeted one")
+        try:
+            vid_target = float((cfg.get("video") or {}).get(
+                "target_duration_seconds") or 0)
+        except (TypeError, ValueError):
+            vid_target = 0
+        if vid_target and vid_target > 0:
+            drift = abs(expected_total - vid_target) / vid_target
+            if drift > 0.10:
+                warnings.append(
+                    f"Script audio estimate ~{expected_total:.0f}s vs "
+                    f"video.target_duration_seconds {vid_target:.0f}s "
+                    f"(drift {drift*100:.0f}% > 10%) — trim the script or "
+                    f"adjust the target before Step 5")
 
     return errors, warnings
 
@@ -441,6 +499,10 @@ def check_sfx(data: dict) -> tuple[list, list]:
         return s.get("mood") or video_mood
 
     def mood_conflict(sound_moods, mood):
+        # 'neutral' sounds fit everywhere (sfx-design.md, sfx/README.md,
+        # sfx.schema.json) — only flag sounds with real moods that miss.
+        if "neutral" in set(sound_moods or ()):
+            return False
         return bool(mood) and not (set(sound_moods) & {mood})
 
     def scene_duration_s(s):

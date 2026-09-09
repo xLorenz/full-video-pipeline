@@ -107,6 +107,10 @@
             "type": ["string", "null"],
             "description": "SHA-256 of the scene's Remotion render inputs (SceneXX.tsx + shared project sources). Gates re-render on source change (set by render_scene.py, checked by Step 9)."
           },
+          "render_shared": {
+            "type": ["string", "null"],
+            "description": "SHA-256 of the SHARED Remotion sources (everything under remotion/src except per-scene TSX). Lets Step 9 name WHY a scene invalidated (scene-file edit vs shared-source edit). node_modules is never hashed — reinstalling dependencies cannot invalidate."
+          },
           "render_attempts": {
             "type": "integer",
             "minimum": 0,
@@ -146,13 +150,13 @@
             "type": "string",
             "enum": ["cut", "fade", "wipe", "slide"],
             "default": "cut",
-            "description": "Transition style entering this scene"
+            "description": "ADVISORY ONLY (not rendered): intended transition entering this scene. MainVideo.tsx hard-cuts between scenes — implement any fade/wipe/slide by hand inside SceneXX.tsx. Real TransitionSeries support is deferred."
           },
           "transition_out": {
             "type": "string",
             "enum": ["cut", "fade", "wipe", "slide"],
             "default": "cut",
-            "description": "Transition style exiting this scene"
+            "description": "ADVISORY ONLY (not rendered): intended transition exiting this scene. MainVideo.tsx hard-cuts between scenes — implement any fade/wipe/slide by hand inside SceneXX.tsx. Real TransitionSeries support is deferred."
           },
           "mood": {
             "anyOf": [

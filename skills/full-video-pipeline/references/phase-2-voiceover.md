@@ -47,9 +47,14 @@ python3 pipeline.py complete <title>
   `generate_voiceover_pocket.py` (when `voiceover.engine == "pocket"` via the
    per-video `steps.5_voiceover_generation.command_template` override). Both
    parse VOICEOVER.md delimiters, compute a SHA-256 `voiceover_hash` per scene
-   from `(text, voice, rate, volume, pitch, engine)`, **skip** any scene whose MP3
-  exists AND matches the stored hash (idempotent — editing VOICEOVER.md
-  only regenerates changed scenes), update `scenes.json`. Engine-specifics:
+   from `(text, voice, rate, volume, pitch, engine)`, **skip** any scene whose
+   MP3 exists AND matches the stored hash AND still measures the registered
+   duration (idempotent — editing VOICEOVER.md only regenerates changed
+   scenes; a renumber leftover with a valid hash but wrong audio is detected
+   by the duration check and regenerated, never skipped). Fresh audio far
+   shorter than the chars/sec estimate for `voiceover.language` is discarded,
+   retried once, then failed — truncated synthesis is never marked complete.
+   Engine-specifics:
   - **edge**: generates MP3s concurrently (config: `voiceover.concurrency`),
     retries failed scenes once after 5s backoff (Azure endpoint is flaky).
   - **pocket**: CPU-bound (PyTorch); forced `concurrency=1` regardless of
@@ -85,6 +90,17 @@ Per-scene `source` tells you whether ms-sync is safe:
 | `measured` | edge-tts word boundaries captured during synthesis | ms-accurate — sync freely |
 | `aligned` | vosk fallback alignment of the MP3 against the known text (pocket engine, or legacy audio) | word-accurate (~100ms) — fine for captions/highlights, avoid sub-frame choreography |
 | `estimated` | no timings (`words` is empty — never faked) | scene totals only — do not attempt word sync for this scene |
+
+If recognition runs but the words don't match the script (ratio <
+`transcript.align_min_match`, default 0.5), Step 6 **fails** instead of
+emitting an estimate — the audio is almost certainly wrong. Re-run
+`complete`: Step 5's stale-audio check heals bad files, then Step 6
+re-runs clean.
+
+> New voice or language? Run `python3 pipeline.py voice-test <title>
+> [--scene N]` BEFORE `complete`: it synthesizes one line, reports the
+> measured chars/sec, and projects the full script total from the measured
+> rate — so a mistargeted script is caught before Step 5, not at Step 6.
 
 Timing math (same as the stitcher — use it or drift):
 

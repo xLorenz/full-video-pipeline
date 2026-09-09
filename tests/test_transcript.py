@@ -197,3 +197,56 @@ def test_check_transcript_word_beyond_duration(tmp_path):
     (tmp_path / "TRANSCRIPT.md").write_text("# TRANSCRIPT", encoding="utf-8")
     errs = vv.check_transcript(tmp_path, _scenes_data())
     assert any("duration" in e for e in errs)
+
+
+# ---------------------------------------------------------------------------
+# main(): alignment failure is a hard error, not a silent estimate
+# ---------------------------------------------------------------------------
+
+def test_main_alignment_failure_exits_nonzero(tmp_path, monkeypatch):
+    """vosk runs but recognizes the wrong words (stale/wrong MP3) → the run
+    must exit 1 so the pipeline stops instead of carrying wrong audio."""
+    import types as _types
+    vdir = tmp_path / "vid"
+    (vdir / "voiceover").mkdir(parents=True)
+    (vdir / "voiceover" / "scene-01.mp3").write_bytes(b"fake-audio")
+    (vdir / "scenes.json").write_text(json.dumps(
+        {"video_title": "demo", "fps": 30, "scenes": [
+            {"id": 1, "voiceover_text": "alpha beta gamma delta",
+             "voiceover_file": "voiceover/scene-01.mp3",
+             "actual_duration_seconds": 5.0, "voiceover_hash": "h"}]}),
+        encoding="utf-8")
+    # Fake the optional vosk import so need_model() proceeds to recognition.
+    monkeypatch.setitem(sys.modules, "vosk", _types.ModuleType("vosk"))
+    monkeypatch.setattr(gt, "resolve_vosk_model", lambda cfg: tmp_path)
+    monkeypatch.setattr(gt, "vosk_recognize_words",
+                        lambda mp3, md: [{"word": w, "start": 0.0, "end": 0.5}
+                                         for w in ("zebra", "yacht")])
+    monkeypatch.setattr(gt.pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(sys, "argv", ["generate_transcript.py", str(vdir)])
+    with pytest.raises(SystemExit) as ei:
+        gt.main()
+    assert ei.value.code == 1
+
+
+def test_main_estimated_without_vosk_stays_zero(tmp_path, monkeypatch):
+    """No sidecar + no vosk/model (alignment never attempted) stays a
+    zero-exit estimated run — the missing optional dep must not block."""
+    vdir = tmp_path / "vid"
+    (vdir / "voiceover").mkdir(parents=True)
+    (vdir / "voiceover" / "scene-01.mp3").write_bytes(b"fake-audio")
+    (vdir / "scenes.json").write_text(json.dumps(
+        {"video_title": "demo", "fps": 30, "scenes": [
+            {"id": 1, "voiceover_text": "alpha beta gamma delta",
+             "voiceover_file": "voiceover/scene-01.mp3",
+             "actual_duration_seconds": 5.0, "voiceover_hash": "h"}]}),
+        encoding="utf-8")
+    monkeypatch.delitem(sys.modules, "vosk", raising=False)
+    # Belt-and-braces: even if vosk WERE installed, no model dir exists.
+    monkeypatch.setattr(gt, "resolve_vosk_model", lambda cfg: None)
+    monkeypatch.setattr(gt.pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(sys, "argv", ["generate_transcript.py", str(vdir)])
+    gt.main()  # must not raise
+    tj = json.loads((vdir / "voiceover_timings.json").read_text(encoding="utf-8"))
+    assert tj["scenes"][0]["source"] == "estimated"
+    assert tj["scenes"][0]["words"] == []

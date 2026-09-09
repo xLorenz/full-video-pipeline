@@ -227,3 +227,102 @@ def test_lint_gate_passes_props_to_compositions(monkeypatch, tmp_path):
     ok, _ = pipe.lint_gate("demo", tmp_path / "videos" / "demo")
     assert ok
     assert any(str(x).startswith("--props=") for x in seen["cmd"])
+
+
+def _fake_psutil_for_reaper(parent_behavior):
+    """Build a strict psutil stand-in for kill_orphaned_chrome tests.
+
+    parent_behavior: "alive" (node parent) or "dead" (NoSuchProcess).
+    FakeParent.cmdline() mirrors real psutil: it accepts NO arguments, so
+    any timeout= kwarg raises TypeError exactly like psutil>=5.9 does.
+    """
+    class _NoSuchProcess(Exception):
+        pass
+
+    class FakeParent:
+        def cmdline(self):
+            return ["node", "remotion-render"]
+
+    class FakeProc:
+        pid = 1234
+        killed = False
+        info = {"pid": 1234, "ppid": 999,
+                "name": "chrome-headless-shell",
+                "cmdline": ["chrome-headless-shell", "--headless"]}
+
+        def kill(self):
+            FakeProc.killed = True
+
+        def wait(self, timeout=None):
+            return 0
+
+    class FakePsutil:
+        NoSuchProcess = _NoSuchProcess
+        AccessDenied = type("AccessDenied", (Exception,), {})
+        TimeoutExpired = type("TimeoutExpired", (Exception,), {})
+        ZombieProcess = type("ZombieProcess", (Exception,), {})
+
+        @staticmethod
+        def process_iter(attrs=None):
+            FakeProc.killed = False
+            return iter([FakeProc()])
+
+        @staticmethod
+        def Process(pid):
+            assert pid == 999
+            if parent_behavior == "dead":
+                raise _NoSuchProcess(pid)
+            return FakeParent()
+
+    return FakePsutil, FakeProc
+
+
+def test_kill_orphaned_chrome_cmdline_takes_no_kwargs(monkeypatch):
+    """Regression: parent.cmdline(timeout=2) raised TypeError on every psutil
+    version (Process.cmdline takes no kwargs) and the old except clause did
+    not catch it — the reaper could abort a healthy render."""
+    import render_scene as _rs
+    fake_psutil, fake_proc = _fake_psutil_for_reaper("alive")
+    monkeypatch.setattr(_rs, "psutil", fake_psutil)
+    # Must not raise; live node parent means no orphan to reap.
+    assert _rs.kill_orphaned_chrome() == 0
+    assert fake_proc.killed is False
+
+
+def test_kill_orphaned_chrome_reaps_dead_parent(monkeypatch):
+    import render_scene as _rs
+    fake_psutil, fake_proc = _fake_psutil_for_reaper("dead")
+    monkeypatch.setattr(_rs, "psutil", fake_psutil)
+    assert _rs.kill_orphaned_chrome() == 1
+    assert fake_proc.killed is True
+
+
+def _sfx_data(mood, sound):
+    return {
+        "style": {"mood": mood},
+        "scenes": [{
+            "id": 1,
+            "actual_duration_seconds": 10.0,
+            "beats": [{"name": "intro"}],
+            "sfx": [{"sound": sound, "when": 1.0}],
+        }],
+    }
+
+
+def test_check_sfx_neutral_fits_everywhere():
+    """'neutral' sounds must not warn in any video mood (sfx-design.md,
+    sfx/README.md, sfx.schema.json). Previously check_sfx demanded a
+    literal mood intersection."""
+    import validate as _v
+    errors, warnings = _v.check_sfx(_sfx_data("serious", "tick"))
+    assert errors == []
+    assert not any("tick" in w and "conflicts" in w for w in warnings)
+
+
+def test_check_sfx_real_conflict_still_warns():
+    """Guard against overcorrection: a non-neutral sound whose moods miss
+    the scene mood must still warn (siren is serious/tense, not playful)."""
+    import validate as _v
+    errors, warnings = _v.check_sfx(_sfx_data("playful", "siren"))
+    assert errors == []
+    assert any("siren" in w and "conflicts" in w for w in warnings)

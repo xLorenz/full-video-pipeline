@@ -251,6 +251,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "width": 1920,
     "height": 1080,
     "target_scene_duration_seconds": 10,
+    "target_duration_seconds": null,
     "burn_captions": false
   },
   "voiceover": {
@@ -261,6 +262,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
     "pitch": "+0Hz",
     "concurrency": 3,
     "language": "english",
+    "chars_per_sec": null,
     "no_quantize": false
   },
   "transcript": {
@@ -333,6 +335,25 @@ The `steps.{key}.command_template` strings support `{variable}` substitution:
 `{video_dir}`, `{scene_id}`, and any dotted config path (e.g., `{voiceover.voice}`,
 `{render.crf}`, `{video.fps}`). Override a template per-video to swap in a different
 binary or plugin without touching the orchestrator code.
+
+### Duration planning & audio integrity
+
+- `python3 pipeline.py voice-test <title> [--scene N] [--voice V] [--engine E]`
+  synthesizes one sample line, reports the measured chars/sec, and projects the
+  full script's audio total from the **measured** rate vs the summed scene targets.
+  Run it before Step 5 whenever you switch voices or languages.
+- `video.target_duration_seconds` (default `null` = off): when set, Step 3
+  validation warns if the chars/sec script estimate drifts >10% from it.
+  `voiceover.chars_per_sec` (default `null` = language table: english 14,
+  spanish 17, french 14, german 13, italian 15, portuguese 14) overrides the
+  table once you have measured your voice with `voice-test`.
+- Step 5 refuses to ship bad audio: cached MP3s are skipped only when hash
+  **and** measured duration match the registry (renumber leftovers are
+  regenerated, never skipped); fresh synthesis far shorter than the chars/sec
+  estimate is discarded, retried once, then failed — never marked complete.
+- Step 6 is strict about mismatches: if recognition runs but the words don't
+  match the script (ratio < `transcript.align_min_match`, default 0.5), the run
+  exits 1. Re-run Step 5 (its stale-audio check heals bad files), then Step 6.
 
 List available voices: `edge-tts --list-voices`
 
@@ -503,6 +524,9 @@ python3 pipeline.py complete my-video --step 7 --force  # Out-of-order override 
 python3 pipeline.py status my-video                # Show specific project (with attempts column; add --scenes for per-scene table)
 python3 pipeline.py validate my-video              # Standalone schema validation
 python3 pipeline.py validate my-video --step 6     # Step-specific requirements
+python3 pipeline.py validate my-video --step 8 --strict  # SFX/BGM gates, warnings as errors
+python3 pipeline.py voice-test my-video            # Synth scene 1, measure chars/sec, project script total
+python3 pipeline.py voice-test my-video --scene 4 --voice es-ES-AlvaroNeural  # Sample a voice before Step 5
 python3 pipeline.py lint-script my-video           # Lint scenes.json voiceover_text for AI-isms (write->lint->fix loop, Phase 1)
 python3 pipeline.py preview my-video               # Smoke-render scene 1
 python3 pipeline.py preview-frame my-video 2 45    # Render a single still (scene 2, MainVideo frame 45) for visual QA

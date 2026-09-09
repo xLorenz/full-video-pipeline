@@ -24,6 +24,42 @@ degrades. Vosk model: download `vosk-model-small-en-us-0.15` (~50 MB) from
 <https://alphacephei.com/vosk/models>, unzip under `models/` (gitignored).
 Override via `transcript.vosk_model` in `pipeline_config.json`.
 
+If vosk DOES run but the recognized words don't match the script (match
+ratio < `transcript.align_min_match`, default 0.5), Step 6 **fails**
+instead of emitting an estimate — the audio almost certainly doesn't
+contain the script text (wrong/truncated MP3). Re-run Step 5 (its
+stale-audio check regenerates bad files), then Step 6.
+
+## Expected runtimes (plan long runs in chunks)
+
+Sandboxed/CI environments may kill long processes (including detached
+children). The pipeline is idempotent per scene, so run TTS and renders
+in ~20-minute chunks and re-run `complete` to resume — generated scenes
+skip, the rest continue. Budget with these measured figures:
+
+| Engine | Model load | Per-scene synth | Notes |
+|--------|-----------|-----------------|-------|
+| `edge` | none (network API) | seconds/scene (network-bound, `voiceover.concurrency` default 3) | fast + light; no local model |
+| `pocket` english | ~30s warm cache | ~1s/scene | after load, synthesis is quick |
+| `pocket` non-English (`*_24l`, e.g. `spanish_24l`) | ~107s | ~2 min/scene | heavier model + slower synth; avoid on t3.micro |
+
+Non-English `*_24l` variants are meaningfully heavier — prefer them only
+on boxes with headroom, and always run `python3 pipeline.py voice-test
+<title> --scene N` first to measure your voice's real chars/sec before
+committing to a full Step 5.
+
+## Audio integrity gates (Step 5 + 6)
+
+- **Stale-cache check**: a scene skips only when its MP3 exists, its
+  `voiceover_hash` matches, AND the file's measured duration still matches
+  the registered `actual_duration_seconds`. Scene renumbers can leave a
+  valid-hash MP3 holding another scene's audio — those regenerate, loudly.
+- **Truncation gate**: fresh audio far shorter than the chars/sec estimate
+  for `voiceover.language` (table: english 14, spanish 17, french 14,
+  german 13, italian 15, portuguese 14; override with
+  `voiceover.chars_per_sec` after measuring via `voice-test`) is discarded,
+  retried once, then failed — never marked complete.
+
 ## Opting into pocket-tts
 
 Override these keys per video (auto-discovery is on by default):

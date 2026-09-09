@@ -78,7 +78,8 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
       // Step 8 fills {track, volume} — OMIT the key for the global default
       // bed; explicit null OPTS OUT (silence for this scene)
       "transition_in": "cut",
-      "transition_out": "fade"
+      "transition_out": "fade"   // ADVISORY ONLY: MainVideo hard-cuts —
+      // implement any fade/wipe/slide by hand inside SceneXX.tsx at Step 8
     }
   ],
   "total_estimated_seconds": 0
