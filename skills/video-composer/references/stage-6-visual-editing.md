@@ -20,6 +20,16 @@ style for a cozy audience ruins trust; slow style for an entertainment
 audience bores. Cutting pauses is the most important move for entertainment
 and the most harmful for comfort — choose per promise.
 
+- **Plan asset variety up front (feed the cadence).** Edit density is decided
+  at planning, not at the timeline: every scene needs enough distinct planned
+  visuals (graphics, B-roll beats, focus moves) to sustain ~5-second variety
+  across its duration. Any scene with a single static visual for 10+ seconds
+  is a planning failure — map the assets in visual_notes before coding.
+- **Calibrate the hold to hook strength.** A fully-hooked click earns an
+  extended no-cut hold at the open — the viewer already bought in, and
+  aggressive hook-editing adds nothing. Escalate cutting only if retention
+  data dips; never optimize a strong opening as if it were weak.
+
 ## 2. Footage decision tree (explainer priority order)
 
 1. **Motion graphics / animation — first choice for essential-but-boring or
@@ -43,6 +53,23 @@ Rule: if you say it, show it. Map every script line to an asset before
 locking the edit. Fast talk over a static frame loses details the viewer can
 never get back.
 
+- **Equal-coverage comparison template.** For ranked or versus items, lock one
+  coverage template (e.g., overview, detail, vibe shot) and repeat it exactly
+  per item — deviations only for the winner or reveal. The viewer learns the
+  pattern once; comparison becomes frictionless and rhythmic.
+- **Enthusiasm proxy + scale juxtaposition.** Mundane items die without a
+  carrier: harvest one genuine micro-reaction per dull item (a smile, a beat
+  of awe) and cut it in as the enthusiasm proxy, and stage one absurd scale
+  contrast to manufacture comedy where the item has none. Faceless port: an
+  animated reaction beat plus deliberately exaggerated scale staging in
+  graphics.
+- **Missing-coverage stand-ins.** When real coverage is denied (rights,
+  approvals) or unusably lit, fabricate angle-matched stand-ins (staged
+  replicas, simulation grabs), retouch to the grade, and stitch motion phases
+  (e.g., two frames composited to imply action) rather than shipping a
+  mismatched or illegible real frame. Sources must share perspective, horizon,
+  and light direction or the comp reads instantly fake.
+
 ## 3. Spice without cutting
 
 When a cut is not needed, add motion or overlay to make static immersive:
@@ -65,6 +92,11 @@ becomes obnoxious and wastes the chance for a more engaging visual.
   verdicts, quotes).
 - If there is genuinely nothing better to show, captions beat a dead frame —
   but a better visual always beats captions.
+- **Look-alike variant cards.** When compared items are visually
+  indistinguishable, viewers confuse them no matter how good the script is:
+  resolve with rapid sequential title cards (one differentiator each) plus a
+  tiny in-frame label on the shots themselves. Reserve for genuinely
+  identical subjects — labeling everything trains viewers to ignore labels.
 
 ## 5. Direct focus — never dump a full image
 
@@ -86,6 +118,10 @@ Color grade for consistency, a subtle vignette for focus, faint texture or
 particle motion for depth. Polish signals value and extends immersion. Flat,
 inconsistent, or log-looking footage reads as low-effort even when the script
 is excellent.
+
+- **Grade before polish.** Lock white balance and exposure consistency across
+  all sources before the creative grade — mismatched sources corrected late
+  never fully blend.
 
 ## 7. Variety dose control
 
@@ -121,6 +157,19 @@ no point where immersion drops.
   sampler of every preset.
 - Break continuity on purpose, rarely, to jolt: an abrupt cut or change when
   attention needs a reset. 100% seamless lulls; 100% jarring exhausts.
+- **Exit motif.** Pick one directional subject-exit (walks, drives, or slides
+  out the same side) and repeat it at every section end. A consistent exit
+  subconsciously signals closure — cheaper and less jarring than a transition
+  preset.
+- **Comedic over-effect (max one per video).** One deliberately excessive
+  grade or effect whose badness is the punchline carrying a transition. Must
+  be motivated by the joke and released immediately on the next shot — excess
+  as punctuation, never as style.
+- **Signature closer.** Establish one recurring closing device as a branding
+  ritual; when the premise blocks the default form, ship a premise-native
+  variant rather than dropping it. Note the adaptation in the edit plan. (This
+  is entertainment that earns its seconds — not a credits sign-off, which
+  stays banned per Stage 3 §9.)
 
 ## Exit checklist
 

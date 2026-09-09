@@ -73,6 +73,11 @@ everything.
   marks the shift unmistakably and makes the new section feel more exciting.
   When stems are available, layer and automate them (drums in for tension,
   out for reflection) instead of swapping whole tracks.
+- **Ride one track's internal arc first.** Before swapping beds at a boundary,
+  check whether the current track already turns (somber to upbeat, sparse to
+  dense): aligning its built-in shift to the picture turn carries the segment
+  change with zero swap jarring. Only reach for a new track when no internal
+  arc fits.
 
 ## Exit checklist
 

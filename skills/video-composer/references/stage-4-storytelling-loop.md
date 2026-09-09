@@ -192,6 +192,13 @@ is accomplished. Cap celebration and result-lingering at one beat, then
 bridge in the same breath. Admiring the win is dead air by chemistry, not
 taste.
 
+**Session bridge (design past one video).** Think in 5–10-video chains: the
+strongest growth signal is viewers binging, which one-at-a-time thinking
+never trains. Hold second-half craft so the viewer finishes warm, and end on
+forward pull toward the catalog (an unanswered sibling question, a promised
+related payoff) — give them a reason to click another video, not just to have
+finished this one.
+
 ## 5. Explainer adaptations
 
 - Stakes can be decision stakes ("you are about to choose / buy / publish —

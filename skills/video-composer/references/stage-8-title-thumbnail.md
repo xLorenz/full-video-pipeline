@@ -31,6 +31,21 @@
 
 ## 2. Thumbnail construction
 
+- **Source 10–15 varied refs first — never start blank.** Pull from five
+  sources: (1) internal outliers (your videos that beat your average — can
+  the format transfer?), (2) external outliers (others' videos beating their
+  average), (3) format-adjacent channels in other subjects (same structure,
+  different topic), (4) a bookmarked swipe file / private inspo playlist of
+  thumbs that caught your eye, (5) off-platform (billboards, film/TV frames,
+  album covers, served ads). Collect approaches, not topic matches. Starting
+  with no refs — or refs you never use — is the costliest thumbnail mistake.
+- **Deconstruct mechanism, then transfer it.** For each ref ask: what question
+  does it prompt, what emotion does it evoke, and crucially HOW — what device
+  creates that effect? Transfer the mechanism, never the topic or look (e.g.,
+  expectation-subversion such as rendering traditionally flat elements with
+  depth for novelty; scale inversion; isolation). If the mechanism comes from
+  off-platform or out-of-niche, mock it up in your own style first to validate
+  before committing to the build.
 - **Build from scratch; represent, don't document.** Composite or illustrate
   the thumbnail separately. Exaggerate scale, combine symbolic props, invent a
   scene that represents the idea better than any literal frame. Real life is
@@ -40,10 +55,27 @@
   subject plus an optional 1–3 word label. Subject fills >40% of the frame.
   Clutter is a messy room — nothing pops. Four-plus elements, small objects,
   paragraphs, and complex diagrams all fail the scan.
+- **UI legibility pass (screens, diagrams, interfaces).** Enlarge the hero
+  object 10–15%, blow up icons and artwork, delete sub-labels, thicken every
+  stroke, add breathing room so the eye can travel. Thin lines and tiny labels
+  become mush at feed size — verify with a grayscale check at actual size.
+- **Perspective and light match.** Every composited source must share
+  perspective, horizon, and light direction, or the result reads instantly
+  fake to viewer intuition — no expertise required to feel it. Mismatch is an
+  instant reject: change the angle or rebuild the element symbolically.
 - **Clarity foundation.** One subject, one situation, one emotion. Clarity =
   I know what is happening (required). Uncertainty = I don't know what
   happens next (good). Confusion = I don't know what is happening (fatal).
   Any confusion washes out every other tactic.
+- **TV-safe (50% test).** If audience analytics show roughly 10%+ TV viewing,
+  cover the bottom half of the thumbnail: does the remainder still convey the
+  topic and earn a remote press-down? TV home and suggested surfaces crop to
+  the top portion until the viewer presses down — key subject, face, and text
+  belong in the top two-thirds, with critical text in the top third if needed.
+  Anything not actively working for you is working against you: delete
+  true-to-life background detail that distracts from the subject, and make the
+  main subject the unmistakable first read (separation via color, size, or a
+  short label).
 
 ## 3. Visual attention engineering
 
@@ -89,12 +121,17 @@
   Fabricate the setting that magnifies the intended emotion; literal-location
   fidelity that undersells the story is a mistake.
 - **Micro-text as amplifier.** 1–3 word diegetic labels that quantify stakes:
-  elapsed time, day count, rule, warning. Amplify, never explain — "41 min
-  left" beats a premise sentence.
+  elapsed time, day count, rule, warning — or extreme price (very low or very
+  high only; extremes anchor value or spectacle, mid-prices anchor nothing).
+  Amplify, never explain — "41 min left" beats a premise sentence. Any price
+  shown must be legible at feed size and paid off fast.
 - **Control viewing order.** Arrows, circles, borders, gaze direction, and
   size hierarchy force the eye path (face → object, circle → anomaly). Test
   where the eye lands first and second; decorative arrows pointing nowhere
-  hurt more than none.
+  hurt more than none. Default single-subject placement to center — least eye
+  movement wins; thirds only when a second hook needs the room. When two
+  subjects compete, code hierarchy with exactly one cue (size alone, not size
+  plus fade): one signal per relationship, never belt-and-suspenders.
 
 ## 4. Curiosity hooks — psychology arsenal (pick 1–2 per package)
 
@@ -117,6 +154,11 @@
 - **Everyday unsolved problem.** A sympathetic subject with a sad or
   surprising problem that implies a fix ("keeps failing — can it be saved?").
   Empathy plus problem-solving drive; show the problem visually.
+- **Controversy with permission.** Ask the taboo-sounding question about a
+  universally recognizable figure or topic, reframed playfully so the viewer
+  feels allowed to be curious. Recognition plus violated expectation plus
+  social permission. Guardrails: recognizable, playful never cruel,
+  payoff-honest (see Stage 3 §2 method 5).
 - **Surprising / counterintuitive claim.** State the inversion baldly in 2–4
   thumbnail words plus a title hinting at the hidden system ("prohibited from
   replanting", "the small ones are deadlier"). Must be genuinely unknown to
@@ -151,6 +193,14 @@
 - **Word-choice upgrade.** Elevate mundane premises via the strongest accurate
   verb: tested beats visited, survived beats stayed. Draft literal, then
   iterate 10 variants for intensity plus specificity — without losing clarity.
+- **AB-test thumbnail text.** Any on-thumbnail micro-text gets a 5-minute
+  variant sprint: draft alternate words and phrases, then run Test & Compare.
+  Even tiny copy swaps move CTR measurably — never ship first-draft
+  micro-text untested.
+- **Full-thumb AB with fast alt-flip.** Ship important videos with 1–2 full
+  alternates (same hooks, different flow or palette — layout and palette
+  decide by large deltas, not details). If early CTR lags, swap to the alt
+  fast: sunk cost never saves a failing thumbnail.
 
 ## 6. Title craft
 
@@ -161,8 +211,21 @@
   question the video answers, not what happens. Questions open loops;
   summaries close them. Tease the peak 5 seconds without resolving them.
 - **Front-load, shorten, simplify.** Most important words first (ends get cut
-  off); prefer short common words; keep titles short enough to survive
-  truncation. Read only the first 40 characters — still compelling?
+  off); prefer short common words; target under 55 characters — longer only
+  if front-loaded so the payoff survives truncation. Read only the first 40
+  characters — still compelling? Test intake speed in a competitor list, not
+  in isolation: in a crowded feed the faster-processing title wins the eye.
+- **Power-word upgrade.** Swap one bland word for a proven click-word without
+  changing meaning, from four categories: emotional, authority, urgency,
+  exclusivity. Then mine the niche lexicon: scan 10–20 top niche titles, tally
+  repeated adjectives, nouns, and status words, and substitute the
+  niche-proven equivalent.
+- **Model proven title skeletons.** Define an outlier as a video far above its
+  channel's average against its neighbors; strip its title to the syntactic
+  skeleton (e.g., "I [bold action] for [timeframe]. This is what happened.");
+  refill with your own action and timeframe; finish with a power-word pass.
+  Never invent curiosity devices from scratch when a skeleton already drove
+  millions of views.
 - **Go literal only to prevent confusion.** If the dramatic version creates a
   wrong expectation or obscures the subject, revert to clear-literal plus one
   intrigue word. Cleverness never beats comprehension.
@@ -183,8 +246,11 @@ nor signals quality.
   payoff in 5 words.
 - [ ] Thumbnail intrigues with title hidden; title adds a new hook (2–3 total
   questions in mind, zero repeats).
+- [ ] 10–15 refs sourced across the five-source mix; mechanism (not look)
+  transferred and validated in own style.
 - [ ] Built-from-scratch composite; 1–2 elements; subject >40%; brightness +
-  color contrast verified (grayscale check); exactly one spotlight.
+  color contrast verified (grayscale check); exactly one spotlight; TV-safe
+  50% test passed where applicable; micro-text variants AB-tested.
 - [ ] 1–2 curiosity hooks + 1 trust signal present; micro-text amplifies
   stakes; eye path controlled.
 - [ ] Title sells the peak to the broadest audience as a question/tease;

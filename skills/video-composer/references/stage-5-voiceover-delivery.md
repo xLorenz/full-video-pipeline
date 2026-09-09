@@ -25,6 +25,13 @@
 Common mistake: pasting essay paragraphs into voiceover. If it reads well
 silently and fails aloud, it is not a script.
 
+**AI boundary: polish-only, never draft.** AI is allowed for better
+vocabulary, shorter sentences, and smoother flow — then every line still
+faces the aloud/TTS stumble test. Never let it write the script: book-trained
+prose reads like a book, and video is not read like a book. A full AI draft
+accepted untested is lazy writing that breaks cadence; treat it as raw
+material to rewrite, not a script.
+
 ## 2. Put contagious emotion on the page
 
 Emotion is contagious: the feeling in the voice becomes the feeling in the
@@ -79,6 +86,14 @@ over-qualified, memorize-every-word prose — technically flawless, lifeless.
   distracts from meaning and flattens everything.
 - Self-check: "would I say this to a close friend exactly like this?" If not,
   simplify until yes.
+- **Return-character (hosted/hybrid videos; optional for pure faceless).**
+  Withhold self for the first ~15 seconds — value first — then let
+  perspective emerge progressively, placing small personal moments right
+  after stakes escalation so bonding follows arousal. Viewers return for a
+  character whose sensibilities mesh with theirs, not for interchangeable
+  content-farm output. Never front-load self before delivering value, and
+  never stay fully faceless-of-spirit: personality-free commodity content
+  builds no relationship and does not last.
 
 ## 4. TTS-survival rules
 

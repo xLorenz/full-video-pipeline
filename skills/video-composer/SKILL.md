@@ -69,6 +69,7 @@ only the stage you are working on, plus this file.
 | 7 | Audio & music | SFX map + mood-blocked music with manipulation moments | `references/stage-7-audio-music.md` |
 | 8 | Title & thumbnail craft | Final title + thumbnail that stack 2-3 distinct hooks and pass the 1-second test | `references/stage-8-title-thumbnail.md` |
 | 9 | Pre-publish QA | Audit fixes for loops, clarity, packaging-intro match, continuity, audio | `references/stage-9-qa-publish.md` |
+| X | Shorts adaptation (appendix) | 0–2s swipe-native hook, compressed sentence skeleton, terminal payoff, rewatch loop | `references/appendix-shorts.md` |
 
 Work stages in order. Do not jump to scripting without an audience (Stage 1),
 do not produce without a packaging angle (Stage 2), and do not publish without

@@ -48,6 +48,12 @@
   escalation, elimination, goal meter) with no random-order stretches.
 - Confirm the 60–70% second objective or escalation exists if energy dips;
   confirm no section rides one premise past freshness.
+- **Back-half parity.** Would a cold viewer rate second-half writing and
+  editing craft equal to the first half? No coasting on survivors, no
+  drawn-out tail, no credits outro. Fix decay with the same tools as the
+  front: loops, compression, escalation.
+- **CTA check.** No ask in the hook; at most one post-payoff CTA, tied to what
+  the viewer just experienced. No other off-topic stretches.
 
 ## 5. Visual & continuity check
 
@@ -82,6 +88,19 @@ prediction invariant fails anywhere past the hook. Kill or rebuild when the
 premise itself cannot pass Stage 2 after rework — no edit saves an
 unpackagable idea, and publishing it teaches the audience to skip you next
 time.
+
+## 8. Post-publish packaging iteration (the video is not done at publish)
+
+- **Title-first fix order.** If CTR and impressions both run below average in
+  the first 24 hours, change the title before the thumbnail — it is cheaper
+  and often all the video needs. One variable at a time; allow a week or more
+  of lag before judging the change.
+- **Thumbnail alt-flip.** If CTR still lags, swap to a prepared full alternate
+  (Stage 8 §5) fast. Sunk cost never saves a failing thumbnail.
+- **Respect the traction window.** If CTR and impressions are average, do not
+  touch anything until the channel's normal pickup window passes (find it in
+  analytics: the typical view-range band and where its slope breaks — days
+  for some channels, a week or more for others). No lift is always immediate.
 
 ## Master pre-publish checklist (copy per video)
 

@@ -32,7 +32,7 @@ Rules:
 Common mistake: delivering boring information instead of answers to the
 viewer's questions — because no question was ever raised.
 
-## 2. Four methods to create curiosity (rotate all four)
+## 2. Five methods to create curiosity (rotate all five)
 
 1. **Mystery / problem / question / obstacle.** Pose something lacking an
    answer. Example shape: an isolated situation with conflicting explanations
@@ -47,6 +47,13 @@ viewer's questions — because no question was ever raised.
 4. **Missing component.** Suggest something critical the viewer hasn't
    considered ("you're missing the part that actually decides X"). Must feel
    important — a missing piece about trivia earns no click and no retention.
+5. **Controversy with permission.** Ask the taboo or outrageous-sounding
+   question about a universally recognizable figure or topic that viewers
+   privately wonder but hesitate to voice — then give them permission to be
+   curious by framing it playfully ("I know this sounds insane, but…").
+   Distinct from plain counterintuition: the engine is social permission plus
+   recognition. Guardrails: recognizable subject, playful (never cruel)
+   framing, and a payoff-honest answer.
 
 Keep a running list while scripting; check that each section uses a different
 method from its neighbors. Using only method 1 makes the video monotonous.
@@ -84,6 +91,17 @@ Application:
   proof as close to frame one as possible. A promise ("stay till the end to
   see X") retains a fraction of what proof retains. Cold-open with the peak:
   extreme question + immediate action or visual.
+- **Reassure, then upsize.** The click is a risky moment — the viewer expects
+  instant letdown. The opening has two jobs: (a) confirm the packaged promise
+  (first shot/line restates the thumbnail situation + title question), then
+  (b) reveal the stake is genuinely even bigger than packaged — something
+  real that didn't fit the title. Reassurance converts the skeptical click;
+  the upsell converts satisfaction into anticipation. Never fake the upsell;
+  a manufactured bigger-stake burns the trust the reassurance just built.
+- **No ask in the hook.** Never request likes, subscribes, or money in the
+  opening. The viewer came for the promised payoff, and any ask delays
+  confirmation and violates the expectation match. Earn the ask after
+  delivering — at most one, tied to what they just experienced (see §9).
 - **Broadest question first.** Open with the single most broadly appealing
   question on everyone's mind ("what is actually using X like?"), list a few
   fascinating facts, promise both highs and lows, then dive in. Never open
@@ -146,10 +164,27 @@ is clear to you because you have full context. The viewer arrives with zero.
 - **Hold a visible progression.** Maintain a ladder the viewer climbs:
   worst-to-best ranking, countdown, escalating difficulty, elimination to one
   winner, explicit goal meter. Random order with no escalation and no finish
-  line has no pull.
+  line has no pull. Mark each rung with a designed chapter card (named,
+  animated): chapters make long videos skimmable and digestible, and stating
+  the upcoming item before showing it sets the expectation that keeps viewers
+  watching through.
 - **Density over budget.** Compress long arcs (setbacks, wins, funny moments,
   multiple locations) into a tight emotional rollercoaster. Clever density of
   highs, lows, and novelty beats expensive footage.
+- **Valuable fluff (additive, never stretching).** When runtime must grow
+  (e.g., monetization thresholds), extend by adding discrete micro-value bits
+  — a quick joke, a human aside, a vivid detail that builds connection — never
+  by stretching existing lines thinner. Test: delete the added bit; if nothing
+  of value leaves with it, it was stretch, not fluff. Cut it.
+- **Unscripted / pre-shot retrofit.** When material already exists with no
+  script, do not cut chronologically: (1) inventory the usable beats and
+  visuals you actually have, (2) write lead-ups into each beat and connectors
+  between beats, mapping GREEN/PURPLE and the ladder onto that inventory,
+  (3) impose at minimum a frame plus compression on every section, and shoot
+  two-angle safety coverage (or alternate graphic framings as the second
+  camera) so unscripted stretches have cut points. Diagnose bloat honestly:
+  an overlong runtime is under-writing — fix with frame + cut, never with more
+  content.
 
 ## 8. Macro-template for mechanism explainers
 
@@ -179,12 +214,22 @@ carries skeptical audiences further than claims alone.
   to. Riding one premise past its freshness is a slow leak.
 - If a section cannot earn its keep, compress it. The kindest cut is the one
   the viewer never notices.
+- **Back-half parity, no outro.** Never let writing and editing quality decay
+  past halfway on the assumption that survivors will stay — audit the second
+  half to the same craft bar as the first. There is no credits outro: the
+  final beat is value or a forward bridge, never a sign-off. (One exception:
+  a recurring signature closer that earns its seconds as entertainment,
+  premise-adapted when the default form is impossible — see Stage 6 §8.)
+- **One tied CTA, post-payoff only.** A single call to action is allowed after
+  the payoff lands, and only tied to what the viewer just did ("subscribe if
+  you called it / felt that"). Investment converts to engagement; anything
+  earlier or untied is off-topic dead air.
 
 ## Exit checklist
 
 - [ ] Script color-codes GREEN → PURPLE with no teaching/action block missing
   its GREEN lead-in.
-- [ ] Each section uses one of the 4 curiosity methods; neighbors differ.
+- [ ] Each section uses one of the 5 curiosity methods; neighbors differ.
 - [ ] Every beat passes the 3-part litmus (what / why-important /
   what-could-go-wrong) or is cut to a 1–2 sentence summary.
 - [ ] Hook uses proof-first, broadest-question, and pain-before-lesson; no
