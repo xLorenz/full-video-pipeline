@@ -157,7 +157,11 @@ layout, and element positions — detailed enough for Step 8 to implement direct
 
 After coding each scene you know its exact timing — mirror it into `scenes.json`.
 For **narration timing**, open `TRANSCRIPT.md` (built in Step 6 — word-level
-voiceover timings per scene, with `frame = round(t * fps)` precomputed):
+voiceover timings per scene, with `frame = round(t * fps)` precomputed).
+Context discipline: never Read `voiceover_timings.json` whole — fetch one
+scene via `python3 pipeline.py transcript <title> --scene N`; never Read raw
+`step-9-scene-N.log` files — use `python3 pipeline.py logs <title> --step 9
+--scene N`. Patch `scenes.json` with small edits, never full rewrites:
 
 1. **beats** — one entry per animated moment you might want to sound: `{"name": "cards_in", "time": 2.4}`.
    Names: `^[a-z][a-z0-9_]*$` (lowercase snake). Times are seconds from scene start,

@@ -510,6 +510,12 @@ under `videos/<title>/logs/`. Step-level files: `step-5.log`, `step-6.log`,
 `step-9-scene-{id}.log`, `step-10.log`, `step-13.log`. These are append-only
 and survive across runs — useful for post-mortem analysis of overnight failures.
 
+Console output is collapsed by design: per-frame progress chatter (Remotion,
+ffmpeg, Chrome downloads, vosk) shows only its last line plus a
+`[N progress lines collapsed]` note when the command succeeds. The log files
+above always keep 100% of the output, and failed commands dump everything to
+the console — a collapse note is never an error.
+
 ## Helper Scripts
 
 ```bash
@@ -527,6 +533,8 @@ python3 pipeline.py validate my-video --step 6     # Step-specific requirements
 python3 pipeline.py validate my-video --step 8 --strict  # SFX/BGM gates, warnings as errors
 python3 pipeline.py voice-test my-video            # Synth scene 1, measure chars/sec, project script total
 python3 pipeline.py voice-test my-video --scene 4 --voice es-ES-AlvaroNeural  # Sample a voice before Step 5
+python3 pipeline.py transcript my-video --scene 4  # One scene's word timings (never Read voiceover_timings.json whole)
+python3 pipeline.py logs my-video --step 9 --scene 4  # Last 30 lines of a step log (never Read raw logs)
 python3 pipeline.py lint-script my-video           # Lint scenes.json voiceover_text for AI-isms (write->lint->fix loop, Phase 1)
 python3 pipeline.py preview my-video               # Smoke-render scene 1
 python3 pipeline.py preview-frame my-video 2 45    # Render a single still (scene 2, MainVideo frame 45) for visual QA
@@ -543,7 +551,7 @@ python3 scripts/generate_voiceover.py videos/my-video/ --voice en-GB-RyanNeural
 python3 scripts/generate_voiceover_pocket.py videos/my-video/ --voice alba  # Optional pocket-tts engine
 python3 scripts/measure_durations.py videos/my-video/
 python3 scripts/generate_transcript.py videos/my-video/  # Step 6 tail: word timings + TRANSCRIPT.md
-python3 scripts/render_scene.py videos/my-video/ 1
+python3 scripts/render_scene.py videos/my-video/ 1  # Add --quiet for summary-only console output
 python3 scripts/assemble.py videos/my-video/
 python3 scripts/generate_captions.py videos/my-video/
 python3 scripts/render_thumbnail.py videos/my-video/

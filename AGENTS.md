@@ -12,6 +12,8 @@ Agent-orchestrated autonomous YouTube video production pipeline. The orchestrato
 - `transition_in/out` in `scenes.json` are ADVISORY ONLY — `MainVideo.tsx` hard-cuts; hand-code fades inside `SceneXX.tsx` (see `phase-3-visuals-render.md`).
 - `complete --step N --force` skips contracts — always run `python3 pipeline.py audit <title>` right after.
 - The `__PIPELINE_NEXT__` JSON trailer on every command output tells you exactly what to do next (`next_cmd`, `skills_files`, `expected_artifacts`) — parse it instead of prose.
+- Console output is collapsed by design: per-frame progress (Remotion/ffmpeg/Chrome/vosk) shows only the last line plus a `[N progress lines collapsed]` note on success. Full output is always in `videos/<title>/logs/`; failed commands dump everything. Never mistake the collapse note for an error.
+- Keep file IO small: patch `scenes.json` with `edit` hunks, never full rewrites; read slices (`read` offset/limit), never whole-file re-reads for one scene. Never Read `voiceover_timings.json` whole (100+ KB) — use `python3 pipeline.py transcript <title> --scene N` for one scene's word timings. Never Read raw logs — use `python3 pipeline.py logs <title> --step S [--scene I] [--tail N]`. Never recursive-list `remotion/`, `animations/`, or `node_modules/`.
 
 ## Environment
 

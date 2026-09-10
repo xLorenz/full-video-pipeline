@@ -199,7 +199,7 @@ _DEFAULT_STEP_COMMAND_TEMPLATES = {
     "6_duration_measurement":
         "{python} scripts/measure_durations.py {video_dir}",
     "9_scene_rendering":
-        "{python} scripts/render_scene.py {video_dir} {scene_id}",
+        "{python} scripts/render_scene.py {video_dir} {scene_id} --quiet",
     "10_stitching":
         "{python} scripts/assemble.py {video_dir}",
     "13_thumbnail_rendering":
@@ -1061,7 +1061,62 @@ def find_versions_to_prune(versions_dir: Path, safe_title: str, pattern_str: str
     return [f for _, f in versions[keep:]]
 
 
-def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
+_PROGRESS_LINE_RES = (
+    re.compile(r"Rendered \d+\s*/\s*\d+"),   # remotion render progress
+    re.compile(r"Encoded \d+\s*/\s*\d+"),    # remotion encode progress
+    re.compile(r"^Bundling\b"),              # remotion bundler progress bar
+    re.compile(r"^Getting Headless Shell"),  # chrome download progress
+    re.compile(r"\d+(\.\d+)?\s*Mb/\d"),      # chrome download "9.5 Mb/113.3 Mb"
+    re.compile(r"^frame=\s*\d+"),            # ffmpeg progress
+    re.compile(r"^size=\s*\d+\S*\s+time="),  # ffmpeg audio-only progress
+    re.compile(r"^LOG \(VoskAPI"),           # vosk model-load chatter
+)
+
+
+def _is_progress_line(line: str) -> bool:
+    """True for tool progress chatter that is safe to collapse on success.
+
+    These lines repeat per frame/unit of work (thousands per run) and carry
+    no diagnostic value once the command succeeds — the last one is still
+    echoed as a summary. On failure run_cmd echoes everything, so errors
+    never lose context.
+    """
+    return any(rx.search(line) for rx in _PROGRESS_LINE_RES)
+
+
+# Console echo of the command itself is truncated past this length — the
+# full argv is in the log file. (A 23-input ffmpeg filter graph is one
+# ~4 KB "line"; it dominated Step 10 output.)
+_CMD_ECHO_MAX = 600
+
+
+def _short_cmd(printable: str) -> str:
+    """Truncate a console-echoed command line past _CMD_ECHO_MAX chars."""
+    if len(printable) > _CMD_ECHO_MAX:
+        return printable[:_CMD_ECHO_MAX] + f"... [truncated, {len(printable)} chars total]"
+    return printable
+
+
+def _collapse_progress(lines: list) -> tuple:
+    """Split captured lines into (echo_lines, collapsed_count, last_dropped).
+
+    Progress chatter matching _PROGRESS_LINE_RES is dropped from the console
+    echo, except the last dropped line, which is returned so the caller can
+    echo it as a summary (e.g. "Encoded 339/339").
+    """
+    echo_lines = []
+    collapsed = 0
+    last_dropped = None
+    for line in lines:
+        if _is_progress_line(line):
+            collapsed += 1
+            last_dropped = line
+        else:
+            echo_lines.append(line)
+    return echo_lines, collapsed, last_dropped
+
+
+def run_cmd(cmd, cwd=None, check=True, logpath: Path = None, quiet_progress: bool = True):
     """Run a command, capture output, echo it indented, optionally tee to a log.
 
     ``cmd`` may be a string (executed via the shell) or an argv list.
@@ -1069,6 +1124,12 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
     with spaces). On Windows they run with shell=True via list2cmdline:
     CreateProcess cannot launch .cmd shims (npx.cmd) directly, so bare
     shell=False fails with WinError 2 — the shell resolves PATHEXT.
+
+    Output handling: per-frame progress lines (Remotion, ffmpeg, Chrome
+    downloads, vosk) are collapsed on success — only the last one is echoed
+    plus a "[N progress lines collapsed]" note — while the COMPLETE output
+    is always teed to ``logpath`` when given. On failure everything is
+    echoed: collapsed output must never hide an error.
     """
     use_shell = True
     if isinstance(cmd, (list, tuple)):
@@ -1077,18 +1138,22 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
             # Windows: join with list2cmdline quoting, run through the shell
             # so npx.cmd / npm.cmd / node shims resolve via PATHEXT.
             printable = subprocess.list2cmdline(parts)
-            print(f"  $ {printable}")
+            print(f"  $ {_short_cmd(printable)}")
             parts = printable
             use_shell = True
         else:
             printable = " ".join(shlex.quote(p) for p in parts)
-            print(f"  $ {printable}")
+            print(f"  $ {_short_cmd(printable)}")
             use_shell = False
     else:
-        print(f"  $ {cmd}")
+        print(f"  $ {_short_cmd(cmd)}")
         parts = cmd
     log_f = open(logpath, "a", encoding="utf-8") if logpath else None
     try:
+        # The full command line always lands in the log file (the console
+        # echo above may be truncated for very long argv lists).
+        if log_f:
+            log_f.write(f"$ {parts if isinstance(parts, str) else subprocess.list2cmdline(parts)}\n")
         # Force UTF-8 I/O in child Python processes: step scripts print
         # em-dashes/arrows that crash under a legacy locale codec (cp1252)
         # when their stdout is a pipe. Harmless no-op for non-Python children.
@@ -1100,13 +1165,29 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None):
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
         stdout_text = result.stdout.decode("utf-8", errors="replace")
+        failed = check and result.returncode != 0
         if stdout_text:
             enc = getattr(sys.stdout, "encoding", None) or "utf-8"
-            for line in stdout_text.rstrip().split("\n"):
+            lines = stdout_text.rstrip().split("\n")
+            if log_f:
+                # The log file always keeps 100% of the output — only the
+                # console echo below is filtered.
+                for line in lines:
+                    log_f.write(line + "\n")
+            if failed or not quiet_progress:
+                # Failure (or explicit opt-out): echo everything. A collapsed
+                # error is a lost error.
+                echo_lines, collapsed, last_dropped = lines, 0, None
+            else:
+                echo_lines, collapsed, last_dropped = _collapse_progress(lines)
+            for line in echo_lines:
                 safe_line = line.encode(enc, errors="replace").decode(enc)
                 print(f"  | {safe_line}")
-                if log_f:
-                    log_f.write(line + "\n")
+            if collapsed:
+                if last_dropped is not None:
+                    print(f"  | {last_dropped.strip()}")
+                where = f"full output in {logpath}" if logpath else "no log file for this command"
+                print(f"  | ... [{collapsed} progress lines collapsed — {where}]")
         if check and result.returncode != 0:
             print(f"  ERROR: Command failed with exit code {result.returncode}")
             if log_f:

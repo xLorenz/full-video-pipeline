@@ -306,6 +306,7 @@ python3 pipeline.py clean <title>
 | Thumbnail composition fails lint | Fix `Thumbnail.tsx` TypeScript/lint errors. Remove any AI image references. |
 | Thumbnail still render fails | Check logs in `videos/<title>/logs/step-13.log`. Ensure `Thumbnail` composition is registered in `Root.tsx` and passes `remotion compositions`. |
 | `complete --step N` refused | Earlier steps incomplete — pass `--force` only if you understand the gap, and run `audit` right after (see Hard rules). |
+| Console shows "[N progress lines collapsed]" | Normal, not an error: per-frame progress chatter (Remotion, ffmpeg, Chrome download, vosk) is collapsed on success — last line + count only. Full output is always in `videos/<title>/logs/`. Failed commands still dump everything. |
 
 State forensics: each step's `pipeline_state.json` entry carries `attempts`,
 `last_error`, and `last_attempt_at` — read these via `pipeline.py status`,
@@ -341,6 +342,8 @@ python3 pipeline.py validate my-video          # Standalone schema validation
 python3 pipeline.py validate my-video --step 6 # Step-specific requirements
 python3 pipeline.py validate my-video --step 8 --strict # SFX gates, warnings as errors
 python3 pipeline.py voice-test my-video         # Synth 1 line, measure chars/sec, project script total
+python3 pipeline.py transcript my-video --scene 4 # One scene's word timings (never Read voiceover_timings.json whole)
+python3 pipeline.py logs my-video --step 9 --scene 4 # Last 30 lines of a step log (never Read raw logs)
 python3 pipeline.py preview my-video           # Smoke-render scene 1
 python3 pipeline.py captions my-video          # Generate SRT + populate captions
 python3 pipeline.py sfx my-video               # Generate SFX/BGM tracks (idempotent)

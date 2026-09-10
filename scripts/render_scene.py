@@ -9,12 +9,18 @@ render_attempts += 1, last_render_error=<msg>, then continues (does NOT abort
 the whole batch — the orchestrator run_step_9 catches this).
 
 Usage:
-    python3 scripts/render_scene.py <video_dir> <scene_id>
+    python3 scripts/render_scene.py <video_dir> <scene_id> [--quiet]
 
 Exit codes:
     0  scene rendered successfully
     1  scene failed (see scenes.json last_render_error)
     2  invalid arguments / config problem
+
+--quiet collapses the wrapper chatter (pre-flight numbers, orphan cleanup,
+flags, post-render cleanup) to the per-scene log file and prints only the
+header, errors, and the final summary — the pipeline passes it by default
+to keep Step 9 console output small. Details always land in
+videos/<title>/logs/step-9-scene-<id>.log either way.
 """
 
 import json
@@ -36,7 +42,28 @@ except ImportError:
     sys.exit(2)
 
 
-def kill_orphaned_chrome():
+def split_quiet_flag(argv):
+    """Split (positional_args, quiet) stripping any --quiet flag."""
+    args = [a for a in argv if a != "--quiet"]
+    return args, ("--quiet" in argv)
+
+
+def make_emitter(quiet, log_path):
+    """Return emit(msg): always appends to the per-scene log file, prints
+    to console only when not quiet.
+
+    Log-only writes never duplicate: the orchestrator's run_cmd tee only
+    sees this process's stdout, never these direct file appends.
+    """
+    def emit(msg):
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+        if not quiet:
+            print(msg)
+    return emit
+
+
+def kill_orphaned_chrome(emit=print):
     """Kill chrome-headless-shell processes whose parent is no longer alive.
 
     Mirrors the smart orphan logic from the previous render_scene.sh — avoids
@@ -73,18 +100,18 @@ def kill_orphaned_chrome():
                 proc.wait(timeout=5)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
                 pass
-            print(f"  Killed orphaned chrome-headless-shell (PID {proc.pid})")
+            emit(f"  Killed orphaned chrome-headless-shell (PID {proc.pid})")
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
     if not orphans:
-        print("  No orphaned processes found.")
+        emit("  No orphaned processes found.")
     return len(orphans)
 
 
-def check_resources(min_ram_mb):
+def check_resources(min_ram_mb, emit=print):
     """Pre-flight check on RAM."""
     avail = psutil.virtual_memory().available / (1024 * 1024)
-    print(f"Available RAM: {int(avail)}MB")
+    emit(f"Available RAM: {int(avail)}MB")
     if avail < min_ram_mb:
         print(f"WARNING: Low RAM ({int(avail)}MB < {min_ram_mb}MB). Waiting 30s...")
         time.sleep(30)
@@ -95,9 +122,9 @@ def check_resources(min_ram_mb):
     return True
 
 
-def check_disk(path, min_mb=500):
+def check_disk(path, min_mb=500, emit=print):
     free = psutil.disk_usage(str(path)).free / (1024 * 1024)
-    print(f"Available disk: {int(free)}MB")
+    emit(f"Available disk: {int(free)}MB")
     if free < min_mb:
         print(f"ERROR: Low disk space ({int(free)}MB < {min_mb}MB). Aborting.")
         return False
@@ -193,12 +220,13 @@ def _reap_tmpdir(cfg, tmpdir):
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: python3 scripts/render_scene.py <video_dir> <scene_id>",
+    pos, quiet = split_quiet_flag(sys.argv)
+    if len(pos) < 3:
+        print("Usage: python3 scripts/render_scene.py <video_dir> <scene_id> [--quiet]",
               file=sys.stderr)
         sys.exit(2)
-    video_dir = Path(sys.argv[1]).resolve()
-    scene_id = int(sys.argv[2])
+    video_dir = Path(pos[1]).resolve()
+    scene_id = int(pos[2])
     scene_padded = f"{scene_id:02d}"
     scenes_json = video_dir / "scenes.json"
     remotion_dir = video_dir / "remotion"
@@ -243,22 +271,23 @@ def main():
     burn_captions = v.get("burn_captions", False)
 
     log_file = pl.log_path(video_dir.name, 9, scene_id)
+    emit = make_emitter(quiet, log_file)
 
     print(f"=== Rendering Scene {scene_id} ===")
-    print(f"Video dir: {video_dir}")
-    print(f"Output: {output_file}")
-    print(f"Temp dir: {tmpdir}")
-    print(f"Log: {log_file}")
+    emit(f"Video dir: {video_dir}")
+    emit(f"Output: {output_file}")
+    emit(f"Temp dir: {tmpdir}")
+    emit(f"Log: {log_file}")
 
     with open(log_file, "a", encoding="utf-8") as logf:
         logf.write(f"\n=== render_scene.py run {pl.now_iso()} ===\n")
 
     # Pre-flight
-    print("\n--- Pre-flight check ---")
-    if not check_resources(min_ram_mb):
+    emit("\n--- Pre-flight check ---")
+    if not check_resources(min_ram_mb, emit=emit):
         update_scene_status(video_dir, scene_id, "failed", "Pre-flight RAM check failed")
         sys.exit(1)
-    if not check_disk(video_dir, min_disk_mb):
+    if not check_disk(video_dir, min_disk_mb, emit=emit):
         update_scene_status(video_dir, scene_id, "failed", "Pre-flight disk check failed")
         sys.exit(1)
 
@@ -269,8 +298,8 @@ def main():
     os.environ["NODE_OPTIONS"] = f"--max-old-space-size={node_max_old}"
 
     # Orphan cleanup
-    print("\n--- Cleaning up orphaned Chrome processes ---")
-    kill_orphaned_chrome()
+    emit("\n--- Cleaning up orphaned Chrome processes ---")
+    kill_orphaned_chrome(emit=emit)
     time.sleep(2)
 
     # Build props
@@ -291,10 +320,10 @@ def main():
         update_scene_status(video_dir, scene_id, "failed", f"Props build failed: {e}")
         sys.exit(1)
 
-    print(f"\n--- Starting Remotion render ---")
-    print(f"Flags: concurrency={concurrency} gl={gl_backend} codec={codec} "
-          f"crf={crf} preset={x264_preset}")
-    print(f"Frames: {frame_start}-{frame_end}")
+    emit("\n--- Starting Remotion render ---")
+    emit(f"Flags: concurrency={concurrency} gl={gl_backend} codec={codec} "
+         f"crf={crf} preset={x264_preset}")
+    emit(f"Frames: {frame_start}-{frame_end}")
 
     cmd = ["npx", "remotion", "render", "src/Root.tsx", "MainVideo", str(output_file),
            f"--props={props_path}",
@@ -330,8 +359,8 @@ def main():
         print(f"\nERROR: {msg}")
         update_scene_status(video_dir, scene_id, "failed", msg)
         # Post-render cleanup even on failure
-        print("\n--- Post-render cleanup (failure path) ---")
-        kill_orphaned_chrome()
+        emit("\n--- Post-render cleanup (failure path) ---")
+        kill_orphaned_chrome(emit=emit)
         time.sleep(post_settle)
         _reap_tmpdir(cfg, tmpdir)
         sys.exit(1)
@@ -339,8 +368,8 @@ def main():
     update_scene_status(video_dir, scene_id, "rendered")
 
     # Post-render cleanup
-    print("\n--- Post-render cleanup ---")
-    kill_orphaned_chrome()
+    emit("\n--- Post-render cleanup ---")
+    kill_orphaned_chrome(emit=emit)
     time.sleep(post_settle)
     _reap_tmpdir(cfg, tmpdir)
 

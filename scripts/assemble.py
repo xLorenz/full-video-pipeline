@@ -112,6 +112,11 @@ def atomic_replace_temp(output_file, cmd_argv, pre_commit=None):
     Path(str(output_file) + ".tmp").unlink(missing_ok=True)
     if isinstance(cmd_argv, (list, tuple)):
         argv = [str(a) for a in cmd_argv]
+        if argv and argv[0] == "ffmpeg":
+            # Quiet ffmpeg's banner + per-frame progress: warnings/errors
+            # still surface, and run_cmd dumps everything on failure. The
+            # banner alone was ~100 lines × 3 stitch invocations.
+            argv = ["ffmpeg", "-hide_banner", "-loglevel", "warning"] + argv[1:]
         # Last element must be the output — swap for tmp with explicit -f.
         if argv and Path(argv[-1]) == output_file:
             argv = argv[:-1] + (["-f", fmt] if fmt else []) + [str(tmp)]
@@ -120,6 +125,8 @@ def atomic_replace_temp(output_file, cmd_argv, pre_commit=None):
         result = pl.run_cmd(argv, check=False)
     else:
         full_cmd = cmd_argv.replace(f'"{output_file}"', f' -f {fmt} "{tmp}"', 1)
+        if full_cmd.startswith("ffmpeg "):
+            full_cmd = "ffmpeg -hide_banner -loglevel warning " + full_cmd[len("ffmpeg "):]
         result = pl.run_cmd(full_cmd, check=False)
     if result.returncode != 0 or not tmp.exists():
         if tmp.exists():

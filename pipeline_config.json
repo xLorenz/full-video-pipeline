@@ -61,7 +61,7 @@
             "command_template": "{python} scripts/measure_durations.py {video_dir}"
         },
         "9_scene_rendering": {
-            "command_template": "{python} scripts/render_scene.py {video_dir} {scene_id}"
+            "command_template": "{python} scripts/render_scene.py {video_dir} {scene_id} --quiet"
         },
         "10_stitching": {
             "command_template": "{python} scripts/assemble.py {video_dir}"

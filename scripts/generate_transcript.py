@@ -110,8 +110,10 @@ def vosk_recognize_words(mp3_path: Path, model_dir: Path) -> list:
 
     Returns [{word, start, end, conf}]. Raises on failure.
     """
-    from vosk import KaldiRecognizer, Model  # deferred: optional dependency
+    from vosk import KaldiRecognizer, Model, SetLogLevel  # deferred: optional dependency
 
+    SetLogLevel(-1)  # silence VoskAPI LOG chatter (model load prints ~8 lines
+    # per scene otherwise); alignment results below still print per scene.
     model = Model(str(model_dir))
     rec = KaldiRecognizer(model, 16000)
     rec.SetWords(True)

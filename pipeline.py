@@ -56,8 +56,9 @@ sanitize_title = pl.sanitize_title
 CmdError = pl.CmdError
 
 
-def run_cmd(cmd, cwd=None, check=True, logpath=None):
-    return pl.run_cmd(cmd, cwd=cwd, check=check, logpath=logpath)
+def run_cmd(cmd, cwd=None, check=True, logpath=None, quiet_progress=True):
+    return pl.run_cmd(cmd, cwd=cwd, check=check, logpath=logpath,
+                      quiet_progress=quiet_progress)
 
 # Import step metadata from the shared lib (single source of truth)
 STEP_KEYS = pl.STEP_KEYS
@@ -774,14 +775,13 @@ def lint_gate(title, vdir):
     if not (rdir / "package.json").exists():
         return False, "remotion/package.json not found"
     print("--- Pre-render lint/typecheck gate ---")
+    # NOTE: no standalone `npx tsc --noEmit` here — `npm run lint` already runs
+    # `eslint src && tsc --noEmit` (scaffold package.json), so a second tsc
+    # would only re-spend a full typecheck for identical output.
     r1 = run_cmd("npm run lint", cwd=rdir, check=False,
                  logpath=pl.log_path(title, 9, scene_id=0))
     if r1.returncode != 0:
         return False, "npm run lint failed"
-    r2 = run_cmd("npx tsc --noEmit", cwd=rdir, check=False,
-                 logpath=pl.log_path(title, 9, scene_id=0))
-    if r2.returncode != 0:
-        return False, "tsc --noEmit failed"
     # Confirm compositions are registered. Pass real scene --props when
     # available: `remotion compositions` evaluates calculateMetadata, and
     # older per-video Root.tsx copies throw on defaultProps.scenes=[].
@@ -2158,6 +2158,84 @@ def cmd_preview_frame(args):
 
 
 # ---------------------------------------------------------------------------
+# TRANSCRIPT subcommand — print one scene's word-level voiceover timings
+# ---------------------------------------------------------------------------
+
+def cmd_transcript(args):
+    """Print one scene's word timings from voiceover_timings.json (Step 6 artifact).
+
+    Cheap alternative to Reading the whole timings file (100+ KB) or
+    TRANSCRIPT.md when Step 8 only needs one scene's beats: prints the scene
+    header (duration, source, global_start) plus one
+    `word | start | end | start_frame-end_frame` line per word.
+    """
+    title = _safe_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    tpath = vdir / "voiceover_timings.json"
+    if not tpath.exists():
+        print("ERROR: voiceover_timings.json not found (run Step 6 first)")
+        sys.exit(2)
+    try:
+        data = json.loads(tpath.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"ERROR: cannot read voiceover_timings.json: {e}")
+        sys.exit(2)
+    scenes = data.get("scenes") or []
+    match = next((s for s in scenes
+                  if isinstance(s, dict) and s.get("id") == args.scene), None)
+    if match is None:
+        print(f"ERROR: scene {args.scene} not in voiceover_timings.json")
+        sys.exit(2)
+    fps = data.get("fps", 30)
+    print(f"Scene {match['id']} — {match.get('duration', '?')}s "
+          f"(padded {match.get('padded_duration', '?')}s) — "
+          f"global {match.get('global_start', '?')}s — "
+          f"{match.get('source', '?')} @ {fps}fps")
+    words = match.get("words") or []
+    if not words:
+        print("(no word timings — source is 'estimated'; sync to scene totals only)")
+        return
+    for w in words:
+        print(f"{w.get('w', '')} | {w.get('start', '')} | {w.get('end', '')} | "
+              f"{w.get('start_frame', '')}-{w.get('end_frame', '')}")
+
+
+# ---------------------------------------------------------------------------
+# LOGS subcommand — print the tail of a step log (bounded log reads)
+# ---------------------------------------------------------------------------
+
+def cmd_logs(args):
+    """Print the last N lines of a step log.
+
+    Per-scene render logs hold hundreds of uncollapsed progress lines — never
+    Read them raw with the file tools. This prints only the tail (default 30
+    lines) plus an omission note.
+    """
+    title = _safe_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+    if args.scene is not None:
+        name = f"step-{args.step}-scene-{args.scene}.log"
+    else:
+        name = f"step-{args.step}.log"
+    lpath = vdir / "logs" / name
+    if not lpath.exists():
+        print(f"ERROR: log not found: {lpath}")
+        sys.exit(2)
+    n = max(1, args.tail)
+    lines = lpath.read_text(encoding="utf-8", errors="replace").rstrip().split("\n")
+    if len(lines) > n:
+        print(f"... [{len(lines) - n} earlier lines omitted — {lpath}]")
+    for line in lines[-n:]:
+        print(line)
+
+
+# ---------------------------------------------------------------------------
 # CAPTIONS subcommand — generate SRT sidecar + populate scene caption cues
 # ---------------------------------------------------------------------------
 
@@ -2318,6 +2396,17 @@ def main():
     captions_p = sub.add_parser("captions", help="Generate SRT sidecar + populate scene captions")
     captions_p.add_argument("title", help="Video title")
 
+    tr_p = sub.add_parser("transcript", help="Print one scene's word-level voiceover timings")
+    tr_p.add_argument("title", help="Video title")
+    tr_p.add_argument("--scene", type=int, required=True, help="Scene id")
+
+    logs_p = sub.add_parser("logs", help="Print the tail of a step log (bounded log reads)")
+    logs_p.add_argument("title", help="Video title")
+    logs_p.add_argument("--step", type=int, required=True, help="Step number (e.g. 9)")
+    logs_p.add_argument("--scene", type=int, default=None,
+                        help="Scene id for per-scene logs (e.g. step-9-scene-4)")
+    logs_p.add_argument("--tail", type=int, default=30, help="Last N lines (default 30)")
+
     sfx_p = sub.add_parser("sfx", help="Generate SFX/BGM tracks (and preview with --preview)")
     sfx_p.add_argument("title", help="Video title")
     sfx_p.add_argument("--preview", action="store_true",
@@ -2365,6 +2454,10 @@ def main():
         cmd_preview_frame(args)
     elif args.command == "captions":
         cmd_captions(args)
+    elif args.command == "transcript":
+        cmd_transcript(args)
+    elif args.command == "logs":
+        cmd_logs(args)
     elif args.command == "sfx":
         cmd_sfx(args)
     elif args.command == "clean":
