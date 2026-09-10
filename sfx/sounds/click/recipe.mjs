@@ -2,7 +2,7 @@
 // Params: cutoff (Hz), q (ring sharpness).
 import { noiseArray, bufferSource } from "../../../sfx-render/lib/rng.js";
 
-export const duration = 0.06;
+export const duration = 0.09;
 
 export default async function render(Tone, { rng, params, duration, destination, sr }) {
   const cutoff = params.cutoff ?? 2000;

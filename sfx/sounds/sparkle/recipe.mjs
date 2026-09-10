@@ -1,6 +1,6 @@
 // sparkle — random twinkles: 5 bell dings at random pitch/placement.
 // Stochastic placement ported from v2; fully seeded via rng.
-import { bufferSource } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 2.0;
 
@@ -29,11 +29,13 @@ export default async function render(Tone, { rng, params, duration, destination,
   for (let i = 0; i < 5; i++) {
     const f0 = 1046.5 * (1.2 + rng() * 1.0);
     const start = Math.round(rng() * 0.35 * sr);
-    const ding = bellDing(f0, totalSamples, sr);
+    const ding = bellDing(f0, Math.round(1.5 * sr), sr);
     for (let j = 0; j + start < out.length; j++) {
       out[start + j] += 0.5 * ding[j];
     }
   }
+  fadeOut(out, 0.05, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

@@ -16,7 +16,7 @@
     "playful",
     "neutral"
   ],
-  "default_volume": 0.55,
+  "default_volume": 0.45,
   "max_tail_seconds": 1.5,
   "params": {},
   "description": "Authority stamp (~0.25s): low thump 130 to 55 Hz + paper slap + metallic clunk — verdicts, final answers, seals."

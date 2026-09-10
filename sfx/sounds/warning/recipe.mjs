@@ -1,10 +1,10 @@
 // warning — double mid-range pulse, falling 750 -> 520 Hz.
 // Skill: ui-sound-design #warning (double pulse, mid-range, 150-350ms).
-import { bufferSource } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.3;
 
-export default async function render(Tone, { rng, params, duration, destination, sr }) {
+export default async function render(Tone, { params, duration, destination, sr }) {
   const n = Math.round(duration * sr);
   const out = new Float32Array(n);
   const pulses = [
@@ -27,6 +27,8 @@ export default async function render(Tone, { rng, params, duration, destination,
       out[s + i] += p.amp * a * dec * (Math.sin(ph) + 0.3 * Math.sin(ph2));
     }
   }
+  fadeOut(out, 0.05, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

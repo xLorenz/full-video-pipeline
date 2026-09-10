@@ -4,7 +4,7 @@ import { noiseArray, bufferSource } from "../../../sfx-render/lib/rng.js";
 export const duration = 0.12;
 
 export default async function render(Tone, { rng, params, duration, destination, sr }) {
-  const out = new Tone.Gain(0.0001).connect(destination);
+  const out = new Tone.Gain(1).connect(destination);
 
   const osc = new Tone.Oscillator({ type: "sine" });
   osc.frequency.setValueAtTime(420, 0);

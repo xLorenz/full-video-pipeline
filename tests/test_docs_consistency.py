@@ -55,8 +55,8 @@ def test_bgm_null_means_silence_in_docs():
 
 def test_sfx_engine_note_counts():
     design = _read(SKILL / "references" / "sfx-design.md")
-    assert "33 sounds" in design
-    assert "27" in design and "6" in design
+    assert "36 sounds" in design
+    assert "30" in design and "6" in design
     assert "pulse_light" in design and "tension_riser" in design
 
 

@@ -1,17 +1,17 @@
-// chime — softer bell: G6 with damped upper partials, 2 ms attack.
-// Softness comes from sparse highs (0.25/0.15), not just lower gain.
-// Params: decay (bell decay seconds; scales all partial taus).
+// sonar_ping — clean location ping: 880 Hz sine + octave shimmer, long tail.
+// Map pins, radar sweeps, "you are here" moments.
+// Params: decay (ping tail seconds; scales partial taus).
 import { bufferSource, envAttack, envDecay, fadeOut, normalize, sineArray } from "../../../sfx-render/lib/rng.js";
 
-export const duration = 2.0;
+export const duration = 1.2;
 
 export default async function render(Tone, { rng, params, duration, destination, sr }) {
-  const f0 = 1568;
-  const dScale = (params.decay ?? 0.6) / 0.6;
+  const f0 = 880;
+  const dScale = (params.decay ?? 0.8) / 0.8;
   const partials = [
-    [1.0, 1.0, 0.6],
-    [2.0, 0.25, 0.4],
-    [2.76, 0.15, 0.25],
+    [1.0, 1.0, 0.8],
+    [2.0, 0.3, 0.4],
+    [2.99, 0.12, 0.25],
   ];
   const out = new Float32Array(Math.round(duration * sr));
   for (const [ratio, amp, tau] of partials) {

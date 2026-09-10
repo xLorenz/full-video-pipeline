@@ -5,9 +5,10 @@ CC0 sample — no network, no purchases, no attribution needed. One engine + bun
 
 - `backend: "tone"` — **Tone.js/WebAudio recipes** (`sfx/sounds/<id>/recipe.mjs`), rendered
   offline by the `sfx-render` npm workspace (`node sfx-render/render.js`), bridged from Python
-  via `scripts/tone_render.py`. All 27 cue sounds run on this engine; the first 22 are 1:1
-  ports of the v2 Python recipes, the last five (success, warning, toggle, bounce, stamp) are
-  skill-informed originals. Rendering is **deterministic**: same cue → byte-identical output
+   via `scripts/tone_render.py`. All 30 cue sounds run on this engine; the first 22 are 1:1
+   ports of the v2 Python recipes, the last five (success, warning, toggle, bounce, stamp) are
+   skill-informed originals, plus three newer originals (page_turn, sonar_ping, heartbeat).
+   Rendering is **deterministic**: same cue → byte-identical output
   (`sfx_hash` includes each tone recipe's sha256, so recipe edits re-render automatically).
 - `backend: "sample"` — bundled CC0 assets (rain not needed — `rain` is procedural).
 
@@ -50,6 +51,8 @@ catalog and is **not loaded** in Phase 3 briefs.
 | `pulse_dark` | serious, tense | 95 bpm | mid | Deep kick + minor pad — serious/tech content |
 | `ambient_calm` | calm, serious, neutral | — | none | Drifting chord pad, no percussion — narration-forward |
 | `tension_riser` | tense, serious | accelerating | rising | Rising tone + accelerating ticks — countdowns, climaxes |
+| `groove_light` | upbeat, playful, neutral | 116 bpm | mid | Upbeat kick + walking bass + bright pad — hopeful/playful content |
+| `drone_dark` | serious, tense, calm | — | none | Low evolving drone, no percussion — dark narration-forward bed |
 
 Per-scene override: `"bgm": { "track": "ambient_calm", "volume": 0.4 }`. `"bgm": null` inserts
 a silence span. Bed continuity is engine-owned: same (track, volume) flows seamlessly across

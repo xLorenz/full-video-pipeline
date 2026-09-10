@@ -1,7 +1,7 @@
 // riser — long upward tension build: LP-swept noise + sine glide, energy builds.
 // Array-domain port of v2 (tone Param.setValueCurveAtTime explodes into
 // one ramp event per curve point, so envelopes are baked into the samples).
-import { noiseArray, bufferSource, onepoleLPSweep, onepoleHP, sineSweep, fadeOut } from "../../../sfx-render/lib/rng.js";
+import { noiseArray, bufferSource, normalize, onepoleLPSweep, onepoleHP, sineSweep, fadeOut } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 1.6;
 
@@ -15,6 +15,7 @@ export default async function render(Tone, { rng, params, duration, destination,
     out[i] = (0.55 * noise[i] + 0.45 * tone[i]) * t ** 1.8;
   }
   fadeOut(out, 0.12, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

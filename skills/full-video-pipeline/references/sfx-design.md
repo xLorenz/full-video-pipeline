@@ -4,11 +4,12 @@ How to give the video sound that a) links to the visuals, b) never buries the vo
 c) never fights the tone. You cannot listen — so these rules + the machine checks replace
 your ears.
 
-## Engine note (catalog v5)
-33 sounds across two backends: 27 cue sounds render on the Tone.js/WebAudio
+## Engine note (catalog v6)
+36 sounds across two backends: 30 cue sounds render on the Tone.js/WebAudio
 engine (`backend: "tone"`, one batched `node` invocation, seeded per cue);
 6 ship as bundled CC0 samples (`backend: "sample"`, decoded via ffmpeg).
-The 4 BGM beds (`pulse_light`, `pulse_dark`, `ambient_calm`, `tension_riser`)
+The 6 BGM beds (`pulse_light`, `pulse_dark`, `ambient_calm`, `tension_riser`,
+`groove_light`, `drone_dark`)
 render in Python (`generate_sfx.py`). The first 22 recipes are 1:1 ports of
 the v2 designs (success, warning, toggle, bounce, stamp are skill-informed
 originals). Design intent, cue grammar, params and the volume law are
@@ -50,16 +51,30 @@ output.
 - Cues near a scene's end ring into the next scene — that is the intended behavior; use it
   for transition sounds. A cue at "end" of the FINAL scene is inaudible — don't write it.
 - 1-3 cues per scene is plenty. A scene with 6+ cues is clutter, not design.
+- Impact family (`boom`, `impact`, `stamp`, `zap`, `punch`) is transient-hot: cap
+  explicit cue volumes at 0.5, prefer 0.4-0.45. Never write 0.6+ for these sounds —
+  at 0.6+ their peaks sit only ~13-14 dB under the voiceover peak and read as loud.
+  Softer accents (`swell`, `whoosh`, `tick`) may use up to 0.5.
+- Continuous bed-textures (`rain`, `crowd`) carry 5s of uninterrupted energy —
+  keep them at 0.2 or below. (`rain`'s recipe is pre-trimmed ~6 dB for this role;
+  0.2 lands it ~17 dB under the voiceover mean.)
 
 ## BGM
 - Default `pulse_light` is safe in any tone. `tension_riser`/`pulse_dark` only for
   tense/serious content. `ambient_calm` when the voiceover must dominate.
+  `groove_light` for hopeful/playful stretches, `drone_dark` for a dark bed that
+  stays out of the narration's way.
 - The bed ducks under the voiceover automatically (sidechain). `null` per scene = silence
   there; use it for hard-hitting beats.
 - Repeated (track, volume) flows seamlessly across scene boundaries — the engine carries
   the loop, you never hear a cut between those scenes.
 - Changing track/volume: the engine blends with a 0.5 s equal-power crossfade
   (`bgm.crossfade_seconds`); a `null` gap silences both sides without blending.
+- `tension_riser` peaks at its loop end by design — cap its per-scene volume at
+  0.35 (0.3 typical) or its climax will ride over the voiceover. Other beds may use
+  up to 0.6-0.75. (The engine also applies a global `bgm.track_trim` of −5 dB to
+  `tension_riser`: its dense texture measures ~2.5 dB hotter than the pulse beds
+  at equal volume. Don't "compensate" by raising its cue volume.)
 - The bed fades in at video start and out at video end automatically — never script fades.
 
 ## Anti-patterns (banned)

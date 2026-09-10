@@ -15,7 +15,7 @@
     "tense",
     "neutral"
   ],
-  "default_volume": 0.6,
+  "default_volume": 0.5,
   "max_tail_seconds": 2.0,
   "params": {
     "pitch": {

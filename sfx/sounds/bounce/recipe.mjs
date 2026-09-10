@@ -1,6 +1,6 @@
 // bounce — rubber ball: 4 decreasing pitch-drop hits settling, seeded jitter.
 // Skill: ui-sound-design vocabulary (playful bounce / bubbly energy).
-import { noiseArray, bufferSource, onepoleHP, envDecay } from "../../../sfx-render/lib/rng.js";
+import { noiseArray, bufferSource, onepoleHP, envDecay, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.7;
 
@@ -30,6 +30,7 @@ export default async function render(Tone, { rng, params, duration, destination,
   // seeded 2 ms tick on the first hit (ball strike transient)
   const tick = envDecay(onepoleHP(noiseArray(rng, 0.004, sr), 3000, sr), 0.002, sr);
   for (let i = 0; i < tick.length; i++) out[i] += 0.35 * tick[i];
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

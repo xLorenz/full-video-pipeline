@@ -20,14 +20,14 @@
       "minimum": 400.0,
       "maximum": 6000.0,
       "default": 2000.0,
-      "description": "Bandpass center Hz"
+      "description": "Knock tone Hz (also sets the attack-spike highpass at 2x)"
     },
     "q": {
       "type": "number",
       "minimum": 0.5,
       "maximum": 12.0,
       "default": 2.0,
-      "description": "Bandpass Q (sharpness)"
+      "description": "Ring Q (sharpness; higher = longer ring)"
     }
   },
   "description": "Button/press click \u2014 damped knock at cutoff + 2 ms attack spike."

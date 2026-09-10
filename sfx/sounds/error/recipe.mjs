@@ -42,5 +42,5 @@ export default async function render(Tone, { rng, params, duration, destination,
   shaper.connect(out);
   saw1.start(0).stop(duration);
   saw2.start(0).stop(duration);
-  lfo.start(0);
+  lfo.start(0).stop(duration);
 }

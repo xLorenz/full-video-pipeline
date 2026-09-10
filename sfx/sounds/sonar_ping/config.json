@@ -1,0 +1,38 @@
+{
+  "sound": "sonar_ping",
+  "aliases": [
+    "sonar",
+    "ping",
+    "radar-ping"
+  ],
+  "backend": "tone",
+  "recipe": "sonar_ping",
+  "tags": [
+    "accent",
+    "ui"
+  ],
+  "moods": [
+    "calm",
+    "neutral",
+    "serious"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 2.0,
+  "params": {
+    "pitch": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "description": "Pitch multiplier (resample)"
+    },
+    "decay": {
+      "type": "number",
+      "minimum": 0.2,
+      "maximum": 2.0,
+      "default": 0.8,
+      "description": "Ping tail seconds"
+    }
+  },
+  "description": "Clean location ping \u2014 880 Hz sine + octave shimmer, long tail; map pins, radar sweeps."
+}

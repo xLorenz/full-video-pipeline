@@ -1,9 +1,9 @@
 // shimmer — high sparkle: 3 inharmonic partials with 6 Hz vibrato, slow decay.
-import { bufferSource } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 1.2;
 
-export default async function render(Tone, { rng, params, duration, destination, sr }) {
+export default async function render(Tone, { params, duration, destination, sr }) {
   const n = Math.round(duration * sr);
   const f0 = 2093;
   const partials = [
@@ -23,6 +23,8 @@ export default async function render(Tone, { rng, params, duration, destination,
       out[i] += amp * a * Math.exp(-i / (tau * sr)) * Math.sin(ph);
     }
   }
+  fadeOut(out, 0.05, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

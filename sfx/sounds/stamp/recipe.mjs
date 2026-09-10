@@ -1,6 +1,6 @@
 // stamp — authority verdict: low thump + paper slap + metallic clunk.
 // Skill: ui-sound-design building blocks (impact thump + transient slap).
-import { noiseArray, bufferSource, onepoleLP, onepoleHP, envDecay, fadeOut } from "../../../sfx-render/lib/rng.js";
+import { noiseArray, bufferSource, onepoleLP, onepoleHP, envDecay, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.25;
 
@@ -45,6 +45,7 @@ export default async function render(Tone, { rng, params, duration, destination,
   }
 
   fadeOut(out, 0.03, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

@@ -5,7 +5,7 @@
     "fail"
   ],
   "backend": "tone",
-  "recipe": "error_buzz",
+  "recipe": "error",
   "tags": [
     "ui",
     "glitch"

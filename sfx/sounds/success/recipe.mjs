@@ -1,10 +1,10 @@
 // success — ascending major-third chime (C5 -> E5) with bell sparkle.
 // Skill: ui-sound-design #success (ascending major third, 200-500ms).
-import { bufferSource, fadeOut } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.5;
 
-export default async function render(Tone, { rng, params, duration, destination, sr }) {
+export default async function render(Tone, { params, duration, destination, sr }) {
   const n = Math.round(duration * sr);
   const out = new Float32Array(n);
   const attackN = Math.max(1, Math.round(0.004 * sr));
@@ -26,6 +26,7 @@ export default async function render(Tone, { rng, params, duration, destination,
     }
   }
   fadeOut(out, 0.05, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

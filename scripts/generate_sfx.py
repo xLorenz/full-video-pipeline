@@ -253,6 +253,14 @@ def _highpass_one_pole(x, fc):
     return out
 
 
+def _lowpass_one_pole(x, fc):
+    w, y, out = math.exp(-2.0 * math.pi * fc / SR), 0.0, []
+    for v in x:
+        y = (1.0 - w) * v + w * y
+        out.append(y)
+    return out
+
+
 def _env_decay(x, tau_sec, start_at=0, tail=True):
     """Exponential decay with time constant tau applied from start_at to the end."""
     out = list(x)
@@ -345,7 +353,7 @@ def pulse_dark(rng, sr, duration_sec):
             for i, v in enumerate(hat):
                 out[base + i] += 0.10 * v
     pad = [0.0] * n
-    for freq, amp in ((65.41, 0.05), (155.56, 0.05), (196.0, 0.05)):
+    for freq, amp in ((65.41, 0.065), (155.56, 0.065), (196.0, 0.065), (293.66, 0.03)):
         for i in range(n):
             pad[i] += amp * math.sin(2.0 * math.pi * freq * i / sr)
     return [out[i] + pad[i] for i in range(n)]
@@ -401,11 +409,71 @@ def tension_riser(rng, sr, duration_sec):
     return out
 
 
+def groove_light(rng, sr, duration_sec):
+    # Upbeat bed: kick + offbeat hats + walking bass plucks over a bright pad.
+    # 116 bpm, 8-step loop; hopeful/playful counterweight to pulse_dark.
+    step = int(60.0 / 116.0 * sr)
+    n = step * 8
+    out = [0.0] * n
+    for step_i in range(8):
+        base = step_i * step
+        if step_i % 2 == 0:                              # kick on 0,2,4,6
+            kick = _env_decay(_sine(60.0, int(0.16 * sr)), 0.055)
+            for i, v in enumerate(kick):
+                out[base + i] += 0.5 * v
+        else:                                            # hat on 1,3,5,7
+            hat = _highpass_one_pole(_white(rng, int(0.015 * sr)), 6500.0)
+            for i, v in enumerate(hat):
+                out[base + i] += 0.13 * v
+    # walking bass plucks: A2 F2 G2 C3 pentatonic walk, one per step
+    for step_i, freq in enumerate((110.0, 87.31, 98.0, 130.81,
+                                  110.0, 130.81, 164.81, 98.0)):
+        base = step_i * step
+        pluck = _env_decay(_sine(freq, int(0.3 * sr)), 0.09)
+        for i, v in enumerate(pluck):
+            if base + i < n:
+                out[base + i] += 0.22 * v
+    pad = [0.0] * n
+    for freq, amp in ((220.0, 0.035), (277.18, 0.035), (329.63, 0.035)):
+        for i in range(n):
+            t = i / sr
+            trem = 1.0 + 0.25 * math.sin(2.0 * math.pi * 0.25 * t)
+            pad[i] += amp * trem * math.sin(2.0 * math.pi * freq * i / sr)
+    return [out[i] + pad[i] for i in range(n)]
+
+
+def drone_dark(rng, sr, duration_sec):
+    # Dark narration-forward drone: stacked low sines with slow beating, no
+    # percussion, breathy LP noise. Serious/tense counterpart to ambient_calm.
+    n = int(8.0 * sr)
+    out = [0.0] * n
+    partials = ((55.0, 0.10), (82.41, 0.07), (110.0, 0.06),
+                (110.7, 0.05), (165.0, 0.03))
+    for freq, amp in partials:
+        for i in range(n):
+            t = i / sr
+            swell = 1.0 + 0.35 * math.sin(2.0 * math.pi * 0.07 * t + freq)
+            out[i] += amp * swell * math.sin(2.0 * math.pi * freq * t)
+    breath = _lowpass_one_pole(_white(rng, n), 300.0)
+    for i in range(n):
+        t = i / sr
+        air = 1.0 + 0.5 * math.sin(2.0 * math.pi * 0.05 * t)
+        out[i] += 0.02 * air * breath[i]
+    # gentle 1.5 s edge ramps so the 8 s tile loops without a seam step
+    edge = min(int(1.5 * sr), n // 2)
+    for i in range(edge):
+        out[i] *= (math.sin(math.pi / 2.0 * i / edge)) ** 2
+        out[n - 1 - i] *= (math.sin(math.pi / 2.0 * i / edge)) ** 2
+    return out
+
+
 BGM_FUNCS = {
     "pulse_light": pulse_light,
     "pulse_dark": pulse_dark,
     "ambient_calm": ambient_calm,
     "tension_riser": tension_riser,
+    "groove_light": groove_light,
+    "drone_dark": drone_dark,
 }
 
 
@@ -506,6 +574,9 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
     master = array("f", [0.0]) * int(total_sec * sr)
     default_track = bcfg.get("default_track", "pulse_light")
     default_vol = bcfg.get("default_volume", 0.6)
+    trims = bcfg.get("track_trim", {})
+    if not isinstance(trims, dict):
+        trims = {}
     xfade = float(bcfg.get("crossfade_seconds", 0.5))
     order = sorted(scenes, key=lambda x: x["id"])
 
@@ -545,8 +616,12 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
             continue
         rng = random.Random(per_cue_seed(track, {"volume": vol}, start_abs))
         loop = _loop_pad(BGM_FUNCS[track](rng, sr, dur))
+        # Per-track trim (config bgm.track_trim): corrects inherent loudness
+        # differences between bed designs (e.g. tension_riser's dense rising
+        # texture runs hotter than the sparse pulse beds at equal volume).
+        trim_db = float(trims.get(track, 0.0))
         seg = apply_gain_db(_tile(loop, int(dur * sr)),
-                            bed_gain_db(vol, bcfg.get("bed_db", -12.0)))
+                            bed_gain_db(vol, bcfg.get("bed_db", -12.0)) + trim_db)
         segs.append((int(start_abs * sr), seg))
 
     if not segs:                                       # all-silent run set → no track
@@ -624,6 +699,7 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
                        "default_track": bcfg.get("default_track", "pulse_light"),
                        "default_volume": bcfg.get("default_volume", 0.6),
                        "bed_db": bcfg.get("bed_db", -12.0),
+                       "track_trim": bcfg.get("track_trim", {}),
                        "fade_out_seconds": bcfg.get("fade_out_seconds", 1.0),
                        "fade_in_seconds": bcfg.get("fade_in_seconds", 0.5),
                        "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5)},

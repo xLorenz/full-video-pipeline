@@ -253,20 +253,28 @@ def export_catalog_preview():
       </div>
     </div>""")
 
-    # BGM beds: one loop each, rendered at the mix-level bed gain (bed_db −12 dB
-    # rel. voiceover peak, default volume 0.6 — same law as render_bgm_track).
+    # BGM beds: one loop each, rendered at the live mix-level bed gain
+    # (config bgm.bed_db rel. voiceover peak, default volume 0.6, plus any
+    # bgm.track_trim — same law as render_bgm_track, so auditions stay truthful).
+    _bcfg = pl.load_config().get("bgm", {})
+    _bed_db = float(_bcfg.get("bed_db", -12.0))
+    _trims = _bcfg.get("track_trim", {})
+    if not isinstance(_trims, dict):
+        _trims = {}
     bgm_meta = {
         "pulse_light": "Light kick + airy pad — default safe choice",
         "pulse_dark": "Deep kick + minor pad — serious/tech content",
         "ambient_calm": "Drifting chord pad, no percussion — narration-forward",
         "tension_riser": "Rising tone + accelerating ticks — countdowns, climaxes",
+        "groove_light": "Upbeat kick + walking bass + bright pad — hopeful/playful content",
+        "drone_dark": "Low evolving drone, no percussion — dark narration-forward bed",
     }
     bgm_items = []
     for track, meta in sorted(sfx.BGM_TRACKS.items()):
         rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0))
                             & 0xFFFFFFFF)
         loop = g._loop_pad(g.BGM_FUNCS[track](rng, sr, 0.0))
-        raw = g.apply_gain_db(loop, g.bed_gain_db(0.6, -12.0))
+        raw = g.apply_gain_db(loop, g.bed_gain_db(0.6, _bed_db) + float(_trims.get(track, 0.0)))
         with _tf.TemporaryDirectory(prefix=f"bgmprev-{track}-") as _td:
             wav = Path(_td) / f"{track}.wav"
             mp3 = Path(_td) / f"{track}.mp3"

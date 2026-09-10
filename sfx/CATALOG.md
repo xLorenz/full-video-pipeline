@@ -14,12 +14,14 @@ The first 22 recipes are 1:1 ports of the v2 designs; `success`, `warning`, `tog
 |---|---|---|---|
 | `whoosh` | neutral, calm | transition, emphasis | Rising band-passed noise sweep — the "something arrives" whoosh |
 | `whoosh_down` | neutral, tense | transition, accent | Falling counterpart — "something leaves / resets" |
+| `page_turn` | neutral, calm | transition, accent | Paper flip gesture — airy flip + landing tap, before/after reveals |
 | `riser` | serious, tense, neutral | riser, transition | Long upward tension build for punch-ins or pattern interrupts |
 | `impact` | serious, tense, neutral | impact, emphasis | Hard low hit — verdicts, stamps, confirmations |
 | `thud` | serious, calm, neutral | impact | Soft low knock — card lands, panel drops in |
 | `boom` | serious, tense, neutral | impact, emphasis | Deep sub boom — big reveals, chapter breaks |
 | `punch` | tense, upbeat, neutral | impact | Sharp mid transient — beats land, words hit |
 | `stamp` | serious, tense, playful, neutral | emphasis, impact | Authority stamp — thump + paper slap + clunk, verdicts |
+| `heartbeat` | tense, serious | accent | Low lub-dub — paired thumps, countdowns, tension pulses |
 | `tick` | neutral, calm | ui, accent | Clean short tick — list items, progress steps |
 | `click` | neutral | ui | Button/press click — damped knock + attack spike |
 | `pop` | playful, upbeat, neutral | ui, accent | Bright cork-pop — chips appear, badges |
@@ -33,6 +35,7 @@ The first 22 recipes are 1:1 ports of the v2 designs; `success`, `warning`, `tog
 | `chime` | calm, neutral | ui, emphasis | Softer bell — completions, gentle success |
 | `shimmer` | calm, playful, upbeat | accent, ambient | High sparkle — magic, bright reveals |
 | `scan` | tense, glitch, neutral | riser, glitch | Frequency sweep — scanning / decoding (barcode-scan templates) |
+| `sonar_ping` | calm, neutral, serious | accent, ui | Clean 880 Hz location ping, long tail — map pins, detections |
 | `glitch_burst` | glitch, tense, playful, neutral | glitch | Digital stutter burst — blips, dropouts, bitcrush |
 | `sparkle` | playful, upbeat, humorous | accent | Random twinkles — celebration moments |
 | `error` | tense, glitch, serious | ui, glitch | Descending buzzy fail tone — wrong answer, fail states |
@@ -48,15 +51,15 @@ The first 22 recipes are 1:1 ports of the v2 designs; `success`, `warning`, `tog
 
 ## By tag
 
-- `transition` — `whoosh`, `whoosh_down`, `riser`, `swell`
+- `transition` — `whoosh`, `whoosh_down`, `page_turn`, `riser`, `swell`
 - `emphasis` — `whoosh`, `impact`, `boom`, `ding`, `chime`, `success`, `stamp`
 - `impact` — `impact`, `thud`, `boom`, `punch`, `stamp`
-- `ui` — `tick`, `click`, `pop`, `ding`, `chime`, `error`, `success`, `warning`, `toggle`
+- `ui` — `tick`, `click`, `pop`, `ding`, `chime`, `error`, `success`, `warning`, `toggle`, `sonar_ping`
 - `organic` — `rain`, `paper`, `footsteps`, `crowd`, `glass`, `door`, `siren`, `bubble`
 - `riser` — `riser`, `scan`
 - `glitch` — `zap`, `laser`, `scan`, `glitch_burst`, `error`
 - `ambient` — `shimmer`, `swell`
-- `accent` — `whoosh_down`, `tick`, `pop`, `zap`, `laser`, `shimmer`, `sparkle`, `bounce`
+- `accent` — `whoosh_down`, `page_turn`, `tick`, `pop`, `zap`, `laser`, `shimmer`, `sparkle`, `bounce`, `sonar_ping`, `heartbeat`
 
 ## Aliases
 
@@ -82,6 +85,9 @@ The first 22 recipes are 1:1 ports of the v2 designs; `success`, `warning`, `tog
 | `flip`, `switch` | `toggle` |
 | `boing`, `rubber` | `bounce` |
 | `shimmer-sound`, `shine`, `sparkle-up` | `shimmer` |
+| `page-flip`, `paper-flip` | `page_turn` |
+| `sonar`, `ping`, `radar-ping` | `sonar_ping` |
+| `heart-beat`, `lub-dub` | `heartbeat` |
 
 Unknown sound ids get "did you mean" errors listing the closest alias.
 
@@ -93,7 +99,10 @@ Unknown sound ids get "did you mean" errors listing the closest alias.
 | `pulse_dark` | serious, tense | 95 bpm | mid | Deep kick + minor pad — serious/tech content |
 | `ambient_calm` | calm, serious, neutral | — | none | Drifting chord pad, no percussion — narration-forward |
 | `tension_riser` | tense, serious | accelerating | rising | Rising tone + accelerating ticks — countdowns, climaxes |
+| `groove_light` | upbeat, playful, neutral | 116 bpm | mid | Upbeat kick + walking bass + bright pad — hopeful/playful content |
+| `drone_dark` | serious, tense, calm | — | none | Low evolving drone, no percussion — dark narration-forward bed |
 
 Default `pulse_light` at the config volume is safe anywhere; pick `tension_riser`/`pulse_dark`
-only for tense/serious content; `ambient_calm` when the voiceover should dominate. The engine
-ducks the bed under the voiceover automatically.
+only for tense/serious content; `ambient_calm` when the voiceover should dominate;
+`groove_light` for hopeful/playful stretches; `drone_dark` for a dark bed that stays
+out of the narration's way. The engine ducks the bed under the voiceover automatically.

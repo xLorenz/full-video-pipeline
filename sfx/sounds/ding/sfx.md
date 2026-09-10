@@ -1,6 +1,6 @@
 # ding
 
-Bell-like confirm, ~0.6s: an FM bell (carrier 880 Hz, modRatio 1.4) with a natural decay.
+Bell-like confirm, ~1.5s: a C6 additive bell (fundamental + 2x/2.76x/5.4x partials) with a 2 ms attack and natural decay.
 Success moments, milestones, level-ups, "yes" answers.
 
 Moods: calm, neutral, serious

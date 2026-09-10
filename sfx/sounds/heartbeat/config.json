@@ -1,23 +1,20 @@
 {
-  "sound": "boom",
+  "sound": "heartbeat",
   "aliases": [
-    "drop",
-    "bass-drop",
-    "deep-boom"
+    "heart-beat",
+    "lub-dub"
   ],
   "backend": "tone",
-  "recipe": "boom",
+  "recipe": "heartbeat",
   "tags": [
-    "impact",
-    "emphasis"
+    "accent"
   ],
   "moods": [
-    "serious",
     "tense",
-    "neutral"
+    "serious"
   ],
-  "default_volume": 0.5,
-  "max_tail_seconds": 3.0,
+  "default_volume": 0.45,
+  "max_tail_seconds": 1.5,
   "params": {
     "pitch": {
       "type": "number",
@@ -27,5 +24,5 @@
       "description": "Pitch multiplier (resample)"
     }
   },
-  "description": "Deep sub boom \u2014 big reveals, chapter breaks."
+  "description": "Low lub-dub \u2014 paired 68/58 Hz thumps + strike click; countdowns, tension pulses."
 }

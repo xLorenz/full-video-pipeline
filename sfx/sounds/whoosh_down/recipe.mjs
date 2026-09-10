@@ -1,10 +1,11 @@
 // whoosh_down — falling band-passed noise sweep ("something leaves / resets").
+// Mirror of whoosh: whoosh is attack 0.25 / fade 0.18, this is attack 0.18 / fade 0.25.
 import { noiseArray, bufferSource, envAttack, fadeOut } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.7;
 
 export default async function render(Tone, { rng, params, duration, destination, sr }) {
-  const noise = envAttack(fadeOut(noiseArray(rng, duration, sr), 0.25, sr), 0.1, sr);
+  const noise = envAttack(fadeOut(noiseArray(rng, duration, sr), 0.25, sr), 0.18, sr);
   const lp = new Tone.Filter({ type: "lowpass", Q: 0.6 });
   lp.frequency.setValueAtTime(7500, 0);
   lp.frequency.exponentialRampToValueAtTime(350, duration);

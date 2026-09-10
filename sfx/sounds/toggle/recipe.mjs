@@ -1,10 +1,10 @@
 // toggle — springy flip sweep 300 -> 850 Hz with overshoot settle.
 // Skill: ui-sound-design #toggle (rising pitch sweep with playful spring).
-import { bufferSource } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
-export const duration = 0.18;
+export const duration = 0.16;
 
-export default async function render(Tone, { rng, params, duration, destination, sr }) {
+export default async function render(Tone, { params, duration, destination, sr }) {
   const n = Math.round(duration * sr);
   const out = new Float32Array(n);
   // piecewise-exponential frequency glide: rise, overshoot down, settle.
@@ -35,6 +35,8 @@ export default async function render(Tone, { rng, params, duration, destination,
   for (let i = tailStart; i < n; i++) {
     out[i] *= Math.exp(-(i - tailStart) / (0.02 * sr));
   }
+  fadeOut(out, 0.02, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

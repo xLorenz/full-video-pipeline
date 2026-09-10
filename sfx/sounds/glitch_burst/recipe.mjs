@@ -1,6 +1,6 @@
 // glitch_burst — digital stutter burst: square blips, dropouts, bit-crushed tail.
 // Sample-level stochastic logic ported from v2; fully seeded via rng.
-import { bufferSource } from "../../../sfx-render/lib/rng.js";
+import { bufferSource, fadeOut, normalize } from "../../../sfx-render/lib/rng.js";
 
 export const duration = 0.2;
 
@@ -34,6 +34,10 @@ export default async function render(Tone, { rng, params, duration, destination,
     if (k % Math.floor(4 + rng() * 4) === 0) hold = rng() * 2 - 1;
     out[tailStart + k] += 0.5 * hold;
   }
+  // the bit-crushed tail holds DC-ish values to the last sample — fade the
+  // tail region so the buffer never ends on a step (click).
+  fadeOut(out, 0.035, sr);
+  normalize(out, 0.9);
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

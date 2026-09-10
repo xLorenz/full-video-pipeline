@@ -1,7 +1,7 @@
 // glass — glass shatter: crack + thump + 90 shard cascade + 3 late clinks (v2 glass_shatter, 1:1 port).
-import { noiseArray, bufferSource, envDecay, onepoleHP, sineArray } from "../../../sfx-render/lib/rng.js";
+import { noiseArray, bufferSource, envDecay, fadeOut, normalize, onepoleHP, sineArray } from "../../../sfx-render/lib/rng.js";
 
-export const duration = 1.0;
+export const duration = 1.2;
 
 export default async function render(Tone, { rng, params, duration, destination, sr }) {
   const n = Math.round(duration * sr);
@@ -30,6 +30,9 @@ export default async function render(Tone, { rng, params, duration, destination,
     const tone = envDecay(sineArray(f, (n - start) / sr, sr), 0.05, sr);
     for (let i = 0; i < tone.length; i++) out[start + i] += 0.12 * tone[i];
   }
+
+  fadeOut(out, 0.05, sr);
+  normalize(out, 0.9);
 
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);

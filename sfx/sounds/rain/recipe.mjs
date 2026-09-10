@@ -29,6 +29,9 @@ export default async function render(Tone, { rng, params, duration, destination,
   envAttack(out, 0.4, sr);
   fadeOut(out, 0.5, sr);
   normalize(out, 0.9);
+  // Bed-texture trim: rain is continuous energy, not a transient hit — sit it
+  // ~6 dB under the normal cue scale so 0.2-0.3 reads as a quiet bed.
+  for (let i = 0; i < n; i++) out[i] *= 0.5;
   const outGain = new Tone.Gain(1).connect(destination);
   bufferSource(Tone, out, outGain);
 }

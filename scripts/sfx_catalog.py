@@ -29,7 +29,8 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 5   # v5: all 27 cues moved to the tone engine, Python synth engine removed
+CATALOG_VERSION = 6   # v6: +3 tone sounds (page_turn, sonar_ping, heartbeat)
+                      # v5: all 27 cues moved to the tone engine, Python synth engine removed
                       # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
 
 MOODS = ("serious", "tense", "calm", "neutral", "playful", "humorous", "upbeat", "glitch")
@@ -46,6 +47,8 @@ BGM_TRACKS = {
     "pulse_dark":      {"bpm": 95,  "moods": ("serious", "tense"),          "energy": "mid"},
     "ambient_calm":    {"bpm": None, "moods": ("calm", "serious", "neutral"), "energy": "none"},
     "tension_riser":   {"bpm": None, "moods": ("tense", "serious"),         "energy": "rising"},
+    "groove_light":    {"bpm": 116, "moods": ("upbeat", "playful", "neutral"), "energy": "mid"},
+    "drone_dark":      {"bpm": None, "moods": ("serious", "tense", "calm"),    "energy": "none"},
 }
 
 

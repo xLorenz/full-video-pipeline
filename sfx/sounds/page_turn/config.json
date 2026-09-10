@@ -1,0 +1,21 @@
+{
+  "sound": "page_turn",
+  "aliases": [
+    "page-flip",
+    "paper-flip"
+  ],
+  "backend": "tone",
+  "recipe": "page_turn",
+  "tags": [
+    "transition",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "calm"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.0,
+  "params": {},
+  "description": "Paper flip gesture \u2014 airy rising flip + soft landing tap; before/after reveals, card flips."
+}
