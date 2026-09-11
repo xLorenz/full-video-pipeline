@@ -228,12 +228,51 @@ def main():
             print(f"  ERROR: Voiceover MP3 missing for scenes: {missing_vo}")
             sys.exit(1)
         aligned_audio = video_dir / "voiceover_aligned.mp3"
-        ok = atomic_replace_temp(
-            aligned_audio,
-            ["ffmpeg", "-y", *vo_inputs, "-filter_complex", vo_graph,
+        single_pass = ["ffmpeg", "-y", *vo_inputs, "-filter_complex", vo_graph,
              "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "192k",
-             str(aligned_audio)],
-        )
+             str(aligned_audio)]
+        # Windows cmd.exe caps command lines at 8191 chars — big casts
+        # (58 absolute -i paths + the pad graph) blow past it ("La línea
+        # de comandos es demasiado larga"). Hierarchical concat then:
+        # pad+concat in small batches, then concat the parts.
+        est_len = sum(len(str(a)) + 3 for a in single_pass)
+        if est_len < 7000:
+            ok = atomic_replace_temp(aligned_audio, single_pass)
+        else:
+            print(f"  Large cast ({len(scenes)} scenes, ~{est_len} chars cmd) — "
+                  f"hierarchical voiceover concat")
+            for stale in temp_dir.glob("vo_part_*.mp3"):
+                stale.unlink(missing_ok=True)
+            BATCH = 12
+            parts, ok = [], True
+            for bi in range(0, len(scenes), BATCH):
+                chunk = scenes[bi:bi + BATCH]
+                ci, cg, cmiss = pl.voiceover_pad_graph(voiceover_dir, chunk, fps)
+                if cmiss:
+                    print(f"  ERROR: Voiceover MP3 missing for scenes: {cmiss}")
+                    ok = False
+                    break
+                part = temp_dir / f"vo_part_{bi // BATCH:02d}.mp3"
+                ok = atomic_replace_temp(
+                    part,
+                    ["ffmpeg", "-y", *ci, "-filter_complex", cg,
+                     "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "192k",
+                     str(part)])
+                if not ok:
+                    print(f"  ERROR: voiceover batch {bi // BATCH} failed")
+                    break
+                parts.append(part)
+            if ok:
+                fin_inputs, flabels = [], []
+                for i, p in enumerate(parts):
+                    fin_inputs += ["-i", str(p)]
+                    flabels.append(f"[{i}:a]")
+                fgraph = "".join(flabels) + f"concat=n={len(parts)}:v=0:a=1[aout]"
+                ok = atomic_replace_temp(
+                    aligned_audio,
+                    ["ffmpeg", "-y", *fin_inputs, "-filter_complex", fgraph,
+                     "-map", "[aout]", "-c:a", "libmp3lame", "-b:a", "192k",
+                     str(aligned_audio)])
         if not ok or not aligned_audio.exists():
             print("ERROR: Failed to create voiceover_aligned.mp3")
             sys.exit(1)
@@ -273,7 +312,7 @@ def main():
         vo_peak_db, vo_I = None, None
         vd_r = _run_ffmpeg(
             ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "volumedetect", "-f", "null", "-"],
-            timeout=30)
+            timeout=120)
         if vd_r is not None:
             m = re.search(
                 r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB", vd_r.stdout + vd_r.stderr)
@@ -287,7 +326,7 @@ def main():
                 vo_peak_db = None
         eb_r = _run_ffmpeg(
             ["ffmpeg", "-i", str(aligned_audio), "-filter:a", "ebur128", "-f", "null", "-"],
-            timeout=30)
+            timeout=300)
         if eb_r is not None:
             ms = re.findall(
                 r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", eb_r.stdout + eb_r.stderr, re.MULTILINE)
@@ -336,32 +375,47 @@ def main():
         output_file = versions_dir / f"{safe_title}-v{next_version}.mp4"
         sfx_cfg = cfg.get("sfx", {})
         bcfg = cfg.get("bgm", {})
-        limit = 10.0 ** (sfx_cfg.get("true_peak_ceiling_db", -1.0) / 20.0)
+        # Limiter aims 0.5 dB BELOW the published ceiling: the final mix is
+        # lossy-encoded (AAC) after limiting, and lossy reconstruction peaks
+        # routinely read ~0.1-0.3 dB hotter than the limited PCM. Without this
+        # headroom, compliant mixes trip the ceiling assertion by ~0.1 dB.
+        limit = 10.0 ** ((sfx_cfg.get("true_peak_ceiling_db", -1.0) - 0.5) / 20.0)
 
-        def _ffmpeg_measure(cmd, pattern, last=False):
-            r = _run_ffmpeg(cmd, timeout=120)
-            if r is None:
-                return None
-            text = r.stdout + r.stderr
-            try:
-                if last:
-                    ms = re.findall(pattern, text, re.MULTILINE)
-                    return float(ms[-1]) if ms else None
-                m = re.search(pattern, text)
-                return float(m.group(1)) if m else None
-            except ValueError:
-                return None
+        def _ffmpeg_measure(cmd, pattern, last=False, timeout=300):
+            for attempt in (1, 2):
+                r = _run_ffmpeg(cmd, timeout=timeout)
+                if r is None:
+                    print(f"  WARNING: loudness probe timed out "
+                          f"({timeout}s, attempt {attempt}/2) — "
+                          f"{'retrying' if attempt == 1 else 'giving up'}")
+                    continue
+                text = r.stdout + r.stderr
+                try:
+                    if last:
+                        ms = re.findall(pattern, text, re.MULTILINE)
+                        return float(ms[-1]) if ms else None
+                    m = re.search(pattern, text)
+                    return float(m.group(1)) if m else None
+                except ValueError:
+                    return None
+            return None
 
         def _pre_commit(tmp_file):
             """SFX/BGM loudness assertions — run on the tmp file before publishing."""
             if not (have_sfx or have_bgm):
                 return True
             final_peak = _ffmpeg_measure(
-                ["ffmpeg", "-i", str(tmp_file), "-filter:a", "volumedetect", "-f", "null", "-"],
-                r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB")
+                ["ffmpeg", "-i", str(tmp_file), "-map", "0:a",
+                 "-filter:a", "volumedetect", "-f", "null", "-"],
+                r"max_volume\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*dB", timeout=300)
             final_I = _ffmpeg_measure(
-                ["ffmpeg", "-i", str(tmp_file), "-filter:a", "ebur128", "-f", "null", "-"],
-                r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", last=True)
+                ["ffmpeg", "-i", str(tmp_file), "-map", "0:a",
+                 "-filter:a", "ebur128", "-f", "null", "-"],
+                r"^\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", last=True, timeout=600)
+            if final_peak is None or final_I is None:
+                print("  ERROR: loudness probes failed twice — refusing to publish "
+                      "an unverified mix (free RAM/CPU and re-run continue)")
+                return False
             problems = []
             if final_peak is not None and final_peak > sfx_cfg.get("true_peak_ceiling_db", -1.0):
                 problems.append(
@@ -377,7 +431,7 @@ def main():
                 print(f"  ERROR: {p}")
             if problems:
                 return False
-            if final_I is not None and vo_I is not None:
+            if final_I is not None and vo_I is not None and final_peak is not None:
                 print(f"  Loudness: final {final_I:.1f} LUFS vs voiceover {vo_I:.1f} LUFS "
                       f"(peak {final_peak:.1f} dB)")
             return True
@@ -435,8 +489,9 @@ def main():
         # Audio sanity check: volumedetect
         mean_volume = None
         vd_result = _run_ffmpeg(
-            ["ffmpeg", "-i", str(output_file), "-filter:a", "volumedetect", "-f", "null", "-"],
-            timeout=120)
+            ["ffmpeg", "-i", str(output_file), "-map", "0:a",
+             "-filter:a", "volumedetect", "-f", "null", "-"],
+            timeout=300)
         if vd_result is None:
             print("  WARNING: could not verify final audio level (ffmpeg unavailable) — publishing anyway")
         else:
@@ -454,7 +509,10 @@ def main():
             elif mean_volume < -40.0:
                 print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
                 sys.exit(1)
-        print(f"  Audio level: {mean_volume:.1f} dB")
+        if mean_volume is None:
+            print("  Audio level: unknown (probe failed) — mux verified by filter graph, publishing")
+        else:
+            print(f"  Audio level: {mean_volume:.1f} dB")
 
         # Duration sanity check (post-publish, informational — the real sync
         # gate ran pre-publish in Step 1 against the frame timeline).
