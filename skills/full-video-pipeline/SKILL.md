@@ -44,7 +44,9 @@ This file covers what applies across every phase: the execution protocol, the
 non-negotiable rules, and where to find each phase's detailed instructions.
 Phase-specific templates, contracts, and validation checklists live in
 `references/phase-N-*.md` — read the relevant one when you reach that phase,
-not before. Directory layout is in `references/directory-structure.md` and
+not before. For long or quality-first videos worked with scoped subagents
+instead of a single context, follow `references/multi-agent-orchestration.md`.
+Directory layout is in `references/directory-structure.md` and
 full voiceover-engine details are in `references/voiceover-engines.md`.
 
 ## Prerequisites
