@@ -21,6 +21,13 @@ letter is a rewrite flag. A flat chronology with the same characters and
 setting but no loop is a vending-machine story: predictable, autopilot,
 forgettable.
 
+**Moment-zoom check (enact, don't summarize).** Before labeling, flag any beat
+written as helicopter summary ("we met, he was surprised") and rewrite it as
+one continuous physical moment played beat-by-beat: location anchor, present
+action, verbatim speech or thought. Summary gives facts; enactment creates
+presence. Flat-test failure defaults to enactment rewrite first,
+loop-density second.
+
 ## 1. Stakes — the housing
 
 Definition: the setting, context, and reason to care that makes everything

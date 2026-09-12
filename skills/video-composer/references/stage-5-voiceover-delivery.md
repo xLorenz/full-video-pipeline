@@ -49,6 +49,16 @@ Because TTS cannot improvise enthusiasm, script it explicitly:
 - **Emphasis:** anticipation and key-point pauses are structural: put the
   pause before the payoff line, not after. State the setup, break the
   paragraph, then deliver the payoff as its own block.
+- **Thought-quote.** Replace emotion labels with quoted inner monologue in
+  raw, unfiltered voice: "I thought, oh no, everyone will think I'm an
+  idiot" beats "I was disappointed." Never let thoughts sound corporate
+  ("this represents a supreme opportunity") — apply the friend-speech test
+  to inner monologue specifically: would you actually think in those words?
+- **Show feeling on the body.** Never name the feeling alone ("I was
+  relieved," "he was anxious") — write the observable behavior instead: lean
+  back plus exhale; pen-tapping plus clock-glancing. Test: could the edit
+  draw it without hearing the emotion word? If not, rewrite. Body behavior
+  is visual; labels are not.
 - **Contrast:** alternate energy deliberately across mood blocks (Stage 1):
   excitement → worry → discovery → unease → payoff. Constant intensity is
   white noise; contrast makes each mood hit harder.

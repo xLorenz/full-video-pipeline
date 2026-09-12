@@ -62,7 +62,10 @@ method from its neighbors. Using only method 1 makes the video monotonous.
 
 Before locking any beat, the viewer must know all three:
 
-1. **What is happening right now?**
+1. **What is happening right now?** Open the beat with one present-tense
+   physical verb (sitting, standing, opening, waiting) before any context —
+   the body in motion promises forward momentum and no wasted time. Context
+   not needed to parse the verb gets cut or moved post-hook.
 2. **Why is it important?**
 3. **What could go wrong (or what is at stake if misunderstood)?**
 
@@ -150,6 +153,19 @@ is clear to you because you have full context. The viewer arrives with zero.
   2. Analogy (relate to an everyday experience the viewer already has).
   3. Concrete example (show it working, then name the analogy you just used).
   Abstract becomes vivid; vivid becomes memorable.
+- **Location anchor.** One physical where-phrase per story beat ("on my couch
+  in my living room," "in front of the conference room") — just enough for
+  the viewer to picture their own version, then stop. No prop inventories, no
+  furniture catalogs; over-detailing blocks the viewer's imagery instead of
+  helping it. Test: can a first-timer picture a version of it? If yes, cut
+  the rest.
+- **Dialogue-quote.** Every story character's key reaction appears as exact
+  quoted speech — "looked at me and said, [short line]" — never as summary
+  ("he was happy with my work"). Select for juicy, concise, pointed wording
+  over formal accuracy; rewrite boardroom-register lines shorter and sharper
+  before acceptance. Weak: "my manager was very happy with my work." Strong:
+  "my manager looked at me and said, that was the best one you've ever
+  given."
 
 ## 7. Explainer pacing rules
 
