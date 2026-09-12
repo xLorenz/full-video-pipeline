@@ -20,6 +20,10 @@ emphasized:
 - Movement → whoosh (scaled to the motion: small slide, small whoosh).
 - Highlight / reveal → sparkle, highlight ping, or pop.
 - Entrance that was animated in (Stage 6) → the sound that motivates it.
+- **Rotate variants, never repeat one sample.** No identical SFX sample more
+  than 2–3 times per video: build 3–5 variants per function and alternate.
+  A repeated whoosh gets consciously noticed and called out; repetition is
+  allowed only as deliberate comedy or motif.
 
 Why: double stimulation. The viewer feels each moment twice, which deepens
 encoding and immersion. Missing sounds are not neutral — they are flat.

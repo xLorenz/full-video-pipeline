@@ -79,12 +79,31 @@ When a cut is not needed, add motion or overlay to make static immersive:
   "listen up" signal.
 - Subtle shake/wiggle on graphics or text only if it fits the style; skip it
   if it cheapens the look. Taste over trend.
+- **Motion quality: no linear moves.** Default keyframes read choppy and cheap
+  even with correct timing — easy-ease everything, shape the graph curve for
+  soft landings, and match ease length to move distance. Flow comes from
+  curves, not from speed.
+- **Scale means proximity.** Use close, tight framing to manufacture
+  connection before confessions, verdicts, and stakes lines — intimacy is a
+  shot scale, not just a zoom for emphasis. Faceless port: tight crop on the
+  object or detail plus a human-scale reference.
 
 ## 4. Captions — correctly, not as filler
 
 Captions exist to make the viewer understand and lean into specific words,
 not to jack up visual variety. Filling dead space with captions quickly
 becomes obnoxious and wastes the chance for a more engaging visual.
+
+- **Font first.** Typeface choice alone reads cheap or premium before any
+  animation runs: one clean family per video, no default/system faces, no
+  comedy or decorative faces. Carry emphasis with weight and spacing, not
+  styling. Test: swap the font only — if it still reads cheap, change the
+  family before adding a single effect.
+- **Two caption layers.** Run an always-on dialogue subtitle track (full
+  transcription for sound-off intelligibility and rhythm) separately from
+  selective punch captions (≤3 words on comprehension-critical words). The
+  base track is infrastructure, not variety — it never counts as the visual
+  for a line. Mute test: the story must still follow with sound off.
 
 - Caption at most 3 words at a time; large, high-contrast, easy to read at a
   glance.
@@ -122,6 +141,12 @@ is excellent.
 - **Grade before polish.** Lock white balance and exposure consistency across
   all sources before the creative grade — mismatched sources corrected late
   never fully blend.
+- **Finish stack (barely perceptible).** After the base grade, apply one
+  subtle global finish: faint grain, the faintest glow or halation on
+  highlights, a gentle S-curve for contrast, light sharpening, a whisper of
+  texture overlay. Dose test: toggle bypass at feed size — if the difference
+  is invisible, keep it anyway; if it looks crunchy or filtered, halve it.
+  Premium is felt, not seen.
 
 ## 7. Variety dose control
 
@@ -147,8 +172,9 @@ cool", cut it.
 Goal: a seamless feed with no rough edges where distraction accumulates and
 no point where immersion drops.
 
-- Graphics never magically appear: animate in (move/scale into frame) or
-  appear with a motivated sound (pop, shutter) that explains the entrance.
+- Graphics never magically appear: ease in (move/scale into frame with shaped
+  curves, never linear) or appear with a motivated sound (pop, shutter) that
+  explains the entrance. Exits ease out the same way — no linear pops off.
 - Eye-trace rule: the focus point of the last frame (a face, a number, a
   subject) must match the focus point of the first frame of the next clip.
   Forcing the eye to jump across the screen every cut is a micro-jolt that

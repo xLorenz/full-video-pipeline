@@ -76,6 +76,8 @@
 - Music: one bed per mood block, each earning its emotion; voice clearly on
   top with ducking under key lines; at least one manipulation moment (pause,
   fade, synced hit) at the biggest shift; no single-track full-video drone.
+- Same-sample repeat scan: no identical SFX more than 2–3 times per video;
+  variants rotated (Stage 7 §2).
 - Listen on phone speakers and headphones: intelligibility holds, nothing
   clips, beds never fight narration.
 

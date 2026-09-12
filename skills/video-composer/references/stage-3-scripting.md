@@ -206,6 +206,25 @@ Playbook:
 Why: the viewer feels the difference before being asked to believe it, which
 carries skeptical audiences further than claims alone.
 
+## 8b. Linear 5-beat scaffold (alternative for non-mechanism videos)
+
+When Theory → Demo → Playbook does not fit, outline on five linear beats:
+
+1. **Hook (0–5s)** — stop the scroll: bold claim, unusual visual, or
+   curiosity question. Nothing else matters until this lands.
+2. **Setup** — reason to care: what this is about, what they get, teased
+   expectations. Short and purposeful.
+3. **Build** — the heart in perpetual motion (tutorial, story, process):
+   momentum every second, loops opening inside it, tension rising
+   layer by layer. Cut anything that stalls pace.
+4. **Climax** — one main payoff everything built toward: the key insight,
+   answer, or emotional punch. Earned, powerful, memorable — singular.
+5. **Resolution** — close the opened loops for closure, or land one strong
+   final thought; optionally bridge to the catalog (Stage 4 session bridge).
+
+Fractal loops (Stage 4) live inside Build; the session bridge lives in
+Resolution. First-draft on this scaffold, then loop-density pass per §1.
+
 ## 9. Mid-video energy defense
 
 - Around 60–70%, when energy naturally dips, introduce a second objective, a
