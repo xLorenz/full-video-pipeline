@@ -25,10 +25,13 @@ and the most harmful for comfort — choose per promise.
   visuals (graphics, B-roll beats, focus moves) to sustain ~5-second variety
   across its duration. Any scene with a single static visual for 10+ seconds
   is a planning failure — map the assets in visual_notes before coding.
-- **Calibrate the hold to hook strength.** A fully-hooked click earns an
-  extended no-cut hold at the open — the viewer already bought in, and
-  aggressive hook-editing adds nothing. Escalate cutting only if retention
-  data dips; never optimize a strong opening as if it were weak.
+- **Open cadence (fixed).** 0–5 seconds: ONE held proof shot, no cuts, drift
+  or zoom only — it earns the click. 5–30 seconds: promise cadence resumes
+  (entertainment cuts every 3–5s, pauses out). Exception: if the proof IS
+  motion, hold up to 10 seconds. Never open a fully-hooked click with a
+  montage; never open a weak hook with a hold. "Escalate only on retention
+  dips" applies to published videos with data — first cuts ship at promise
+  cadence.
 
 ## 2. Footage decision tree (explainer priority order)
 
@@ -124,8 +127,9 @@ where to look. Guide the eye every time with one or more of:
 
 1. Animate the most important text or area (highlight pulse).
 2. Darken or blur everything around the focus point.
-3. Hue-shift for connotation (warm/red = danger/negative, yellow/green =
-   positive) — use sparingly and consistently.
+3. Hue-shift for connotation per the Stage 8 single color code (RED threat,
+   ORANGE fun, YELLOW caution, GREEN positive, BLUE trust) — use sparingly
+   and consistently.
 4. Circles, arrows, underlines (functional, not decorative — they must point
    at the hook).
 5. Glow or outline on the subject.
@@ -195,15 +199,16 @@ no point where immersion drops.
   ritual; when the premise blocks the default form, ship a premise-native
   variant rather than dropping it. Note the adaptation in the edit plan. (This
   is entertainment that earns its seconds — not a credits sign-off, which
-  stays banned per Stage 3 §9.)
+  stays banned per Stage 3 §10.)
 
 ## Exit checklist
 
 - [ ] Edit density matches the Stage 1 promise (not a copied trend).
 - [ ] Footage follows the decision tree; every spoken line has a visual;
   complicated passages use motion graphics.
-- [ ] Static frames have drift/perspective/zoom; captions ≤3 words and only
-  on comprehension-critical words.
+- [ ] Static frames have drift/perspective/zoom; punch captions ≤3 words,
+  comprehension-critical only; base subtitle track present but not counted
+  as visual variety; mute test passes.
 - [ ] Every image directs focus with at least one of the six tools.
 - [ ] Grade + vignette + subtle texture applied consistently.
 - [ ] Scrub test: no mush stretches, no 2-minute single-visual deserts.

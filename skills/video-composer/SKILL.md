@@ -31,12 +31,14 @@ only the stage you are working on, plus this file.
    payoff the viewer came for) AND a reason-to-care (problem, mystery, stakes,
    expectation). The creator knows why something is valuable. The viewer, with
    zero context, does not — until you tell them.
-2. **Dopamine = prediction, not pleasure.** The brain releases dopamine while
-   anticipating an outcome, not when receiving it. Uncertainty + personal
-   relevance = prediction = attention. A fully predictable video is a vending
-   machine: useful, forgettable, unaddictive. An uncertain one is a slot
-   machine: the same action, a completely different neurological response.
-   Engineer at least one unresolved prediction at all times.
+2. **Dopamine = prediction, not pleasure.** The brain fires while anticipating
+   an outcome, not when receiving it. Uncertainty + personal relevance =
+   prediction = attention. A fully predictable video is a vending machine:
+   useful, forgettable, unaddictive. An uncertain one is a slot machine: the
+   same action, a completely different response. Operationally: an unresolved
+   prediction means the viewer can state a bet (X vs Y); distance between bets
+   is measured in seconds against the Stage 1 drain rate. Engineer at least
+   one open bet at all times.
 3. **Clarity enables everything; confusion kills everything.** Clarity = I know
    what is happening. Uncertainty = I don't know what happens *next* (good).
    Confusion = I don't know what is happening (fatal). Any confusion washes out
@@ -46,10 +48,10 @@ only the stage you are working on, plus this file.
    Disrupting the expected experience is the fastest way to make them leave.
    Decide the promise up front (hang out, be entertained, learn fast, feel
    something) and cut anything that breaks it, no matter how clever it is.
-5. **Packaging is the gate, not the afterthought.** If you cannot name the
-   click angle (visual hook + title question + trust signal) before production,
-   rework or kill the idea. A video with no packaging angle has no viewer to
-   serve.
+5. **Packaging is the gate, not the afterthought.** One angle is a hypothesis;
+   three scored angles is a greenlight. 1–2 angles means rework scope, 0 means
+   kill — never script on a single angle. A video with no packaging angle has
+   no viewer to serve.
 6. **The algorithm predicts enjoyability.** Recommendation systems push videos
    predicted to be most enjoyable for each viewer. To reach millions, be the
    predicted-most-enjoyable for millions: pick an audience you understand,
@@ -79,9 +81,15 @@ the QA pass (Stage 9).
 
 1. **Identify the stage.** Map the user's request to the table above. "Help
    with my video" without a stage means start at Stage 1 and walk forward.
-2. **Read the stage file.** Load only that reference into context, plus any
-   prior stage outputs the current stage depends on (scripting needs the
-   premise; editing needs the script; packaging needs the best moments).
+2. **Read the stage file plus its required cross-sections.** Load the target
+   reference fully, plus: for Stage 2, Stage 8 §§1–2 (legibility + build
+   rules); for Stage 3, Stage 4 §§0–4 (the loop you are scripting inside);
+   for Stage 5, Stage 1 §5 (mood arc) and Stage 4 §4 (bridges). Prior stage
+   outputs travel too, with one correction: Stage 2 packaging works from the
+   premise's *promised* peak (predicted from research), not actual moments —
+   Stage 8 finalizes against the *actual* peak after the edit, and any new
+   Stage 8 angle re-opens the Stage 2 gate. Never cite a section you have not
+   read — inline the rule or stop.
 3. **Apply the playbook, explain the why.** Each reference gives tactics with
    the psychology behind them, concrete application steps, phrasing patterns,
    and common mistakes. Prefer explaining why a tactic matters over rigid

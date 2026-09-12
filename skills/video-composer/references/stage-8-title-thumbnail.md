@@ -3,6 +3,10 @@
 > Win the 1-second scan among ~10 competitors, stack 2–3 distinct reasons to
 > watch, and pay the promise off in the first 30 seconds. For faceless videos
 > the spotlight is an object, symbol, or short text — not a familiar face.
+>
+> Shorts: skip §§2–5 comp work. Packaging = first-frame freeze + spoken hook
+> line + on-screen ≤5-word hook. Titles index search; they barely move CTR.
+> No Test & Compare on Shorts covers.
 
 ## 1. System rules (all packaging)
 
@@ -13,10 +17,22 @@
   mobile, where hesitation means scroll-past (or an autoplay preview that
   judges you instantly). Show it for 1 second, hide it, ask: what is this
   about + what feeling? Hesitation = simplify.
-- **Stack, never repeat.** Thumbnail and title each add NEW information. Goal:
-  2–3 distinct curiosity hooks per impression (visual situation + title
-  question + trust signal). Thumbnail-as-caption-of-title wastes half the
-  real estate. Count the questions in the viewer's mind — aim for 2–3.
+- **Hook allocation (normative).** An impression carries exactly 3 slots:
+  THUMB-VISUAL (1) + TITLE (1) + AMPLIFIER (1, optional). The thumbnail shows
+  one situation with one emotion — never two situations. The title asks one
+  question or promise, and must not name what the thumbnail already shows.
+  The amplifier is either micro-text on the thumbnail (≤3 words) or a trust
+  token in the title (credential, number) — pick one, never both. Count:
+  2 mandatory + 1 amplifier = 2–3 hooks. A two-subject thumbnail (before vs
+  after, fragile vs indestructible) is still ONE hook — one relationship —
+  so delete the micro-text to stay at 2 total.
+- **Title↔thumbnail relationship (pick one, record it).** SHARPEN (default):
+  thumbnail carries situation and emotion, title names the missing piece —
+  same referent, different jobs; this is not repeating. TENSION: thumbnail
+  shows X, title claims non-X — genuine inversions only, proof inside minute
+  one. EXPAND: thumbnail shows spectacle, title adds payoff or speed —
+  how-to and pain-relief only. Banned: ECHO (title captions the thumbnail)
+  and ORPHAN (title about something neither visible nor implied).
 - **Immediate reason to watch.** A stranger must state the payoff in 5 words.
   Three valid reason types: an intriguing question, an exciting journey in
   progress, an interesting learning or payoff. Clever-but-vague loses to
@@ -24,10 +40,17 @@
 - **Packaging–intro compatibility.** The first shot and first line must show
   or restate the thumbnail situation + title question. Mismatch buys the
   click and refunds it within 30 seconds.
-- **Standalone thumbnail test.** Hide the title: does the thumbnail alone
-  create a question or emotion strong enough to earn attention? Viewing order
-  is thumbnail → title → click. If the thumbnail fails, the title is never
-  read.
+- **Standalone thumbnail test.** Hide the title: are the emotion and the
+  situation readable — not the full question, just what is happening and how
+  it feels? Viewing order is thumbnail → title → click. If the thumbnail
+  fails, the title is never read. (ECHO and ORPHAN per above fail here.)
+- **Diagnose before reworking.** NOTICE fail (eye skips it in a grid, or
+  grayscale mush) → fix contrast and size, delete elements. COMPREHENSION
+  fail (viewer cannot say what it is in 5 words) → go literal, delete
+  wordplay. CURIOSITY fail (viewer gets it, does not care) → add or raise
+  stakes or the missing piece, never polish. TRUST fail ("yeah, right") →
+  add a proof token or downgrade the promise. Never fix a curiosity failure
+  with polish, or a trust failure with bigger type.
 
 ## 2. Thumbnail construction
 
@@ -39,6 +62,11 @@
   thumbs that caught your eye, (5) off-platform (billboards, film/TV frames,
   album covers, served ads). Collect approaches, not topic matches. Starting
   with no refs — or refs you never use — is the costliest thumbnail mistake.
+  Time-box 25 minutes; minimum viable is 6 (2 internal + 2 external + 2
+  off-niche/off-platform). Log each as: link or description + mechanism
+  (question/emotion/device) + what you stole. A ref without a named mechanism
+  does not count. Without browsing access, construct 6 from memory tagged
+  [unverified] and validate via the 1-second test on your own comp instead.
 - **Deconstruct mechanism, then transfer it.** For each ref ask: what question
   does it prompt, what emotion does it evoke, and crucially HOW — what device
   creates that effect? Transfer the mechanism, never the topic or look (e.g.,
@@ -67,15 +95,14 @@
   I know what is happening (required). Uncertainty = I don't know what
   happens next (good). Confusion = I don't know what is happening (fatal).
   Any confusion washes out every other tactic.
-- **TV-safe (50% test).** If audience analytics show roughly 10%+ TV viewing,
-  cover the bottom half of the thumbnail: does the remainder still convey the
-  topic and earn a remote press-down? TV home and suggested surfaces crop to
-  the top portion until the viewer presses down — key subject, face, and text
-  belong in the top two-thirds, with critical text in the top third if needed.
-  Anything not actively working for you is working against you: delete
-  true-to-life background detail that distracts from the subject, and make the
-  main subject the unmistakable first read (separation via color, size, or a
-  short label).
+- **TV-safe (conditional).** Run only if channel analytics show TV above 10%
+  across the last 10 videos; otherwise record "TV below 10%, skipped." Test:
+  cover the bottom half — the subject's key feature and ALL text must live in
+  the top 50% and still convey topic plus earn a remote press-down. Top-third
+  micro-text is aspirational, not required. Anything not actively working for
+  you is working against you: delete true-to-life background detail that
+  distracts from the subject, and make the main subject the unmistakable
+  first read (separation via color, size, or a short label).
 
 ## 3. Visual attention engineering
 
@@ -85,24 +112,26 @@
 - **Color contrast + saturation intent.** Choose wardrobe, props, and
   backgrounds for deliberate hue clash (warm focal element in a cool scene or
   reverse). Boost saturation on the focal element only; desaturate the rest.
-  Map mood deliberately: warm reds/oranges signal excitement, urgency, fun;
-  cool blues/greens signal calm, intelligence, trust. Calibrate intensity to
-  audience age — hyper-saturated maximalism attracts younger viewers and
-  repels older ones, and vice versa.
+  Single color code, packaging and in-video alike — RED means threat or
+  urgency (use only when real stakes land within 60 seconds), ORANGE means
+  excitement and fun, YELLOW means caution or pay-attention highlight, GREEN
+  means go, safe, or positive verdict, BLUE means calm explanation and trust
+  bed. Pick per video and hold it; never spend red on pure fun. Calibrate
+  intensity to audience age — hyper-saturated maximalism attracts younger
+  viewers and repels older ones, and vice versa.
 - **Spotlight element (pick exactly one).** For faceless work the spotlight
   is usually (a) a familiar object with a weird twist, shown huge, or (b)
-  very short text, 1–3 words. A face is optional and only if it matches the
-  video's real tone — mismatched fear-face on a calm tutorial reads as
-  deception. One spotlight at 2× the visual weight of anything else; never
-  face + object + sentence competing.
-- **If a face is used, default to shock or fear.** Those two expressions win
-  because they do three jobs at once: they read instantly as a reaction to
-  something extraordinary (which makes the viewer crave the cause — "what are
-  they reacting to?" — and stare longer to find it), and they forecast the
-  video's dominant emotion before a word is read. Gaze the face at the
-  subject or anomaly so the eye path runs face → cause. Match the expression
-  to the video's real tone; the forecast is a promise the first 30 seconds
-  must keep.
+  very short text, 1–3 words. One spotlight at 2× the visual weight of
+  anything else; never face + object + sentence competing.
+- **Face only on high arousal.** Ask: is the opening 60 seconds genuinely
+  alarm, awe, or triumph (arousal 7+/10)? If yes, a face is allowed and its
+  expression must be that exact emotion — shock and fear win because they
+  read as reactions to something extraordinary (viewers crave the cause and
+  stare longer) while forecasting the video's dominant feeling. Gaze it at
+  the anomaly so the eye runs face → cause. If no (calm, curious, analytical
+  explainer — the faceless default), NO face: use object-with-twist at 2×
+  weight. A fear-face on a calm video is a false forecast that refunds the
+  click; the first 30 seconds must keep whatever the face promised.
 - **Familiarity bias.** Anchor abstract topics to a concrete icon the audience
   already recognizes (a universal object, symbol, or situation). The brain
   prioritizes the known in a scan; novelty without a familiar entry point is
@@ -189,10 +218,13 @@
   lesson. Random famous faces with no thematic fit backfire.
 - **Experience impression.** For unknown or saturated topics, viewers buy
   watch-experience quality, not the topic. Over-invest in a premium-feeling
-  thumbnail style that screams the experience is worth it.
+  style — then verify with the 1-second stranger test: if the first word out
+  of their mouth is not about quality ("cinematic," "pro," "expensive"),
+  the polish is not reading and the concept needs work, not more finish.
 - **Word-choice upgrade.** Elevate mundane premises via the strongest accurate
-  verb: tested beats visited, survived beats stayed. Draft literal, then
-  iterate 10 variants for intensity plus specificity — without losing clarity.
+  verb: tested beats visited, survived beats stayed. Draft the literal title,
+  generate 10 verb swaps, keep the strongest one a 12-year-old still parses
+  instantly — if comprehension drops, revert to literal.
 - **AB-test thumbnail text.** Any on-thumbnail micro-text gets a 5-minute
   variant sprint: draft alternate words and phrases, then run Test & Compare.
   Even tiny copy swaps move CTR measurably — never ship first-draft
@@ -228,7 +260,22 @@
   millions of views.
 - **Go literal only to prevent confusion.** If the dramatic version creates a
   wrong expectation or obscures the subject, revert to clear-literal plus one
-  intrigue word. Cleverness never beats comprehension.
+  intrigue word. Cleverness never beats comprehension. Niche jargon is
+  allowed only when insiders parse it faster than plain words AND a plain
+  5-word gloss exists inside the video's first 15 seconds.
+
+## 6b. Surface table (design to the smallest surface first)
+
+| Surface | Title visible | Thumbnail size | Rule |
+|---------|---------------|----------------|------|
+| Mobile Browse | ~42 chars | ~180×100px | Primary surface: everything must work here |
+| Desktop Browse | ~60 chars | ~360×200px | Extra words are bonus, never load-bearing |
+| TV | often hidden until focus | top 50% only | See TV-safe rule in §2 |
+
+Micro-text floor: at least 28px bold on the 1280×720 source (≈5px at feed
+size) — below that, delete instead of shrinking. Thumbnail text contrast at
+least 4.5:1 against its local background, verified on the 180px-wide
+grayscale export (one export judges both subject pop and text legibility).
 
 ## 7. Kill triggers (packaging)
 
@@ -240,19 +287,19 @@ the story; topic buried at the end of a long title; summary title on a story
 or spectacle video; bold promise with no proof; style that neither stands out
 nor signals quality.
 
-## Exit checklist
+## Exit checklist (every item needs its artifact — a pass without one fails)
 
-- [ ] Passes the 1-second scan inside a competitor grid; stranger states the
-  payoff in 5 words.
-- [ ] Thumbnail intrigues with title hidden; title adds a new hook (2–3 total
-  questions in mind, zero repeats).
-- [ ] 10–15 refs sourced across the five-source mix; mechanism (not look)
-  transferred and validated in own style.
-- [ ] Built-from-scratch composite; 1–2 elements; subject >40%; brightness +
-  color contrast verified (grayscale check); exactly one spotlight; TV-safe
-  50% test passed where applicable; micro-text variants AB-tested.
-- [ ] 1–2 curiosity hooks + 1 trust signal present; micro-text amplifies
-  stakes; eye path controlled.
-- [ ] Title sells the peak to the broadest audience as a question/tease;
-  key words front-loaded; short, common, clear.
+- [ ] Allocation recorded: THUMB hook + TITLE hook + amplifier choice; no
+  ECHO, no ORPHAN. Artifact: the three lines.
+- [ ] Relationship recorded: SHARPEN, TENSION, or EXPAND with the shared
+  referent named.
+- [ ] 1-second scan: competitor grid listed (3+ neighbors) + stranger's
+  5-word payoff quote. Self-attested passes fail.
+- [ ] Refs logged: links or descriptions with one mechanism each
+  (question/emotion/device) + what was stolen. Mechanism-less refs do not
+  count toward the minimum 6.
+- [ ] 180px grayscale export judged twice: subject pops AND micro-text
+  readable. Export confirmed, not imagined.
+- [ ] Surface table checked: 42-char mobile read, 55-char cap, contrast
+  floor, TV-safe pass or recorded skip.
 - [ ] Intro-payable in 30 seconds and payoff-honest; no kill triggers remain.

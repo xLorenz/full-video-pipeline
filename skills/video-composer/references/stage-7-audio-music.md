@@ -53,12 +53,14 @@ thirty decorative ones.
 2. Assign the desired viewer emotion per block (anticipation, innovation/
    excitement, unease, triumph, reflection).
 3. Pick the track that creates that feeling — not the track you like, the
-   track that makes a first-time listener feel the assigned emotion. Spend
-   real time here; fit matters more than any other music variable.
+   track that makes a first-time listener feel the assigned emotion. Test:
+   play 10 seconds to someone unfamiliar; if they cannot name the assigned
+   emotion unprompted, keep searching. Fit outranks every other variable.
 
 Never run one track for a whole video: constant tone is the seasoning problem
 again — boring. Shifting beds keep the viewer alert and let contrast amplify
-each section.
+each section. Beds change at mood boundaries, not at every subject cut: map
+subjects to moods first — 8 subjects inside 3 moods means 3 beds, not 8.
 
 Ducking: voice stays king. Beds sit clearly under narration and dip further
 under key lines; a bed that fights the voice costs comprehension, which costs

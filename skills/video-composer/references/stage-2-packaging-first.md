@@ -35,8 +35,25 @@ produces vague, mismatched packaging that collapses in the first 30 seconds.
    - The title as the question the video answers (not what happens).
    - The immediate reason to watch in 5 words (a stranger must be able to
      state the payoff that fast).
-4. Repeat for two alternative angles (different emotion: e.g., fear vs wonder
-   vs ambition; or different hook type: mystery vs mistake vs spectacle).
+4. Generate two more angles by forced mutation, not vibes (three paraphrases
+   of one angle fail the gate):
+   - **B) Inversion** — same facts, opposite expectation ("the small ones are
+     deadlier," "you're doing X wrong"). Must use a different hook family
+     than A.
+   - **C) Stakes-swap** — same topic, different loss (time → money, money →
+     status, status → danger) or different scale (micro detail huge, huge
+     thing tiny).
+5. Score each angle 1–5 on: (i) 1-second decodability, (ii) intro-payable in
+   30s, (iii) payoff-honest with existing material, (iv) unfamiliar to the
+   target viewer. Ship the highest total; kill the video if the best totals
+   under 12/20. Show the matrix — "3 angles" without scores fails the gate.
+
+**Broadness frontier.** Widen only while (a) the named Stage 1 viewer still
+calls it "for me" AND (b) the payoff stays honest without reshooting. Two
+widening moves max (niche term → everyday analogy; enthusiast stake →
+money/time stake) — the third move kills specificity, so stop and accept
+niche reach. Record: "broadened from X to Y; the Stage 1 viewer still
+recognizes itself because Z."
 
 Common mistake: packaging the whole video ("everything about X") instead of
 selling the 1–2 most intriguing parts to the broadest audience. Hook broad,
@@ -80,8 +97,11 @@ narrow to the single most visual sub-story.
 
 ## Exit checklist
 
-- [ ] 3+ (thumbnail + title + trust signal) angles written down.
+- [ ] Scoring matrix shown for 3 forced-mutation angles (best total ≥12/20);
+  no scores, no pass.
 - [ ] Each angle states its payoff in 5 words a stranger could repeat.
 - [ ] Lead angle is intro-payable in 30 seconds and payoff-honest.
 - [ ] Visual hook is stageable at feed size (symbol/object/scene named).
+- [ ] Broadening recorded (X → Y, viewer still recognizes itself because Z)
+  or explicitly skipped.
 - [ ] If gate failed: kill/rework decision recorded, not "we'll fix it later".

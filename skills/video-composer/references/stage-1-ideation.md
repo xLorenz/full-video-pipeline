@@ -28,8 +28,11 @@ viewer. If you cannot describe the viewer's current desires, you are guessing.
 
 ## 2. Study what the audience already rewarded
 
-1. Collect the 10–20 highest-viewed videos in the niche from the last 12–24
-   months (not all-time classics — recent taste).
+1. Collect outliers, not just hits. Outlier = views above 3× the channel's
+   median over its trailing 12 videos, published at least 14 days ago,
+   no Shorts. Gather 10+ across at least 5 channels from the last 12 months.
+   Transfer skeletons only from channels within 10× your subscriber count —
+   mega-channel formats assume assets you do not have.
 2. For each, extract the underlying value, not the surface style: what
    question did it answer, what fear did it resolve, what spectacle did it
    deliver, what progression did it ride?
@@ -62,7 +65,18 @@ outliers, or copying editing tricks while missing the premise advantage.
   social) before outlining — expect ~80% of script effort to be gathering.
   Two passes: round 1 educates you on what happened; draft to expose gaps;
   round 2 puts meat on the story. Transcribe everything and keyword-search the
-  corpus for quotable specifics before locking the outline.
+  corpus for quotable specifics before locking the outline. Agent path
+  (no outreach available): build a public-source corpus (transcripts,
+  filings, docs) with a keyword-search log and a gap list; flag
+  `NEEDS-HUMAN: contact X for Y` and script around the gap — never invent.
+- **Comment-mine for ideas.** Sort 3–5 niche videos by top comments; extract
+  unanswered questions and rank 5 candidates by likes × specificity. A
+  top-liked specific question is a pre-validated Big Question with its
+  audience attached.
+- **Series lens.** Ask whether the premise runs 5 episodes before greenlight:
+  repeatable engine (ranking, testing, myth-busting a category) compounds a
+  catalog and feeds the session bridge; one-shot premises discount
+  accordingly.
 
 ## 3. Premise patterns that carry built-in uncertainty
 
@@ -140,6 +154,13 @@ Weak premises: "some thoughts on X", "everything about Y", "my process for Z"
 with no pain, no question, no stakes, no ladder. If the premise can be fully
 summarized without creating a question, rework it.
 
+**Pick the shape by constraint (never combine more than two — name a primary
+and at most one secondary).** Visual proof available? → challenge,
+competition, or timer. No visuals but strong research? → mystery, hidden
+mechanism, or inversion. Commodity topic with no novelty? → competition-ize
+it or kill it. Cramming five curiosity methods into one explainer reads
+manic; restraint is a shape too.
+
 ## 4. Define stakes early (even for explainers)
 
 Every premise needs an answer to three questions before scripting starts:
@@ -185,13 +206,13 @@ Decide and write down:
 - **Mood arc:** plan 3–5 mood blocks (e.g., excitement → worry → discovery →
   unease → payoff). Constant tone is boring; contrast between moods makes each
   mood hit harder. Shifting tone keeps the viewer alert.
-- **Payoff rate:** one vivid payoff (fact, visual, answer, spectacle) at least
-  every 30–60 seconds on paper before production. If the outline has a
-  2-minute desert, the idea is thin — merge, cut, or add a loop.
-- **Drain-rate calibration.** Set the payoff interval from the named viewer's
-  attention span, not the default: fast-drain niches (~20 seconds) need key
-  points spaced evenly at that clock; slow-drain niches (2–3 minutes) tolerate
-  longer builds. Declare the span, then space payoffs and key points to it.
+- **Payoff math (calculable).** Declare drain rate D from 3+ niche comps
+  (default 45s; fast 20s; slow 120s — justify the pick). Budget words at
+  150 wpm spoken (~2.5 words/sec): an 8-minute video caps at ~1,200 words.
+  Map the outline to timestamped beats; any gap over 1.5×D fails — merge,
+  cut, or open a loop there. Slow-drain does not exempt curiosity: long
+  builds must still open a Big Question every D seconds even when the payoff
+  lands later.
 - **Formula-break valve.** After several on-formula videos, greenlight one
   deliberate rule-breaker (unscripted, different pacing or music, unknown
   structure). Define which 2–3 house rules it violates and what is being
@@ -199,10 +220,14 @@ Decide and write down:
 
 ## Exit checklist (do not advance until all pass)
 
-- [ ] Named viewer + promised experience written in one paragraph.
-- [ ] 10+ niche outliers studied; extracted value listed; premise beats them
-  on at least one axis.
-- [ ] Premise uses at least one strong shape (pain, mystery, inversion,
-  secret, challenge, ladder) — not a summary topic.
-- [ ] Who / what-at-risk / why-now answerable in one sentence each.
-- [ ] Mood arc and payoff rate sketched; no planned 2-minute desert.
+- [ ] Named viewer paragraph names 3 channels they watch + 1 video they
+  finished this week and why. "Men 18–34 who want to learn" fails.
+- [ ] Outlier table has 10+ rows: URL | views | date | channel subs |
+  value extracted (1 line) | axis you beat. Missing URLs or dates fails —
+  no evidence, no pass.
+- [ ] One primary premise shape + at most one secondary, chosen by the
+  constraint picker above. Record the pick and why.
+- [ ] Who / what-at-risk / why-now answerable in one sentence each (this is
+  the video-level stakes pass; loop-level restatement happens in Stage 4).
+- [ ] Drain rate D declared with 3-comp justification; word budget computed;
+  timestamped beat map has no gap over 1.5×D.

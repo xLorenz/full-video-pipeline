@@ -18,6 +18,12 @@ Rhythm: GREEN → PURPLE → GREEN → PURPLE, continuously. For explainers the
 concrete shape is usually Question → Answer → Question → Answer; for
 action-led sections it is Setup (why this matters, what could fail) → Action.
 
+**Shared labels with Stage 4 (use both systems).** Stakes + Big Question =
+GREEN (open); Head Fake = PURPLE (close); Re-hook = GREEN bridge (closes and
+opens in one sentence). Label beats `[G:S]`, `[G:BQ]`, `[P:HF]`,
+`[G:RH→next-BQ]` — a re-hook that names no next Big Question fails both
+gates.
+
 Rules:
 
 - Before any teaching block or action block, write 1–2 GREEN sentences.
@@ -52,8 +58,12 @@ viewer's questions — because no question was ever raised.
    privately wonder but hesitate to voice — then give them permission to be
    curious by framing it playfully ("I know this sounds insane, but…").
    Distinct from plain counterintuition: the engine is social permission plus
-   recognition. Guardrails: recognizable subject, playful (never cruel)
-   framing, and a payoff-honest answer.
+   recognition. Allowed only if ALL pass: (1) the claim is verifiably true or
+   clearly framed as a question, never an assertion; (2) the target is an
+   idea or behavior, never a protected trait; (3) the payoff corrects the
+   taboo frame rather than confirming a smear, with the exonerating source
+   cited in-script. Otherwise use counterintuition (method 2), not
+   controversy.
 
 Keep a running list while scripting; check that each section uses a different
 method from its neighbors. Using only method 1 makes the video monotonous.
@@ -90,29 +100,44 @@ Application:
 
 ## 4. Hooks that earn the first 30 seconds
 
-- **Proof, not promise.** Open with the most extraordinary moment or visual
-  proof as close to frame one as possible. A promise ("stay till the end to
-  see X") retains a fraction of what proof retains. Cold-open with the peak:
-  extreme question + immediate action or visual.
-- **Reassure, then upsize.** The click is a risky moment — the viewer expects
-  instant letdown. The opening has two jobs: (a) confirm the packaged promise
-  (first shot/line restates the thumbnail situation + title question), then
-  (b) reveal the stake is genuinely even bigger than packaged — something
-  real that didn't fit the title. Reassurance converts the skeptical click;
-  the upsell converts satisfaction into anticipation. Never fake the upsell;
-  a manufactured bigger-stake burns the trust the reassurance just built.
+Hook priority order — do not stack everything below. Pick and record the
+choice with its reason:
+
+1. **Proof-frame matching packaging (mandatory, 0–5s).** The most
+   extraordinary moment or visual proof as close to frame one as possible. A
+   promise ("stay till the end to see X") retains a fraction of what proof
+   retains. Hook over 25 seconds fails.
+2. **Exactly ONE of: broadest question OR shared pain.** Mystery and
+   challenge premises earn the question ("what is actually using X like?"
+   plus a few fascinating facts and both highs and lows — never unboxing,
+   specs, or enthusiast-only detail). Fix and review premises earn the pain
+   ("I understand your problem" — name the embarrassing or boring pain, prove
+   you feel it, then solve).
+3. **Upsell only if a genuinely bigger stake exists; else omit.** Never fake
+   it — a manufactured bigger-stake burns the trust the reassurance just
+   built.
+
+**Intro order (first 30 seconds, fixed sequence).** Frame 1 shows the
+thumbnail situation. Line 1 restates the title question with the same nouns.
+Lines 2–4 give the proof glimpse. Only after confirmation lands (never
+before ~10s, never before the viewer can nod "right video") comes the
+upsell — and it escalates the SAME stake, never a second unrelated promise.
+An upsell needing new nouns belongs in packaging, not the intro. Two upsells,
+or an upsell with no proof inside 60 seconds, is a clickbait fail.
+
+**Cold-open taxonomy.** Match the open type to the material:
+
+| Open type | Use when | Never when |
+|-----------|----------|------------|
+| In-medias-res action | visual proof exists | proof needs 10+ seconds of context |
+| Paradox ("X loses, Y wins — why?") | genuine inversion with a mechanism to reveal | no mechanism behind the surprise |
+| Failed attempt | process video with a real on-record failure | failure is staged or faked |
+| Direct pain address | fix/review premise | mystery premise (kills the question) |
+
 - **No ask in the hook.** Never request likes, subscribes, or money in the
   opening. The viewer came for the promised payoff, and any ask delays
   confirmation and violates the expectation match. Earn the ask after
-  delivering — at most one, tied to what they just experienced (see §9).
-- **Broadest question first.** Open with the single most broadly appealing
-  question on everyone's mind ("what is actually using X like?"), list a few
-  fascinating facts, promise both highs and lows, then dive in. Never open
-  with unboxing, specs, or narrow detail only enthusiasts care about.
-- **Common pain before lesson.** "I understand your problem" — name the
-  embarrassing or boring pain, prove you feel it, then solve. Repeat whenever
-  a new solution appears, not just in the intro. This makes the maximum number
-  of people care the maximum amount about each answer.
+  delivering — at most one, tied to what they just experienced (see §10).
 - **Never let them feel they know enough.** Before explaining, state what they
   are missing by not knowing it. Cadence: vivid detail → provocative question
   it raises → next detail. Pair each solution with its "other half you haven't
@@ -121,6 +146,11 @@ Application:
 - **Delayed mystery with callback.** Introduce a weird detail, object, or
   aside without paying it off; callback minutes later. Unanswered questions
   prevent early exits. Lead intros with 2–3 exceptional details, not setup.
+- **Structural pauses (not dead air).** Cut dead air ruthlessly (stumbles,
+  filler, held frames with no open bet). Keep exactly two kinds of pause and
+  mark them `[beat]` in the script: one beat before a payoff line, one beat
+  after a head fake so the aha lands. Max 2 marked beats per minute for
+  entertainment cadence, 4 for suspense.
 
 ## 5. Flow: but / therefore, never and-then
 
@@ -166,13 +196,35 @@ is clear to you because you have full context. The viewer arrives with zero.
   before acceptance. Weak: "my manager was very happy with my work." Strong:
   "my manager looked at me and said, that was the best one you've ever
   given."
+- **Reconstruction honesty.** Verbatim quotes require a recorded or
+  transcribed source. Everything else is paraphrase ("he basically said…")
+  or tagged reconstruction — never invent sensory specifics, quotes, or
+  thoughts for real people and events. A vivid lie is still a lie, and one
+  caught fabrication voids every trust signal in the video.
+
+## 6b. Evidence per non-obvious claim
+
+Each claim the viewer cannot verify from the video itself carries a
+source-type tag — [study / data / quote / logic / anecdote] — plus numbers
+with denominators and timeframes, never bare figures. Contested claims get a
+one-line steelman ("critics would say…"). No invented statistics, no "studies
+show" without naming the study. One anecdote supports "in this case," never
+"always" — downgrade the claim or cut it.
 
 ## 7. Explainer pacing rules
 
-- **Every spoken thing gets a visual.** Map the script line-by-line to an
-  asset before calling the script done. Fast pacing over a static frame loses
-  details; visual communication carries maximum value at maximum speed. Use
-  zoom and pan to point exactly where to look at each moment.
+- **Every spoken thing gets a visual — that adds, not duplicates.** Map the
+  script line-by-line to an asset before calling the script done. Fast pacing
+  over a static frame loses details; visual communication carries maximum
+  value at maximum speed. Use zoom and pan to point exactly where to look at
+  each moment. But the visual must prove or extend the line, never merely
+  depict it: if the frame alone makes the sentence redundant, rewrite the
+  sentence to interpretation or stakes, not description.
+- **Pacing math.** Words are seconds: at ~150 wpm, a hook caps at ~75 words,
+  no beat runs past ~180 words without reopening a Big Question, and a
+  montage carries at most ~60 words of voiceover over ~25 seconds. If the
+  draft exceeds the Stage 1 word budget by more than 10%, cut beats — never
+  speed up the voice to fit.
 - **Compress no-conflict stretches.** Parts with no uncertainty, no failure
   chance, and no curiosity go by as fast as possible: months of context in a
   20–30 second montage plus 1–2 voiceover sentences, then back to the
@@ -187,20 +239,21 @@ is clear to you because you have full context. The viewer arrives with zero.
 - **Density over budget.** Compress long arcs (setbacks, wins, funny moments,
   multiple locations) into a tight emotional rollercoaster. Clever density of
   highs, lows, and novelty beats expensive footage.
-- **Valuable fluff (additive, never stretching).** When runtime must grow
-  (e.g., monetization thresholds), extend by adding discrete micro-value bits
-  — a quick joke, a human aside, a vivid detail that builds connection — never
-  by stretching existing lines thinner. Test: delete the added bit; if nothing
-  of value leaves with it, it was stretch, not fluff. Cut it.
+- **Valuable fluff (additive, never stretching).** When runtime must grow,
+  extend only with bits that pass a standalone value test AND carry their own
+  Big Question — a quick joke, a human aside, a vivid detail that builds
+  connection. Never stretch for thresholds: if runtime falls short, ship
+  short or merge topics. Test: delete the added bit; if nothing of value
+  leaves with it, it was stretch, not fluff. Cut it.
 - **Unscripted / pre-shot retrofit.** When material already exists with no
   script, do not cut chronologically: (1) inventory the usable beats and
   visuals you actually have, (2) write lead-ups into each beat and connectors
   between beats, mapping GREEN/PURPLE and the ladder onto that inventory,
-  (3) impose at minimum a frame plus compression on every section, and shoot
-  two-angle safety coverage (or alternate graphic framings as the second
-  camera) so unscripted stretches have cut points. Diagnose bloat honestly:
-  an overlong runtime is under-writing — fix with frame + cut, never with more
-  content.
+  (3) impose at minimum a frame plus compression on every section, and
+  guarantee two framings per beat (wide plus punch-in, or two graphic
+  framings) plus one cutaway asset so unscripted stretches have cut points.
+  Diagnose bloat honestly: an overlong runtime is under-writing — fix with
+  frame + cut, never with more content.
 
 ## 8. Macro-template for mechanism explainers
 
@@ -222,7 +275,7 @@ Playbook:
 Why: the viewer feels the difference before being asked to believe it, which
 carries skeptical audiences further than claims alone.
 
-## 8b. Linear 5-beat scaffold (alternative for non-mechanism videos)
+## 9. Linear 5-beat scaffold (alternative for non-mechanism videos)
 
 When Theory → Demo → Playbook does not fit, outline on five linear beats:
 
@@ -241,7 +294,13 @@ When Theory → Demo → Playbook does not fit, outline on five linear beats:
 Fractal loops (Stage 4) live inside Build; the session bridge lives in
 Resolution. First-draft on this scaffold, then loop-density pass per §1.
 
-## 9. Mid-video energy defense
+## 10. Mid-video energy defense and the single ending
+
+**Ending taxonomy (one ending per video).** Long-form ending = Payoff (close
+the Big Question) + one closure line + one forward pull naming a specific
+next question (catalog bridge OR tied CTA — never both). No recap lists, no
+thanks-for-watching, no second CTA. Closing loops is allowed; summarizing
+the video is not. Shorts endings follow the appendix (payoff, hard stop).
 
 - Around 60–70%, when energy naturally dips, introduce a second objective, a
   new complication, or a higher rung on the ladder. A fresh goal layers new
@@ -262,13 +321,14 @@ Resolution. First-draft on this scaffold, then loop-density pass per §1.
 
 ## Exit checklist
 
-- [ ] Script color-codes GREEN → PURPLE with no teaching/action block missing
-  its GREEN lead-in.
-- [ ] Each section uses one of the 5 curiosity methods; neighbors differ.
-- [ ] Every beat passes the 3-part litmus (what / why-important /
+- [ ] GREEN/PURPLE beats pasted with S/BQ/HF/RH tags (`[G:BQ]`, `[P:HF]`,
+  `[G:RH→named-next-BQ]`); neighbor-method table attached, no two adjacent
+  sections share a method. Labels without pasted beats fail.
+- [ ] Every beat passes the 3-part litmus (verb-led what / why-important /
   what-could-go-wrong) or is cut to a 1–2 sentence summary.
-- [ ] Hook uses proof-first, broadest-question, and pain-before-lesson; no
-  and-then chains remain at scene, topic, or sentence level.
-- [ ] Every abstract concept has analogy + example; every spoken line has a
-  planned visual; no-conflict stretches are compressed; a visible progression
-  ladder runs the full video.
+- [ ] Hook records its priority pick (proof + ONE of question/pain + optional
+  upsell) with reason; hook ≤25s; no and-then chains at any level.
+- [ ] Every abstract concept has analogy + example; every non-obvious claim
+  carries a source tag + steelman where contested.
+- [ ] Every spoken line has a proving (not duplicating) visual; word budget
+  holds (±10%); ladder runs the full video; ending matches the taxonomy.

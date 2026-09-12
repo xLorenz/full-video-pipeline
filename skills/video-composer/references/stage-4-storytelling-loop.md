@@ -34,6 +34,12 @@ Definition: the setting, context, and reason to care that makes everything
 inside the story matter. Without stakes the brain never starts predicting:
 no predictions, no dopamine, no addiction.
 
+Scope: this is the LOOP-level pass (per loop, restated in ≤2 lines). The
+VIDEO-level pass (Who / What-at-risk / Why-now, once) lives in Stage 1 §4;
+the BEAT-level pass (verb-led what + why-important only, never full stakes)
+lives in Stage 3 §3. Cap stacked layers at 3 per opening — list which 3 and
+cut the rest.
+
 You need three elements before the story starts; if any is confusing or
 absent, stop and establish it:
 
@@ -121,11 +127,18 @@ spike; large surprise, large spike; no surprise, no spike. After being wrong
 once, the brain pays more attention to avoid being caught again, so attention
 compounds.
 
-**Valence-independent:** a crushing, well-foreshadowed loss spikes like a
-win. What matters is the magnitude of the broken prediction, not its
-positivity — a backdoor defeat lands as hard as a miracle win. When
-brainstorming twists, generate one win-variant and one loss-variant and pick
-the larger error.
+**Valence-independent, agency-required:** a crushing, well-foreshadowed loss
+spikes like a win — but only with an immediate agency-restoring re-hook
+(what to do now). Wins compound on their own; losses without a next move
+collapse satisfaction and return. When brainstorming twists, generate one
+win-variant and one loss-variant, pick the larger error, and write the
+loss-variant's restoring bridge first.
+
+**Licit vs illicit withholding.** You may withhold the ANSWER, never the
+SITUATION: the viewer must always be able to state who, where, and
+what-is-being-tried in one line. If a hindsight clue changes
+who/where/what-trying (not just why/how), it was confusion, not a head fake.
+Rewrite it.
 
 Good vs bad surprise:
 

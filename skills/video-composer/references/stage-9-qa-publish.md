@@ -93,16 +93,25 @@ time.
 
 ## 8. Post-publish packaging iteration (the video is not done at publish)
 
-- **Title-first fix order.** If CTR and impressions both run below average in
-  the first 24 hours, change the title before the thumbnail — it is cheaper
-  and often all the video needs. One variable at a time; allow a week or more
-  of lag before judging the change.
-- **Thumbnail alt-flip.** If CTR still lags, swap to a prepared full alternate
-  (Stage 8 §5) fast. Sunk cost never saves a failing thumbnail.
-- **Respect the traction window.** If CTR and impressions are average, do not
-  touch anything until the channel's normal pickup window passes (find it in
-  analytics: the typical view-range band and where its slope breaks — days
-  for some channels, a week or more for others). No lift is always immediate.
+Diagnose on Browse/Suggested CTR at 3k+ impressions and 48+ hours old,
+against the channel median for the same surface — never against YouTube-wide
+averages, never before significance:
+
+- **LOW CTR + NORMAL impressions → packaging failure.** Run Test & Compare
+  with at most 2 alternates (same promise, different visual flow). No manual
+  sequential title-then-thumb swaps — they invalidate the read. No judgment
+  before the full test window (~14 days).
+- **LOW impressions + NORMAL CTR → distribution failure, not packaging.**
+  Touch nothing; the topic or audience match missed. The next video fixes it.
+- **LOW both → premise failure.** Packaging iteration is over; the idea
+  failed the Stage 2 gate retroactively. Log the lesson, move on.
+- **NORMAL both → hands off** until the channel pickup window passes (median
+  days-to-80%-views over the last 10 videos).
+- **Retention graph read.** Timestamp the three biggest drops and diagnose
+  each: intro drop = clarity or promise failure; mid-video sag = missing BQ
+  or payoff desert; end cliff = payoff lingered or no forward pull. Feed the
+  diagnosis into the next video's Stage 1, not into re-edits of this one
+  (re-edits reset learning).
 
 ## Master pre-publish checklist (copy per video)
 

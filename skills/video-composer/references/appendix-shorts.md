@@ -1,10 +1,14 @@
 # Appendix X — Shorts Adaptation (Swipe-Native Rules)
 
-> Long-form rules still apply (loops, clarity, packaging honesty), but the
-> swipe context overrides four of them. Shorts have no click intent: the
-> viewer did not choose your video, and a single boring sentence is a swipe.
-> Read this file instead of Stages 3–4 defaults whenever the deliverable is
-> under ~60 seconds.
+> Long-form rules (loops, clarity, packaging honesty) still apply, except
+> exactly these four overrides: (1) Stage 4 zero-gap bridging OFF past the
+> payoff — no mid-video bridges after resolution; (2) Stage 3 §9 Resolution
+> OFF — no closure montage; (3) Stage 4 session bridge OFF — the catalog
+> bridge becomes a rewatch loop only; (4) Stage 3 hook stack OFF — use the §1
+> swipe hook, not the long-form priority list. Shorts have no click intent:
+> the viewer did not choose your video, and a single boring sentence is a
+> swipe. Read this file instead of Stages 3–4 defaults whenever the
+> deliverable is under ~60 seconds.
 
 ## 1. Swipe-native opening (0–2 seconds)
 
@@ -38,11 +42,10 @@ first five seconds outperforms the same fact buried later.
 
 ## 3. Terminal payoff discipline (overrides Stage 4 bridging)
 
-Deliver the answer instantly in the final seconds, then hard-stop. No
-summary, no lingering, no bridge to nowhere — receipt equals exit, and every
-frame past the payoff is dead. Place the payoff around the third quarter,
-leaving only tail room for §4. This is the one place the zero-gap re-hook
-rule does not apply: the loop ends, the video ends.
+Deliver the answer instantly at 75–85% runtime, then a tail of at most 5
+seconds containing the loop-line and, optionally, the tied CTA fused into ONE
+sentence. Nothing else past the payoff — no summary, no lingering, no second
+bridge. Receipt equals exit; the tail exists only to loop or convert.
 
 ## 4. Rewatch loop + tied CTA tail
 
@@ -57,5 +60,5 @@ rule does not apply: the loop ends, the video ends.
 - [ ] First sentence = fastest direct delivery + frame-one visual proof.
 - [ ] Skeleton mapped per §2; supporting hook skipped if premise carries.
 - [ ] No over-explained simples; stakes restated higher before the middle.
-- [ ] Payoff instant at ~third quarter; hard stop after; loop-back present.
+- [ ] Payoff instant at 75–85%; tail ≤5s with loop-line + fused CTA at most.
 - [ ] One tied CTA, nothing else off-topic; zero boring sentences.

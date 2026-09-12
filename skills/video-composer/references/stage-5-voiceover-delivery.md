@@ -25,12 +25,13 @@
 Common mistake: pasting essay paragraphs into voiceover. If it reads well
 silently and fails aloud, it is not a script.
 
-**AI boundary: polish-only, never draft.** AI is allowed for better
-vocabulary, shorter sentences, and smoother flow — then every line still
-faces the aloud/TTS stumble test. Never let it write the script: book-trained
-prose reads like a book, and video is not read like a book. A full AI draft
-accepted untested is lazy writing that breaks cadence; treat it as raw
-material to rewrite, not a script.
+**AI-draft discipline (you are the drafter).** You MUST draft — but never
+ship a first pass. Pass 1: speakable draft (short sentences, front-loaded).
+Pass 2: aloud/TTS stumble pass — list every stumbled line verbatim plus its
+rewrite. Pass 3: cadence pass — mark the sentence-length pattern per beat.
+Exit requires the stumble list and fixes shown in your output. "Polished in
+my head" fails. Human writers may use AI for vocabulary, shortening, and
+flow polish under the same three passes.
 
 ## 2. Put contagious emotion on the page
 
@@ -96,14 +97,14 @@ over-qualified, memorize-every-word prose — technically flawless, lifeless.
   distracts from meaning and flattens everything.
 - Self-check: "would I say this to a close friend exactly like this?" If not,
   simplify until yes.
-- **Return-character (hosted/hybrid videos; optional for pure faceless).**
-  Withhold self for the first ~15 seconds — value first — then let
-  perspective emerge progressively, placing small personal moments right
-  after stakes escalation so bonding follows arousal. Viewers return for a
-  character whose sensibilities mesh with theirs, not for interchangeable
-  content-farm output. Never front-load self before delivering value, and
-  never stay fully faceless-of-spirit: personality-free commodity content
-  builds no relationship and does not last.
+- **Return-character.** Hosted/hybrid videos: withhold self for the first
+  ~15 seconds — value first — then let perspective emerge progressively,
+  placing small personal moments right after stakes escalation so bonding
+  follows arousal. Pure faceless (no host ever): substitute a consistent
+  voice-stance (skeptic, myth-buster, ranker) plus one recurring verdict line
+  as the "character." Personality-free commodity content builds no
+  relationship and does not last — but the fix for faceless is stance, not a
+  host.
 
 ## 4. TTS-survival rules
 
