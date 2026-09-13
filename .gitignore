@@ -28,3 +28,9 @@ models/
 
 # V.O. engine alternative
 scripts/generate_voiceover_deepgram.py
+
+# Root npm lockfile: it only records volatile `link:` entries for the
+# gitignored per-video `videos/*/remotion` workspaces (rewritten on every
+# scaffold/cleanup), not real dependency pins — scaffold regenerates it via
+# `npm install`, and tracking it is pure churn + cross-agent conflicts.
+package-lock.json
