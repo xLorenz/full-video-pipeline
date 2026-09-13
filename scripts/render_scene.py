@@ -335,6 +335,12 @@ def main():
            "--codec", str(codec),
            "--x264-preset", str(x264_preset),
            "--crf", str(crf),
+           # Video-only output: scene audio is muxed at stitch time, and even a
+           # SILENT audio track would poison the stitch — its AAC framing tail
+           # (~40-60ms/scene) shifts concat-demuxer offsets and drifts the whole
+           # video timeline late vs the frame-exact voiceover/SFX (progressive
+           # A/V misalignment on long videos). --muted emits no audio track.
+           "--muted",
            "--disallow-parallel-encoding",
            "--timeout", str(timeout_ms),
            "--overwrite",

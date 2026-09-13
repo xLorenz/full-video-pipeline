@@ -35,7 +35,7 @@ videos/{video-title}/
 │   │       └── SceneXX.tsx
 │   └── public/
 ├── voiceover/                 # Generated .mp3 files + per-scene .words.json timing sidecars (Step 5)
-├── scenes/                    # Rendered .mp4 scene files (silent video)
+├── scenes/                    # Rendered .mp4 scene files (video-only, no audio track)
 ├── logs/                      # Per-step + per-scene append-only logs
 └── versions/                  # Final stitched .mp4 + thumbnail .png
     ├── {title}-v1.mp4

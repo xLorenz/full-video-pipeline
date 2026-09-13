@@ -2018,12 +2018,13 @@ def cmd_preview(args):
         print(f"PREVIEW FAILED (props build: {e})")
         sys.exit(1)
 
-    print(f"Previewing scene 1, frames 0-{frame_end} -> {out_file}")
+    print(f"Previewing scene 1, frames 0-{frame_end - 1} -> {out_file}")
     cmd = ["npx", "remotion", "render", "src/Root.tsx", "MainVideo", str(out_file),
-           f"--props={props_path}", f"--frames=0-{frame_end}",
+           f"--props={props_path}", f"--frames=0-{frame_end - 1}",
            "--concurrency", "1", f"--gl={gl_backend}",
            "--image-format", "jpeg", "--jpeg-quality", "60",
            "--codec", "h264", "--x264-preset", "ultrafast", "--crf", "35",
+           "--muted",
            "--disallow-parallel-encoding",
            "--timeout", str(timeout_ms),
            "--overwrite", "--log=warn"]

@@ -8,13 +8,19 @@ the concatenated scene videos in a single ffmpeg pass. One audio encode pass
 total — fastest path for low-RAM boxes.
 
 Safety:
+  - Scene MP4s carrying (silent) audio tracks are remuxed to video-only
+    before concat: the concat demuxer offsets each file by its CONTAINER
+    duration (audio tail included), which drifts the video timeline late
+    ~1 frame/scene vs the frame-exact audio (`-an` cannot fix this —
+    offsets apply at demux, before output mapping).
   - Codec/resolution/fps mismatch detected by ffprobe triggers a re-encode
     fallback (-c:v {stitching.final_codec} -crf {stitching.final_crf}) instead of
     -c copy (which would silently produce a broken file).
   - Final MP4 is written atomically (temp + os.replace) so a crash doesn't
     leave a half-written "version".
-  - Duration assertion: |final_duration - total_actual_seconds| <= 0.5s,
-    otherwise exits non-zero.
+  - Pre-publish sync gates (fail BEFORE any version lands): padded voiceover
+    vs frame timeline (<=0.15s) AND concatenated video frame count + stream
+    duration vs frame timeline (exact frames, <=0.15s).
 
 Usage:
     python3 assemble.py <video_dir>
@@ -50,13 +56,12 @@ def find_next_version(versions_dir, safe_title):
     return max_version + 1
 
 
-def probe_scene(scenes_dir, scene_id):
-    """Return dict of codec_name, width, height, r_frame_rate for the scene's MP4."""
-    fpath = scenes_dir / f"scene-{scene_id:02d}.mp4"
+def probe_scene_file(fpath):
+    """Return dict of codec_name, width, height, r_frame_rate for a file's video stream."""
     streams = pl.ffprobe_streams(fpath)
     if not streams:
         return None
-    s = streams[0]
+    s = next((x for x in streams if x.get("codec_type") == "video"), streams[0])
     return {
         "codec": s.get("codec_name"),
         "width": s.get("width"),
@@ -65,24 +70,72 @@ def probe_scene(scenes_dir, scene_id):
     }
 
 
-def detect_mismatch(scenes_dir, scenes):
-    """Return (mismatch: bool, reason: str)."""
-    first = probe_scene(scenes_dir, scenes[0]["id"])
+def probe_scene(scenes_dir, scene_id):
+    """Return dict of codec_name, width, height, r_frame_rate for the scene's MP4."""
+    return probe_scene_file(scenes_dir / f"scene-{scene_id:02d}.mp4")
+
+
+def detect_mismatch(scenes_dir, scenes, path_for=None):
+    """Return (mismatch: bool, reason: str).
+
+    path_for(scene_id) -> Path optionally resolves the ACTUAL file to probe
+    (used to probe video-only remuxes instead of the raw scene MP4s).
+    """
+    resolve = path_for or (lambda sid: scenes_dir / f"scene-{sid:02d}.mp4")
+    first = probe_scene_file(resolve(scenes[0]["id"]))
     if first is None:
         return False, "first scene unprobeable — assuming match"
     for s in scenes[1:]:
-        info = probe_scene(scenes_dir, s["id"])
+        info = probe_scene_file(resolve(s["id"]))
         if info is None:
             continue
         if info["codec"] != first["codec"]:
             return True, f"codec mismatch (scene {s['id']}: {info['codec']} vs {first['codec']})"
         if info["width"] != first["width"] or info["height"] != first["height"]:
             return True, (f"resolution mismatch (scene {s['id']}: "
-                          f"{info['width']}x{info['height']} vs "
-                          f"{first['width']}x{first['height']})")
+                           f"{info['width']}x{info['height']} vs "
+                           f"{first['width']}x{first['height']})")
         if info["fps"] != first["fps"]:
             return True, f"fps mismatch (scene {s['id']}: {info['fps']} vs {first['fps']})"
     return False, "all scenes consistent"
+
+
+def resolve_concat_sources(scenes_dir, scenes, work_dir):
+    """Map scene_id -> MP4 Path to feed the concat demuxer, remuxing to
+    video-only when a scene carries a (silent) audio track.
+
+    WHY: Remotion muxes a silent AAC track (~40-60ms longer than the video
+    via AAC framing/priming) into every scene MP4 unless rendered --muted.
+    The concat demuxer offsets each file by its CONTAINER duration (audio
+    tail included), freezing each scene's last video frame through the gap
+    (~1 frame/scene of progressive A/V drift — audio runs ahead, and the
+    final -shortest then silently amputates the video tail). -an cannot fix
+    this: offsets are applied at demux, before output mapping drops audio.
+    Returns (paths, stripped_ids); remuxes land in work_dir (caller-owned).
+    """
+    vonly_dir = Path(work_dir) / "vonly"
+    paths, stripped = {}, []
+    need_strip = [s["id"] for s in scenes
+                  if pl.has_audio_stream(scenes_dir / f"scene-{s['id']:02d}.mp4")]
+    if need_strip:
+        print(f"  {len(need_strip)}/{len(scenes)} scene MP4s carry (silent) audio "
+              f"tracks — remuxing to video-only for frame-exact concat")
+        vonly_dir.mkdir(parents=True, exist_ok=True)
+        for sid in need_strip:
+            src = scenes_dir / f"scene-{sid:02d}.mp4"
+            dst = vonly_dir / f"scene-{sid:02d}.mp4"
+            r = pl.run_cmd(["ffmpeg", "-y", "-i", str(src),
+                            "-map", "0:v:0", "-c:v", "copy", str(dst)],
+                           check=False)
+            if r.returncode != 0 or not dst.exists():
+                print(f"  ERROR: failed to strip audio from scene {sid} "
+                      f"(see log above) — refusing to stitch a drifting timeline")
+                return None, need_strip
+            paths[sid] = dst
+            stripped.append(sid)
+    for s in scenes:
+        paths.setdefault(s["id"], scenes_dir / f"scene-{s['id']:02d}.mp4")
+    return paths, stripped
 
 
 def atomic_replace_temp(output_file, cmd_argv, pre_commit=None):
@@ -203,16 +256,23 @@ def main():
         sys.exit(1)
     print("  All scene video files present.")
 
-    # Detect codec/size/fps mismatch → decide copy vs re-encode
-    mismatch, reason = detect_mismatch(scenes_dir, scenes)
+    temp_dir = video_dir / ".assemble_tmp"
+    temp_dir.mkdir(exist_ok=True)
+
+    # Resolve concat sources FIRST (video-only remux when scenes carry silent
+    # audio tracks) and probe THOSE: the demuxer sees these exact files.
+    # Detect codec/size/fps mismatch → decide copy vs re-encode.
+    concat_paths = resolve_concat_sources(scenes_dir, scenes, temp_dir)
+    if concat_paths is None:
+        sys.exit(1)
+    concat_paths, stripped_ids = concat_paths
+    mismatch, reason = detect_mismatch(
+        scenes_dir, scenes, path_for=lambda sid: concat_paths[sid])
     if mismatch:
         print(f"  WARNING: {reason}")
         print("  Falling back to re-encoding video stream for concat safety.")
     else:
         print(f"  Codec check: {reason}")
-
-    temp_dir = video_dir / ".assemble_tmp"
-    temp_dir.mkdir(exist_ok=True)
 
     try:
         # Step 1: Concat voiceover MP3s — frame-padded so the audio timeline is
@@ -244,7 +304,7 @@ def main():
             for stale in temp_dir.glob("vo_part_*.mp3"):
                 stale.unlink(missing_ok=True)
             BATCH = 12
-            parts, ok = [], True
+            parts, part_targets, ok = [], [], True
             for bi in range(0, len(scenes), BATCH):
                 chunk = scenes[bi:bi + BATCH]
                 ci, cg, cmiss = pl.voiceover_pad_graph(voiceover_dir, chunk, fps)
@@ -252,6 +312,7 @@ def main():
                     print(f"  ERROR: Voiceover MP3 missing for scenes: {cmiss}")
                     ok = False
                     break
+                part_targets.append(sum(pl.scene_padded_duration(s, fps) for s in chunk))
                 part = temp_dir / f"vo_part_{bi // BATCH:02d}.mp3"
                 ok = atomic_replace_temp(
                     part,
@@ -263,11 +324,17 @@ def main():
                     break
                 parts.append(part)
             if ok:
-                fin_inputs, flabels = [], []
+                fin_inputs, ftrims, flabels = [], [], []
                 for i, p in enumerate(parts):
                     fin_inputs += ["-i", str(p)]
-                    flabels.append(f"[{i}:a]")
-                fgraph = "".join(flabels) + f"concat=n={len(parts)}:v=0:a=1[aout]"
+                    # Trim each decoded part to EXACTLY its batch timeline:
+                    # MP3 part files carry encoder delay/padding (~50ms each)
+                    # that would otherwise accumulate across batches and push
+                    # late-scene narration off its visuals.
+                    ftrims.append(f"[{i}:a]atrim=0:{part_targets[i]:.6f}[t{i}];")
+                    flabels.append(f"[t{i}]")
+                fgraph = ("".join(ftrims) + "".join(flabels)
+                          + f"concat=n={len(parts)}:v=0:a=1[aout]")
                 ok = atomic_replace_temp(
                     aligned_audio,
                     ["ffmpeg", "-y", *fin_inputs, "-filter_complex", fgraph,
@@ -343,7 +410,10 @@ def main():
         video_concat_list = temp_dir / "video_concat.txt"
         with open(video_concat_list, "w", encoding="utf-8") as f:
             for s in scenes:
-                mp4 = (scenes_dir / f"scene-{s['id']:02d}.mp4").resolve().as_posix()
+                # concat_paths points at video-only remuxes whenever the raw
+                # scene MP4s carry (silent) audio tails — never concat those
+                # directly (container-duration offsets = progressive drift).
+                mp4 = Path(concat_paths[s["id"]]).resolve().as_posix()
                 # Escape single quotes for ffmpeg concat demuxer.
                 mp4_esc = mp4.replace("'", "'\\''")
                 f.write(f"file '{mp4_esc}'\n")
@@ -368,8 +438,33 @@ def main():
         print(f"  Created temp video ({vid_size:.1f} MB) "
               f"[{'re-encoded' if mismatch else 'stream copy'}]")
 
+        # Pre-publish video sync gate: the concatenated video must match the
+        # frame-count timeline EXACTLY (frame count + duration). The concat
+        # demuxer silently stretches boundary frames when inputs disagree
+        # (silent-audio tails, timebase quirks) — fail BEFORE mux/publish so
+        # a drifting video can never ship and -shortest can never amputate
+        # the tail to hide it.
+        if total_frames > 0:
+            v_ok, v_detail = pl.check_video_timeline(temp_video, total_frames, fps)
+            if not v_ok:
+                print(f"  ERROR: concatenated video fails timeline gate: {v_detail} — "
+                      f"refusing to stitch")
+                sys.exit(1)
+            print(f"  Sync gate: {v_detail}")
+
         # Step 3: Mux audio on video (video stream untouched, audio encoded to aac)
         print("\n--- Step 3: Merging video and audio ---")
+        # Pre-mux A/V agreement: both timelines were gated individually above,
+        # but assert they agree WITH EACH OTHER before muxing — -shortest must
+        # only ever trim codec-padding slop (tens of ms), never hide drift by
+        # amputating one timeline to the other.
+        v_dur, _ = pl.video_stream_info(temp_video)
+        a_dur = pl.get_audio_duration(aligned_audio)
+        if v_dur > 0 and a_dur > 0 and abs(v_dur - a_dur) > 0.3:
+            print(f"  ERROR: video timeline ({v_dur:.2f}s) and voiceover "
+                  f"timeline ({a_dur:.2f}s) disagree by more than 0.3s — "
+                  f"refusing to mux")
+            sys.exit(1)
         versions_dir.mkdir(exist_ok=True)
         next_version = find_next_version(versions_dir, safe_title)
         output_file = versions_dir / f"{safe_title}-v{next_version}.mp4"

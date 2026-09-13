@@ -3,7 +3,8 @@
 **Goal**: Define a consistent visual style, write the Remotion project code for
 all scenes. Steps 9-10 (scene rendering and stitching) auto-run after `complete`.
 
-Reminder from the main SKILL.md: scenes render **silent video only** — voiceover
+Reminder from the main SKILL.md: scenes render **silent, video-only MP4s
+(no audio track at all — `--muted`)** — voiceover
 is muxed in at stitch time. Don't add `<Audio>` for the voiceover in any
 `SceneXX.tsx`; see "Audio Path" in the main file for why.
 
@@ -247,7 +248,7 @@ Follow `skills/full-video-pipeline/references/sfx-design.md` instructions (SFX/B
 
 Each `SceneXX.tsx` should:
 - Match its `actual_duration_frames` exactly (voiceover sync depends on this — see "Audio Path")
-- Render completely silent video: no `<Audio>` for the voiceover, and none for music/SFX either (SFX/BGM are authored as `scenes.json` cues in step 8b and mixed at stitch — baked audio would double-mix)
+- Render completely silent video: no `<Audio>` for the voiceover, and none for music/SFX either (SFX/BGM are authored as `scenes.json` cues in step 8b and mixed at stitch — baked audio would double-mix). The file must contain **no audio track at all**, not even a silent one: the orchestrator renders with Remotion `--muted` for this reason. A silent AAC track still runs ~40-60ms longer than the video (AAC framing/priming) and shifts concat offsets ~1 frame per scene — on long videos the whole picture drifts late vs the voiceover/SFX and the stitch fails its timeline gate instead of shipping.
 - Implement the visual treatment from `visual_notes` in `scenes.json`
 - Hand-code its own enter/exit fade (or wipe/slide) inside the scene when `transition_in/out` asks for one: `MainVideo.tsx` sequences scenes with hard cuts and its duration math assumes zero overlap, so do NOT use `<TransitionSeries>` or touch `MainVideo.tsx` — fade the scene's own content over its first/last ~10 frames instead
 - Follow the style system from STYLES.md
@@ -317,9 +318,12 @@ marks Steps 7-8 done, then **auto-runs**:
   retries only failures. Per-scene logs in
   `videos/<title>/logs/step-9-scene-{id}.log`.
 - **Step 10 (Stitching)**: Runs `assemble.py` — concatenates per-scene MP3s
-  into `voiceover_aligned.mp3` with each chunk padded to exactly its rendered
-  frame count (audio timeline == video timeline), concatenates scene MP4 video
-  streams (copy, no re-encode), muxes audio on video (single ffmpeg pass,
+  into `voiceover_aligned.mp3` with each chunk padded AND trimmed to exactly its rendered
+  frame count (audio timeline == video timeline), remuxes any scene MP4s that
+  still carry (silent) audio tracks to video-only and concatenates scene video
+  streams (copy, no re-encode), asserts the concatenated video matches the
+  frame-count timeline exactly (frame count + duration gate — fails the stitch
+  instead of shipping drift), muxes audio on video (single ffmpeg pass,
   `-c:v copy -c:a aac`), auto-increments version `versions/{title}-v1.mp4`,
   `v2`, etc.
 

@@ -722,7 +722,7 @@ def ffprobe_streams(filepath):
     try:
         result = subprocess.run(
             ["ffprobe", "-v", "quiet", "-show_entries",
-             "stream=codec_name,width,height,r_frame_rate,duration",
+             "stream=codec_type,codec_name,width,height,r_frame_rate,duration,nb_frames",
              "-of", "json", str(filepath)],
             capture_output=True, text=True, timeout=30,
         )
@@ -762,6 +762,11 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
     against the ceil'd video scenes, so late-scene narration slides off its
     visuals and beat-referenced SFX land progressively late.
 
+    The trailing atrim is load-bearing, not redundant: apad only pads SHORT
+    inputs up and passes LONG ones through untouched (decoded MP3s routinely
+    overshoot whole_dur via encoder delay/padding), so without atrim an
+    overshooting chunk would stretch the whole downstream timeline.
+
     Returns (input_args, graph, missing_ids):
       input_args  — flat ["-i", "<abs posix path>", ...] list for ffmpeg
       graph       — filter_complex string ending in the [aout] label
@@ -791,7 +796,8 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
         pads.append(
             f"[{idx}:a]aresample=44100,"
             f"aformat=sample_fmts=s16:channel_layouts=mono,"
-            f"apad=whole_dur={dur:.6f}[a{idx}];"
+            f"apad=whole_dur={dur:.6f},"
+            f"atrim=0:{dur:.6f}[a{idx}];"
         )
         labels.append(f"[a{idx}]")
     n = len(labels)
@@ -801,6 +807,83 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
         return input_args, "anullsrc=r=44100:cl=mono[aout]", missing
     graph = "".join(pads) + "".join(labels) + f"concat=n={n}:v=0:a=1[aout]"
     return input_args, graph, missing
+
+
+# ---------------------------------------------------------------------------
+# Video-timeline inspection (A/V sync gates for assemble.py)
+# ---------------------------------------------------------------------------
+
+# A concatenated video whose stream duration drifts further than this from
+# the frame-count timeline is misaligned (not a rounding artifact) and must
+# fail the stitch instead of shipping. Matches the voiceover sync gate.
+VIDEO_TIMELINE_TOLERANCE_SEC = 0.15
+
+
+def has_audio_stream(filepath) -> bool:
+    """True when the file carries any audio stream (even a silent one).
+
+    Remotion muxes a silent AAC track into every scene MP4 unless rendered
+    --muted; that track runs ~40-60ms longer than the video (AAC
+    framing/priming) and shifts concat-demuxer offsets, so callers must
+    strip it before concatenating.
+    """
+    try:
+        streams = ffprobe_streams(filepath) or []
+    except Exception:
+        return False
+    return any(s.get("codec_type") == "audio" for s in streams)
+
+
+def video_stream_info(filepath):
+    """(duration_seconds, nb_frames) of the first video stream.
+
+    Returns (0.0, 0) when unprobeable or when the field is absent —
+    callers treat 0 as "unknown" and skip that half of the gate rather
+    than failing on a probe hiccup.
+    """
+    try:
+        streams = ffprobe_streams(filepath) or []
+    except Exception:
+        return 0.0, 0
+    v = next((s for s in streams if s.get("codec_type") == "video"),
+             streams[0] if streams else None)
+    if v is None:
+        return 0.0, 0
+    try:
+        dur = float(v.get("duration") or 0.0)
+    except (TypeError, ValueError):
+        dur = 0.0
+    try:
+        nfr = int(v.get("nb_frames") or 0)
+    except (TypeError, ValueError):
+        nfr = 0
+    return dur, nfr
+
+
+def check_video_timeline(video_path, total_frames, fps):
+    """Classify a stitched/concatenated video against the frame timeline.
+
+    Returns (ok, detail) where detail names the measured duration/frames
+    vs the expected timeline. ok=False means progressive A/V drift
+    (e.g. silent-audio tails stretched the concat) — never publish this.
+    """
+    try:
+        fps_f = float(fps or 30)
+    except (TypeError, ValueError):
+        fps_f = 30.0
+    expected_dur = float(total_frames or 0) / fps_f if total_frames else 0.0
+    dur, nfr = video_stream_info(video_path)
+    if total_frames and nfr and nfr != int(total_frames):
+        return False, (f"frame count {nfr} != timeline {int(total_frames)} "
+                       f"(~{abs(nfr - int(total_frames))} frozen/duplicated "
+                       f"boundary frames)")
+    if expected_dur > 0 and dur > 0 \
+            and abs(dur - expected_dur) > VIDEO_TIMELINE_TOLERANCE_SEC:
+        return False, (f"video duration {dur:.2f}s differs from frame "
+                       f"timeline {expected_dur:.2f}s by "
+                       f"{abs(dur - expected_dur):.2f}s")
+    return True, (f"video {dur:.2f}s / {nfr or '?'} frames == "
+                  f"timeline {expected_dur:.2f}s / {total_frames} frames")
 
 
 # ---------------------------------------------------------------------------

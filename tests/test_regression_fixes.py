@@ -326,3 +326,99 @@ def test_check_sfx_real_conflict_still_warns():
     errors, warnings = _v.check_sfx(_sfx_data("playful", "siren"))
     assert errors == []
     assert any("siren" in w and "conflicts" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# A/V sync regression: silent audio tracks in scene MP4s drifted the video
+# timeline late (~1 frame/scene) vs the frame-exact voiceover/SFX, and the
+# final -shortest silently amputated the tail to hide it (long videos only).
+# ---------------------------------------------------------------------------
+
+def _streams(video_dur, video_frames, audio_dur=None):
+    out = [{"codec_type": "video", "codec_name": "h264",
+            "width": 1920, "height": 1080, "r_frame_rate": "30/1",
+            "duration": str(video_dur), "nb_frames": str(video_frames)}]
+    if audio_dur is not None:
+        out.append({"codec_type": "audio", "codec_name": "aac",
+                    "duration": str(audio_dur)})
+    return out
+
+
+def test_has_audio_stream_detects_silent_track(monkeypatch):
+    monkeypatch.setattr(pl, "ffprobe_streams",
+                        lambda p: _streams(8.9, 267, audio_dur=8.96))
+    assert pl.has_audio_stream("scene-01.mp4") is True
+    monkeypatch.setattr(pl, "ffprobe_streams",
+                        lambda p: _streams(8.9, 267))
+    assert pl.has_audio_stream("scene-01.mp4") is False
+    monkeypatch.setattr(pl, "ffprobe_streams", lambda p: None)
+    assert pl.has_audio_stream("missing.mp4") is False
+
+
+def test_video_stream_info_prefers_video_stream(monkeypatch):
+    # Audio listed first must not be mistaken for the video stream.
+    streams = list(reversed(_streams(8.9, 267, audio_dur=8.96)))
+    assert streams[0]["codec_type"] == "audio"
+    monkeypatch.setattr(pl, "ffprobe_streams", lambda p: streams)
+    dur, nfr = pl.video_stream_info("scene-01.mp4")
+    assert dur == 8.9 and nfr == 267
+    monkeypatch.setattr(pl, "ffprobe_streams", lambda p: None)
+    assert pl.video_stream_info("missing.mp4") == (0.0, 0)
+
+
+def test_check_video_timeline_accepts_exact_match(monkeypatch):
+    monkeypatch.setattr(pl, "video_stream_info", lambda p: (706.167, 21185))
+    ok, detail = pl.check_video_timeline("video_only.mp4", 21185, 30)
+    assert ok is True
+    assert "21185" in detail
+
+
+def test_check_video_timeline_catches_frame_shortfall(monkeypatch):
+    # The observed failure: 21096 frames over 706.16s (frozen boundary
+    # frames from silent-audio concat offsets, tail cut by -shortest).
+    monkeypatch.setattr(pl, "video_stream_info", lambda p: (706.16, 21096))
+    ok, detail = pl.check_video_timeline("video_only.mp4", 21185, 30)
+    assert ok is False
+    assert "21096" in detail and "21185" in detail
+
+
+def test_check_video_timeline_catches_duration_drift(monkeypatch):
+    # Right frame count but stretched durations (boundary frames held).
+    monkeypatch.setattr(pl, "video_stream_info", lambda p: (709.18, 21185))
+    ok, detail = pl.check_video_timeline("video_only.mp4", 21185, 30)
+    assert ok is False
+    assert "709.18" in detail
+
+
+def test_check_video_timeline_skips_unknown_probe(monkeypatch):
+    # Unprobeable file must not fail the gate on a probe hiccup.
+    monkeypatch.setattr(pl, "video_stream_info", lambda p: (0.0, 0))
+    ok, _ = pl.check_video_timeline("video_only.mp4", 21185, 30)
+    assert ok is True
+
+
+def test_voiceover_pad_graph_trims_each_chunk_to_whole_dur(tmp_path):
+    # apad pads short inputs up but passes long ones through (decoded MP3s
+    # overshoot via encoder padding) — the trailing atrim forces exactness.
+    vo = tmp_path / "voiceover"
+    vo.mkdir()
+    scenes = []
+    for i, frames in ((1, 267), (2, 336)):
+        (vo / f"scene-{i:02d}.mp3").write_bytes(b"\xff\xfb fake mp3")
+        scenes.append({"id": i, "actual_duration_frames": frames,
+                       "actual_duration_seconds": round(frames / 30, 3)})
+    _, graph, _ = pl.voiceover_pad_graph(vo, scenes, 30)
+    for frames in (267, 336):
+        dur = f"{frames / 30:.6f}"
+        assert f"apad=whole_dur={dur},atrim=0:{dur}" in graph
+
+
+def test_probe_scene_file_prefers_video_stream(monkeypatch):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import assemble as _asm
+    streams = list(reversed(_streams(8.9, 267, audio_dur=8.96)))
+    monkeypatch.setattr(_asm.pl, "ffprobe_streams", lambda p: streams)
+    info = _asm.probe_scene_file("scene-01.mp4")
+    assert info["codec"] == "h264"
+    assert info["width"] == 1920 and info["fps"] == "30/1"

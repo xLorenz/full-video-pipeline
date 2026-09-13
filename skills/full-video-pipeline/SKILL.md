@@ -160,19 +160,28 @@ video via `videos/<title>/pipeline_config.json`.
 ## Audio Path (IMPORTANT — overrides Remotion skill rules)
 
 Voiceover is **NOT** baked into scene MP4s. Scene components render **completely
-silent** video — do NOT use `<Audio>` in `SceneXX.tsx` at all, not for the
+silent, video-only** MP4s — do NOT use `<Audio>` in `SceneXX.tsx` at all, not for the
 voiceover and not for music/SFX either (SFX/BGM cues live in `scenes.json`
 and are mixed at stitch time — a baked-in `<Audio>` track would double-mix
-and trip the loudness assertions). At stitch time,
+and trip the loudness assertions). "Video-only" means the file carries **no
+audio track at all**: scenes render with Remotion `--muted`, because even a
+silent AAC track runs ~40-60ms longer than the video (AAC framing/priming)
+and shifts concat offsets ~1 frame per scene — progressive A/V drift on long
+videos. At stitch time,
 `scripts/assemble.py` concatenates the per-scene MP3s into one
-`voiceover_aligned.mp3` and muxes it onto the concatenated scene MP4s in a
+`voiceover_aligned.mp3` (each chunk padded AND trimmed to exactly its frame
+count), remuxes any scene MP4s that still carry audio tracks to video-only,
+concatenates the video streams, asserts the result matches the frame-count
+timeline exactly (pre-publish gate — fails the stitch instead of shipping
+drift), and muxes it onto the concatenated scene MP4s in a
 single ffmpeg pass. This is why it matters, not just a style rule:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps exactly one audio encode pass total (fastest path for low-RAM boxes)
 - Relies on `actual_duration_frames` matching voiceover durations exactly
-  (enforced by Step 6) — a scene that bakes in its own audio can drift out of
-  sync with the muxed track and nothing downstream will catch it
+  (enforced by Step 6) — a scene that bakes in its own audio drifts out of
+  sync with the muxed track, and Step 10's pre-publish timeline gate fails
+  the stitch instead of shipping it
 
 The `remotion-best-practices` submodule may document `<Audio>` / voiceover
 patterns of its own. Those are **superseded for this pipeline** — render

@@ -10,7 +10,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 |-------|-------|----------------|-----------------------------|
 | **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
 | **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel, captures word timings), Step 6 (ffprobe duration measurement + word-level `TRANSCRIPT.md` / `voiceover_timings.json`) |
-| **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent video** — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (single-pass ffmpeg stitch) |
+| **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent, video-only MP4s** (`--muted`, no audio track) — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (video-only concat + timeline-gated single-pass ffmpeg stitch) |
 | **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
 
 The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, Remotion coding, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
@@ -180,7 +180,7 @@ full-video-pipeline/
         │   │   └── scenes/
         │   └── public/
         ├── voiceover/               # Generated .mp3 files + per-scene .words.json timing sidecars
-        ├── scenes/                  # Rendered .mp4 scene files (silent video)
+        ├── scenes/                  # Rendered .mp4 scene files (video-only, no audio track)
         └── versions/                # Final stitched .mp4 videos + thumbnail .png
             ├── {title}-v1.mp4
             └── {title}-thumbnail-v1.png
@@ -441,10 +441,16 @@ these, use the `edge` engine or call `pocket_tts` directly.
 
 ## Audio Path (important)
 
-Voiceover is **not** baked into scene MP4s. Scene components render silent video.
+Voiceover is **not** baked into scene MP4s. Scene components render silent,
+video-only MP4s (no audio track at all — Remotion renders with `--muted`;
+even a silent AAC track runs ~40-60ms longer than the video and would drift
+the stitch ~1 frame per scene).
 At stitch time, `assemble.py` concatenates the per-scene MP3s into one
-`voiceover_aligned.mp3` — each chunk padded to exactly its rendered frame count
-so the audio timeline matches the video timeline — muxes it onto the concatenated
+`voiceover_aligned.mp3` — each chunk padded AND trimmed to exactly its rendered frame count
+so the audio timeline matches the video timeline — remuxes any scene MP4s that still
+carry audio tracks to video-only, concatenates the video streams, asserts the result
+matches the frame-count timeline exactly (pre-publish gate — fails instead of shipping
+drift), muxes it onto the concatenated
 scene MP4s in a single ffmpeg pass, and writes the result atomically. This:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)

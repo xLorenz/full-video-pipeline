@@ -571,7 +571,10 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
     bcfg = cfg.get("bgm", {})
     if not bcfg.get("enabled", True):
         return None
-    master = array("f", [0.0]) * int(total_sec * sr)
+    # round(), not int(): sample positions must match place_cue()'s
+    # int(round(...)) convention — systematic truncation biases every cue/BGM
+    # segment up to 1 sample early.
+    master = array("f", [0.0]) * int(round(total_sec * sr))
     default_track = bcfg.get("default_track", "pulse_light")
     default_vol = bcfg.get("default_volume", 0.6)
     trims = bcfg.get("track_trim", {})
@@ -620,9 +623,9 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
         # differences between bed designs (e.g. tension_riser's dense rising
         # texture runs hotter than the sparse pulse beds at equal volume).
         trim_db = float(trims.get(track, 0.0))
-        seg = apply_gain_db(_tile(loop, int(dur * sr)),
+        seg = apply_gain_db(_tile(loop, int(round(dur * sr))),
                             bed_gain_db(vol, bcfg.get("bed_db", -12.0)) + trim_db)
-        segs.append((int(start_abs * sr), seg))
+        segs.append((int(round(start_abs * sr)), seg))
 
     if not segs:                                       # all-silent run set → no track
         return None
@@ -791,7 +794,7 @@ def main():
     FPS = float(data.get("fps") or 30)
 
     offsets, total_sec = cumulative_offsets(scenes, FPS)
-    samples_total = int(total_sec * SR)
+    samples_total = int(round(total_sec * SR))
     # Both tracks (sfx+bgm) can coexist — guard 2x peak RAM, not per-track.
     if samples_total * 4 * 2 > MAX_TRACK_BYTES:
         mb = samples_total * 4 * 2 / (1024 * 1024)
