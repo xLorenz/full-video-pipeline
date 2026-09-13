@@ -25,3 +25,7 @@ sfx-implementation-plan/
 # Vosk acoustic models for transcript alignment (~50 MB each, downloaded once
 # from https://alphacephei.com/vosk/models into models/ — never commit)
 models/
+
+# V.O. engine alternative
+scripts/generate_voiveover_deepgram.py
+
