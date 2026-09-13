@@ -27,5 +27,4 @@ sfx-implementation-plan/
 models/
 
 # V.O. engine alternative
-scripts/generate_voiveover_deepgram.py
-
+scripts/generate_voiceover_deepgram.py
