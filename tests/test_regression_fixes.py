@@ -422,3 +422,260 @@ def test_probe_scene_file_prefers_video_stream(monkeypatch):
     info = _asm.probe_scene_file("scene-01.mp4")
     assert info["codec"] == "h264"
     assert info["width"] == 1920 and info["fps"] == "30/1"
+
+
+def test_probe_scene_file_prefers_video_stream(monkeypatch):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import assemble as _asm
+    streams = list(reversed(_streams(8.9, 267, audio_dur=8.96)))
+    monkeypatch.setattr(_asm.pl, "ffprobe_streams", lambda p: streams)
+    info = _asm.probe_scene_file("scene-01.mp4")
+    assert info["codec"] == "h264"
+    assert info["width"] == 1920 and info["fps"] == "30/1"
+
+
+# ---------------------------------------------------------------------------
+# Silent scenes (voiceless by design: titles, cards, tension holds).
+# Convention: "silent": true + empty voiceover_text + NO VOICEOVER.md block;
+# durations derive from target_duration_seconds; the stitch pads anullsrc.
+# ---------------------------------------------------------------------------
+
+def _silent_scene(sid=2, target=2.5, **kw):
+    d = {"id": sid, "title": f"Silent {sid}", "script_text": "visual direction",
+         "voiceover_text": "", "silent": True,
+         "target_duration_seconds": target,
+         "actual_duration_seconds": None, "actual_duration_frames": None,
+         "voiceover_file": None, "voiceover_hash": None}
+    d.update(kw)
+    return d
+
+
+def _voiced_scene(sid=1, frames=267, seconds=8.9):
+    return {"id": sid, "title": f"Voiced {sid}", "script_text": "narration",
+            "voiceover_text": "spoken words here",
+            "target_duration_seconds": seconds,
+            "actual_duration_seconds": seconds,
+            "actual_duration_frames": frames,
+            "voiceover_file": f"voiceover/scene-{sid:02d}.mp3",
+            "voiceover_hash": "hash"}
+
+
+def test_durations_for_silent_scene_exact():
+    sec, frames = pl.durations_for_silent_scene(_silent_scene(target=2.5), 30)
+    assert (sec, frames) == (2.5, 75)
+    sec, frames = pl.durations_for_silent_scene(_silent_scene(target=10.0), 30)
+    assert (sec, frames) == (10.0, 300)
+    # round(), not ceil(): exact authoring maps to the nearest frame.
+    sec, frames = pl.durations_for_silent_scene(_silent_scene(target=0.05), 30)
+    assert frames == 2  # 1.5 frames -> nearest (banker's: 2)
+
+
+def test_durations_for_silent_scene_rejects_bad_targets():
+    import pytest as _pytest
+    for bad in (None, 0, -3.0, "nonsense"):
+        with _pytest.raises(ValueError):
+            pl.durations_for_silent_scene(_silent_scene(target=bad), 30)
+    with _pytest.raises(ValueError):
+        pl.durations_for_silent_scene(
+            _silent_scene(target=pl.SILENT_SCENE_MAX_SECONDS + 1), 30)
+
+
+def test_check_vo_blocks_vs_scenes():
+    blocks = [{"id": 1, "text": "spoken"}]
+    scenes = [_voiced_scene(1), _silent_scene(2)]
+    assert pl.check_vo_blocks_vs_scenes(blocks, scenes) == []
+    # Block for a silent scene: TTS would speak silence aloud.
+    errs = pl.check_vo_blocks_vs_scenes(blocks + [{"id": 2, "text": "oops"}],
+                                        scenes)
+    assert any("silent" in e and "2" in e for e in errs)
+    # Voiced scene without a block: fail fast here, not vaguely at Step 6.
+    errs = pl.check_vo_blocks_vs_scenes([], scenes)
+    assert any("1" in e and "no VOICEOVER.md block" in e for e in errs)
+    # Block with no matching scene.
+    errs = pl.check_vo_blocks_vs_scenes([{"id": 9, "text": "ghost"}], scenes)
+    assert any("9" in e and "no matching scene" in e for e in errs)
+
+
+def test_pad_graph_silent_emits_anullsrc(tmp_path):
+    vo = tmp_path / "voiceover"
+    vo.mkdir()
+    (vo / "scene-01.mp3").write_bytes(b"\xff\xfb fake mp3")
+    scenes = [_voiced_scene(1),
+              dict(_silent_scene(2), actual_duration_seconds=2.5,
+                   actual_duration_frames=75)]
+    inputs, graph, missing = pl.voiceover_pad_graph(vo, scenes, 30)
+    assert missing == []
+    # Only the voiced scene consumes an -i input; silence is synthesized.
+    assert len(inputs) == 2
+    assert "anullsrc=r=44100:cl=mono:d=2.500000[a1];" in graph
+    assert "apad=whole_dur=8.900000" in graph
+    assert graph.endswith("concat=n=2:v=0:a=1[aout]")
+
+
+def test_pad_graph_silent_never_counts_as_missing(tmp_path):
+    vo = tmp_path / "voiceover"
+    vo.mkdir()
+    scenes = [_voiced_scene(1),  # MP3 absent on disk
+              dict(_silent_scene(2), actual_duration_seconds=2.5,
+                   actual_duration_frames=75)]
+    _, _, missing = pl.voiceover_pad_graph(vo, scenes, 30)
+    assert missing == [1]
+
+
+def test_validate_silent_exemptions():
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import validate as _v
+    vdir = Path("/nonexistent")
+    silent = _silent_scene()
+    # Step 3: empty voiceover_text OK when silent; target required + capped.
+    assert _v.check_step_requirements(
+        vdir, {"scenes": [silent]}, 3) == []
+    assert any("voiceover_text" in e for e in _v.check_step_requirements(
+        vdir, {"scenes": [dict(_voiced_scene(), voiceover_text="")]}, 3))
+    assert any("non-empty" in e for e in _v.check_step_requirements(
+        vdir, {"scenes": [dict(silent, voiceover_text="leftover")]}, 3))
+    assert any("target_duration_seconds" in e for e in _v.check_step_requirements(
+        vdir, {"scenes": [_silent_scene(target=0)]}, 3))
+    assert any("cap" in e for e in _v.check_step_requirements(
+        vdir, {"scenes": [_silent_scene(target=999)]}, 3))
+    # Step 5: no file/hash required when silent; still required when voiced.
+    assert _v.check_step_requirements(
+        vdir, {"scenes": [silent]}, 5) == []
+    assert any("voiceover_file" in e for e in _v.check_step_requirements(
+        vdir, {"scenes": [dict(_voiced_scene(), voiceover_file=None)]}, 5))
+
+
+def test_schema_accepts_silent_flag():
+    import jsonschema
+    schema = json.loads((Path(__file__).resolve().parent.parent /
+                         "schemas" / "scenes.schema.json").read_text())
+    scene_schema = schema["properties"]["scenes"]["items"]
+    jsonschema.validate(_silent_scene(), scene_schema)
+    jsonschema.validate(_voiced_scene(), scene_schema)
+
+
+def _fixture_video_dir(tmp_path, scenes):
+    vdir = tmp_path / "vid"
+    vdir.mkdir()
+    (vdir / "scenes.json").write_text(
+        json.dumps({"video_title": "vid", "fps": 30, "width": 1920,
+                    "height": 1080, "scenes": scenes}),
+        encoding="utf-8")
+    return vdir
+
+
+def test_measure_durations_silent_from_target(tmp_path, monkeypatch):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import measure_durations as _md
+    import shutil as _shutil
+    vdir = _fixture_video_dir(tmp_path, [_silent_scene(2, target=2.5)])
+    monkeypatch.setattr(_shutil, "which", lambda *a, **k: "/bin/ffprobe")
+    monkeypatch.setattr(pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(_sys, "argv", ["measure_durations.py", str(vdir)])
+    _md.main()
+    out = json.loads((vdir / "scenes.json").read_text(encoding="utf-8"))
+    s = out["scenes"][0]
+    assert (s["actual_duration_seconds"], s["actual_duration_frames"]) == (2.5, 75)
+    assert out["total_actual_seconds"] == 2.5
+
+
+def test_transcript_silent_carve_out(tmp_path, monkeypatch):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import generate_transcript as _gt
+    import validate as _v
+    scenes = [dict(_silent_scene(1, target=2.5),
+                   actual_duration_seconds=2.5, actual_duration_frames=75),
+              dict(_silent_scene(2, target=3.0),
+                   actual_duration_seconds=3.0, actual_duration_frames=90)]
+    vdir = _fixture_video_dir(tmp_path, scenes)
+    monkeypatch.setattr(pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(_sys, "argv", ["generate_transcript.py", str(vdir)])
+    _gt.main()
+    tj = json.loads((vdir / "voiceover_timings.json").read_text(encoding="utf-8"))
+    assert [(e["id"], e["source"], e["words"]) for e in tj["scenes"]] == \
+        [(1, "estimated", []), (2, "estimated", [])]
+    assert [e["global_start"] for e in tj["scenes"]] == [0.0, 2.5]
+    assert (vdir / "TRANSCRIPT.md").stat().st_size > 0
+    # The Step 6 transcript validator accepts the wordless entries.
+    data = json.loads((vdir / "scenes.json").read_text(encoding="utf-8"))
+    assert _v.check_transcript(vdir, data) == []
+
+
+def test_step5_all_silent_noop(tmp_path, monkeypatch):
+    """Step 5 with only silent scenes synthesizes nothing and exits 0 —
+    durations come from targets at Step 6."""
+    import asyncio as _asyncio
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import generate_voiceover as _gv
+    vdir = _fixture_video_dir(tmp_path, [_silent_scene(1, target=2.5)])
+    (vdir / "VOICEOVER.md").write_text("# VOICEOVER\n", encoding="utf-8")
+    monkeypatch.setattr(pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(_sys, "argv", ["generate_voiceover.py", str(vdir)])
+    _asyncio.run(_gv.main())  # must not raise SystemExit
+    assert not (vdir / "voiceover" / "scene-01.mp3").exists()
+
+
+def test_step5_block_for_silent_scene_fails(tmp_path, monkeypatch, capsys):
+    """A VOICEOVER block on a silent-flagged scene fails fast (would speak
+    silence aloud) instead of generating TTS for it."""
+    import asyncio as _asyncio
+    import sys as _sys
+    import pytest as _pytest
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import generate_voiceover as _gv
+    vdir = _fixture_video_dir(tmp_path, [_silent_scene(1, target=2.5)])
+    (vdir / "VOICEOVER.md").write_text(
+        "# VOICEOVER\n---SCENE:1---\noops\n---END---\n", encoding="utf-8")
+    monkeypatch.setattr(pl, "log_path", lambda *a, **k: tmp_path / "t.log")
+    monkeypatch.setattr(_sys, "argv", ["generate_voiceover.py", str(vdir)])
+    with _pytest.raises(SystemExit) as exc:
+        _asyncio.run(_gv.main())
+    assert exc.value.code == 2
+    assert "silent" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# .env secret loading (cloud engines, e.g. DEEPGRAM_API_KEY for deepgram).
+# ---------------------------------------------------------------------------
+
+def test_load_dotenv_manual_parses_and_never_overrides(tmp_path):
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "# comment line\n"
+        "\n"
+        "DEEPGRAM_API_KEY=abc123\n"
+        "QUOTED=\"hello world\"\n"
+        "SINGLE='sq'\n"
+        "NOT_A_LINE_WITHOUT_EQUALS\n"
+        "1BAD=startswithdigit\n",
+        encoding="utf-8")
+    env = {"QUOTED": "keep-me"}
+    assert pl._load_dotenv_manual(env_path, environ=env) is True
+    assert env["DEEPGRAM_API_KEY"] == "abc123"
+    assert env["QUOTED"] == "keep-me"  # existing env wins
+    assert env["SINGLE"] == "sq"
+    assert "NOT_A_LINE_WITHOUT_EQUALS" not in env
+    assert "1BAD" not in env
+    assert pl._load_dotenv_manual(tmp_path / "missing", environ={}) is False
+
+
+def test_load_dotenv_file_end_to_end(tmp_path, monkeypatch):
+    env_path = tmp_path / ".env"
+    env_path.write_text("DEEPGRAM_API_KEY=test-key-xyz\n", encoding="utf-8")
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    assert pl.load_dotenv_file(env_path) == env_path
+    import os as _os
+    assert _os.environ["DEEPGRAM_API_KEY"] == "test-key-xyz"
+    # (monkeypatch teardown removes the var again automatically)
+    assert pl.load_dotenv_file(tmp_path / "missing") is None
+
+
+def test_env_example_documents_deepgram_key():
+    example = (Path(__file__).resolve().parent.parent / ".env.example")
+    assert example.exists()
+    assert "DEEPGRAM_API_KEY" in example.read_text(encoding="utf-8")

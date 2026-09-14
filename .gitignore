@@ -29,6 +29,10 @@ models/
 # V.O. engine alternative
 scripts/generate_voiceover_deepgram.py
 
+# Local secrets (API keys for cloud engines — loaded by pl.load_dotenv_file();
+# never commit). See .env.example for the documented variable names.
+.env
+
 # Root npm lockfile: it only records volatile `link:` entries for the
 # gitignored per-video `videos/*/remotion` workspaces (rewritten on every
 # scaffold/cleanup), not real dependency pins — scaffold regenerates it via

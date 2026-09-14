@@ -68,7 +68,12 @@
           },
           "voiceover_text": {
             "type": "string",
-            "description": "Exact words to be spoken by the TTS voice"
+            "description": "Exact words to be spoken by the TTS voice (empty for silent scenes)"
+          },
+          "silent": {
+            "type": ["boolean", "null"],
+            "default": false,
+            "description": "Voiceless scene by design (title card, section card, tension hold): no VOICEOVER.md block, no TTS audio; durations derive from target_duration_seconds at Step 6 and the stitch pads digital silence."
           },
           "voiceover_file": {
             "type": ["string", "null"],

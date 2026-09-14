@@ -471,7 +471,29 @@ def main():
     os.makedirs(voiceover_dir, exist_ok=True)
 
     scenes = parse_voiceover_md(voiceover_md)
+    # Silent-scene contract vs VOICEOVER.md blocks (same fail-fast gate as
+    # the edge engine — a block for a silent scene would speak silence aloud).
+    try:
+        sj_scenes = list(_load_scenes_index(video_dir).values())
+    except (OSError, ValueError):
+        sj_scenes = []
+    block_errors = pl.check_vo_blocks_vs_scenes(scenes, sj_scenes)
+    if block_errors:
+        for e in block_errors:
+            print(f"ERROR: {e}", file=sys.stderr)
+            with open(log_file, "a", encoding="utf-8") as logf:
+                logf.write(f"ERROR: {e}\n")
+        sys.exit(2)
     if not scenes:
+        if sj_scenes and all(s.get("silent") for s in sj_scenes if isinstance(s, dict)):
+            msg = (f"All {len(sj_scenes)} scenes silent — nothing to synthesize "
+                   f"(durations come from target_duration_seconds at Step 6)")
+            print(msg)
+            with open(log_file, "a", encoding="utf-8") as logf:
+                logf.write(msg + "\n")
+            print("\nVoiceover generation complete.")
+            print("  Generated: 0, Skipped (unchanged): 0, Failed: 0, Stopped (RAM): 0")
+            return
         print("ERROR: No scenes found in VOICEOVER.md", file=sys.stderr)
         sys.exit(2)
 

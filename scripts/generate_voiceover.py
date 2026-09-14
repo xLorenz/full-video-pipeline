@@ -389,7 +389,31 @@ async def main():
     os.makedirs(voiceover_dir, exist_ok=True)
 
     scenes = parse_voiceover_md(voiceover_md)
+    # Silent-scene contract vs VOICEOVER.md blocks (fail fast with a named
+    # cause — a block for a silent scene would speak silence aloud, and a
+    # voiced scene without a block would die later at Step 6).
+    try:
+        with open(os.path.join(video_dir, "scenes.json"), "r", encoding="utf-8") as f:
+            sj_scenes = json.load(f).get("scenes", [])
+    except (OSError, ValueError):
+        sj_scenes = []
+    block_errors = pl.check_vo_blocks_vs_scenes(scenes, sj_scenes)
+    if block_errors:
+        for e in block_errors:
+            print(f"ERROR: {e}", file=sys.stderr)
+            with open(log_file, "a", encoding="utf-8") as logf:
+                logf.write(f"ERROR: {e}\n")
+        sys.exit(2)
     if not scenes:
+        if sj_scenes and all(s.get("silent") for s in sj_scenes if isinstance(s, dict)):
+            msg = (f"All {len(sj_scenes)} scenes silent — nothing to synthesize "
+                   f"(durations come from target_duration_seconds at Step 6)")
+            print(msg)
+            with open(log_file, "a", encoding="utf-8") as logf:
+                logf.write(msg + "\n")
+            print("\nVoiceover generation complete.")
+            print("  Generated: 0, Skipped (unchanged): 0, Failed: 0")
+            return
         print("ERROR: No scenes found in VOICEOVER.md", file=sys.stderr)
         sys.exit(2)
     print(f"Found {len(scenes)} scenes to generate")

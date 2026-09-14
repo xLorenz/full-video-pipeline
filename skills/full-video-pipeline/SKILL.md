@@ -174,7 +174,10 @@ count), remuxes any scene MP4s that still carry audio tracks to video-only,
 concatenates the video streams, asserts the result matches the frame-count
 timeline exactly (pre-publish gate — fails the stitch instead of shipping
 drift), and muxes it onto the concatenated scene MP4s in a
-single ffmpeg pass. This is why it matters, not just a style rule:
+single ffmpeg pass. Scenes flagged `"silent": true` are voiceless by design
+(title cards, section breaks, tension holds — no VOICEOVER.md block, no TTS):
+the stitch pads digital silence to their authored `target_duration_seconds`,
+so they ride the exact same frame timeline as voiced scenes. This is why it matters, not just a style rule:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps exactly one audio encode pass total (fastest path for low-RAM boxes)

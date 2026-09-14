@@ -11,10 +11,13 @@ and duration measurement) auto-run after `complete`.
 
 ## Rules
 
-- Every scene from `scenes.json` has a corresponding `---SCENE:N---` block.
-- No empty voiceover blocks.
+- Every NON-silent scene from `scenes.json` has a corresponding `---SCENE:N---` block.
+- Silent scenes (`"silent": true`) have NO block — they are voiceless by design
+  (Step 5 skips them; Step 6 derives their durations from `target_duration_seconds`).
+- No empty voiceover blocks (a block with no text is a mistake, not a silent scene —
+  silent scenes omit the block entirely).
 - Text is clean — no stage directions, no markdown formatting, just spoken words.
-- Scene count in VOICEOVER.md matches scenes.json scene count.
+- Scene count in VOICEOVER.md matches the non-silent scene count in scenes.json.
 - SFX/BGM cues are NOT part of this phase — they are authored at Step 8 where animation
   timings exist (see the Audio Path section in SKILL.md).
 
@@ -32,7 +35,7 @@ and duration measurement) auto-run after `complete`.
 
 ## Validation (Phase 2)
 
-- Scene count in VOICEOVER.md == `scenes.json` scene count.
+- Scene count in VOICEOVER.md == non-silent scene count in `scenes.json`.
 - Every block has non-empty text.
 
 ## When done

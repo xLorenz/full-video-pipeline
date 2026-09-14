@@ -66,6 +66,12 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
       "title": "Hook — Grab",
       "script_text": "[full narration + visual context]",
       "voiceover_text": "[exact words TTS will speak]",
+      // Voiceless scene by design (title card, section card, tension hold):
+      // "silent": true + "voiceover_text": "" + NO VOICEOVER.md block.
+      // target_duration_seconds is then BINDING (no TTS audio to measure —
+      // Step 6 derives actual durations from it, ≤60s). script_text still
+      // required: it carries the visual direction.
+      "silent": false,
       "target_duration_seconds": 5,
       "actual_duration_seconds": null,
       "actual_duration_frames": null,
@@ -96,7 +102,8 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
 ## Validation (Phase 1)
 
 - Every scene has: `id`, `title`, `script_text`, `voiceover_text`,
-  `target_duration_seconds`.
+  `target_duration_seconds` — except silent scenes (`"silent": true`), which
+  carry empty `voiceover_text` and a binding `target_duration_seconds` instead.
 - Total estimated duration matches target length (within 10%).
 - Hook has all 3 elements (grab, promise, stakes) — derivable from titles.
 - Pattern interrupts every 3-5 scenes (the Pattern Interrupt Log proves it).

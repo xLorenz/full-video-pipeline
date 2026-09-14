@@ -168,6 +168,8 @@ scene via `python3 pipeline.py transcript <title> --scene N`; never Read raw
    Names: `^[a-z][a-z0-9_]*$` (lowercase snake). Times are seconds from scene start,
    converted from the frames you wrote (`frame / fps`). To hit a spoken word, read its
    `start` from the transcript and use that time directly — no guessing from scene totals.
+   Silent scenes have no transcript words (source `estimated`, empty table) — author
+   their beats purely from animation frames; the SFX/BGM design carries the scene.
 2. **Word highlights / synced captions** — find the active word by frame:
    `active = words.find(w => frame >= w.start_frame && frame < w.end_frame)`.
    Group words into caption cues however fits the scene (e.g. ≤100 chars, ≤3.5s per

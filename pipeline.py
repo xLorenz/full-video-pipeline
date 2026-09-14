@@ -1788,7 +1788,12 @@ def cmd_voice_test(args):
         expected = pl.estimate_audio_seconds_for_chars(chars, language, rate_override)
         table_rate = pl._resolve_speech_rate(language, rate_override)
         total_chars = sum(len((s.get("voiceover_text") or "").strip()) for s in scenes)
-        projected = total_chars / measured if measured > 0 else 0.0
+        # Silent scenes contribute no chars but DO contribute seconds (their
+        # authored targets) — without this the projection undershoots and the
+        # drift flag below fires spuriously on videos that use silence.
+        silent_extra = sum((s.get("target_duration_seconds") or 0) for s in scenes
+                           if s.get("silent"))
+        projected = (total_chars / measured if measured > 0 else 0.0) + silent_extra
         sum_targets = sum(s.get("target_duration_seconds") or 0 for s in scenes)
 
         def _mmss(sec):
@@ -1802,7 +1807,8 @@ def cmd_voice_test(args):
               f"({language} @~{table_rate:.1f} chars/s) — "
               f"measured/table ratio {duration / expected:.2f}" if expected > 0 else
               "  Table estimate for sample: n/a")
-        print(f"  Full script: {total_chars} chars across {len(scenes)} scenes")
+        print(f"  Full script: {total_chars} chars across {len(scenes)} scenes"
+              + (f" (+{silent_extra:.0f}s planned silence)" if silent_extra else ""))
         print(f"  Projected audio total @measured rate: ~{projected:.0f}s ({_mmss(projected)})")
         if sum_targets > 0:
             drift = abs(projected - sum_targets) / sum_targets

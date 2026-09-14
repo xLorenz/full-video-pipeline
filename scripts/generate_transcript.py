@@ -370,6 +370,23 @@ def main():
         text = s.get("voiceover_text") or ""
         rel = (s.get("voiceover_file") or "").strip()
         duration = float(s.get("actual_duration_seconds") or 0.0)
+        if s.get("silent"):
+            # Voiceless scene by design: no audio file, no words. Emit an
+            # estimated, wordless entry so global continuity holds — never
+            # run recognition on silence (it would fail the match gate).
+            if duration <= 0:
+                print(f"ERROR: Scene {sid}: silent scene has no measured duration "
+                      f"— run Step 6 measurement first", file=sys.stderr)
+                sys.exit(1)
+            padded = pl.scene_padded_duration(s, fps)
+            scenes_out.append({
+                "id": sid, "text": text, "audio_file": "",
+                "duration": round(duration, 3), "padded_duration": round(padded, 3),
+                "global_start": round(global_t, 3), "source": "estimated", "words": [],
+            })
+            global_t += padded
+            log(f"Scene {sid}: silent by design (no voiceover, no word timings)")
+            continue
         if not rel or duration <= 0:
             print(f"ERROR: Scene {sid}: missing voiceover_file/duration — run Steps 5-6 first",
                   file=sys.stderr)

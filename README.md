@@ -451,7 +451,9 @@ so the audio timeline matches the video timeline — remuxes any scene MP4s that
 carry audio tracks to video-only, concatenates the video streams, asserts the result
 matches the frame-count timeline exactly (pre-publish gate — fails instead of shipping
 drift), muxes it onto the concatenated
-scene MP4s in a single ffmpeg pass, and writes the result atomically. This:
+scene MP4s in a single ffmpeg pass, and writes the result atomically. Scenes flagged
+`"silent": true` are voiceless by design (no VOICEOVER.md block, no TTS) — the stitch
+pads digital silence to their authored `target_duration_seconds`. This:
 
 - Avoids Chrome decoding/syncing audio once per scene (faster renders)
 - Keeps a single audio encode pass total (fastest path for low-RAM boxes)

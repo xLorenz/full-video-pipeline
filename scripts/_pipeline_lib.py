@@ -752,6 +752,70 @@ def scene_padded_duration(scene, fps) -> float:
                  or scene.get("target_duration_seconds") or 0.0)
 
 
+# ---------------------------------------------------------------------------
+# Silent scenes (voiceless by design: titles, cards, tension holds)
+# ---------------------------------------------------------------------------
+
+# Hard ceiling for a silent scene's authored duration. Catches unit typos
+# (milliseconds entered as seconds) instead of rendering minutes of dead air.
+SILENT_SCENE_MAX_SECONDS = 60.0
+
+
+def durations_for_silent_scene(scene, fps):
+    """(actual_seconds, frames) for a silent scene, derived from its authored
+    target_duration_seconds (binding — there is no TTS audio to measure).
+
+    Frames use round(), not the ceil() of voiced scenes: the agent authored an
+    exact hold length, so the honest mapping is the nearest frame. Raises
+    ValueError when the target is missing, non-positive, or over the cap —
+    callers fail loudly instead of shipping a 0s or runaway scene.
+    """
+    try:
+        target = float(scene.get("target_duration_seconds") or 0.0)
+    except (TypeError, ValueError):
+        target = 0.0
+    sid = scene.get("id", "?")
+    if target <= 0:
+        raise ValueError(f"Scene {sid}: silent scene needs target_duration_seconds > 0")
+    if target > SILENT_SCENE_MAX_SECONDS:
+        raise ValueError(f"Scene {sid}: silent target {target:g}s exceeds the "
+                         f"{SILENT_SCENE_MAX_SECONDS:g}s cap")
+    frames = max(1, int(round(target * float(fps or 30))))
+    return round(frames / float(fps or 30), 3), frames
+
+
+def check_vo_blocks_vs_scenes(blocks, scenes):
+    """Cross-check VOICEOVER.md blocks against scenes.json silent flags.
+
+    blocks: [{"id": int, ...}, ...] parsed from VOICEOVER.md.
+    scenes: [scene dicts, ...] from scenes.json.
+    Returns [error strings] (empty == consistent):
+      - block present for a silent-flagged scene (TTS must never speak
+        silence — the block is either mislabeled or the flag is wrong);
+      - voiced (non-silent) scene with no block (previously failed much
+        later at Step 6 with a vaguer message — fail fast here instead).
+    """
+    by_id = {s["id"]: s for s in (scenes or []) if isinstance(s, dict)
+             and isinstance(s.get("id"), int)}
+    block_ids = {b["id"] for b in (blocks or []) if isinstance(b, dict)
+                 and isinstance(b.get("id"), int)}
+    errors = []
+    for bid in sorted(block_ids):
+        s = by_id.get(bid)
+        if s is None:
+            errors.append(f"VOICEOVER.md block SCENE:{bid} has no matching scene "
+                          f"in scenes.json")
+        elif s.get("silent"):
+            errors.append(f"Scene {bid} is flagged silent but has a VOICEOVER.md "
+                          f"block — remove the block (silent scenes are voiceless "
+                          f"by design) or drop the silent flag")
+    for sid, s in sorted(by_id.items()):
+        if not s.get("silent") and sid not in block_ids:
+            errors.append(f"Scene {sid} is voiced but has no VOICEOVER.md block — "
+                          f"add one (every non-silent scene needs a block)")
+    return errors
+
+
 def voiceover_pad_graph(voiceover_dir, scenes, fps):
     """Build inputs + filter graph for a frame-exact voiceover concatenation.
 
@@ -770,7 +834,9 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
     Returns (input_args, graph, missing_ids):
       input_args  — flat ["-i", "<abs posix path>", ...] list for ffmpeg
       graph       — filter_complex string ending in the [aout] label
-      missing_ids — scene ids whose MP3 is absent (callers decide how to fail)
+      missing_ids — scene ids whose MP3 is absent (callers decide how to fail).
+        Silent-flagged scenes (`"silent": true`) emit an `anullsrc` segment
+        of exactly whole_dur and never count as missing (no MP3 exists).
     """
     fps = float(fps or 30)
     input_args = []
@@ -783,6 +849,16 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
              and isinstance(s.get("id"), int)]
     ordered = sorted(valid, key=lambda s: s["id"])
     for idx, s in enumerate(ordered):
+        dur = scene_padded_duration(s, fps)
+        if s.get("silent"):
+            # Voiceless scene by design: synthesize digital silence occupying
+            # exactly whole_dur. No MP3 input is consumed (none exists), so
+            # silent scenes never appear in `missing` — one branch here covers
+            # the single-pass stitch, the hierarchical long-video path, and
+            # the SFX loudness-anchor rebuild alike.
+            pads.append(f"anullsrc=r=44100:cl=mono:d={dur:.6f}[a{idx}];")
+            labels.append(f"[a{idx}]")
+            continue
         mp3 = Path(voiceover_dir) / f"scene-{s['id']:02d}.mp3"
         if not mp3.exists():
             missing.append(s["id"])
@@ -807,6 +883,56 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
         return input_args, "anullsrc=r=44100:cl=mono[aout]", missing
     graph = "".join(pads) + "".join(labels) + f"concat=n={n}:v=0:a=1[aout]"
     return input_args, graph, missing
+
+
+# ---------------------------------------------------------------------------
+# .env loading (secret management for cloud engines)
+# ---------------------------------------------------------------------------
+
+
+def _load_dotenv_manual(dotenv_path, environ=None):
+    """Minimal KEY=VALUE loader (stdlib-only fallback when python-dotenv is
+    not installed). Skips blanks/comments, strips matching single/double
+    quotes, never overrides keys already present. Returns True if the file
+    was read (even when it contributed no new keys)."""
+    env = environ if environ is not None else os.environ
+    try:
+        text = Path(dotenv_path).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        if not key.isidentifier() or key in env:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        env[key] = value
+    return True
+
+
+def load_dotenv_file(path=None):
+    """Load secret env vars (e.g. DEEPGRAM_API_KEY) from a repo-root `.env`.
+
+    Uses python-dotenv when installed, otherwise a minimal stdlib parser —
+    either way existing environment variables win (override=False semantics).
+    Returns the Path loaded, or None when no file exists. Safe to call from
+    every entry point (idempotent; missing file is a silent no-op, NOT an
+    error — engines without keys fail loudly at their own gates instead).
+    """
+    dotenv_path = Path(path) if path else Path(__file__).resolve().parent.parent / ".env"
+    if not dotenv_path.is_file():
+        return None
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        _load_dotenv_manual(dotenv_path)
+        return dotenv_path
+    load_dotenv(dotenv_path, override=False)
+    return dotenv_path
 
 
 # ---------------------------------------------------------------------------

@@ -53,6 +53,28 @@ def main():
             if not isinstance(scene, dict):
                 continue
             sid = scene.get("id", "?")
+            if scene.get("silent"):
+                # Voiceless by design: no audio file exists — durations derive
+                # from the authored target (binding). Fail loudly on a bad
+                # target instead of shipping a 0s or runaway scene.
+                try:
+                    new_sec, duration_frames = pl.durations_for_silent_scene(
+                        scene, fps)
+                except ValueError as e:
+                    print(f"Scene {sid}: ERROR: {e}", file=sys.stderr)
+                    logf.write(f"Scene {sid}: bad silent target ({e})\n")
+                    sys.exit(1)
+                if scene.get("actual_duration_seconds") != new_sec or \
+                        scene.get("actual_duration_frames") != duration_frames:
+                    scene["actual_duration_seconds"] = new_sec
+                    scene["actual_duration_frames"] = duration_frames
+                    dirty = True
+                updated += 1
+                msg = (f"Scene {sid}: silent {new_sec:.2f}s = "
+                       f"{duration_frames} frames @ {fps}fps (from target)")
+                print(msg)
+                logf.write(msg + "\n")
+                continue
             voiceover_file = scene.get("voiceover_file")
             if not voiceover_file:
                 print(f"Scene {sid}: No voiceover_file, skipping")

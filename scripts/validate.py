@@ -84,11 +84,35 @@ def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
                 errors.append(f"At step {step}: malformed scene entry (not an object)")
                 continue
             for field in ("id", "title", "script_text", "voiceover_text"):
+                if field == "voiceover_text" and s.get("silent"):
+                    # Silent scenes are voiceless by design — but the flag and
+                    # the text must agree (a silent scene WITH text is either a
+                    # mislabeled voiced scene or text that will never be spoken).
+                    if (s.get("voiceover_text") or "").strip():
+                        errors.append(f"Scene {s.get('id', '?')}: flagged silent but "
+                                      f"voiceover_text is non-empty — clear the text "
+                                      f"or drop the silent flag")
+                    continue
                 if not s.get(field):
                     errors.append(f"Scene {s.get('id', '?')}: missing required field '{field}' for step {step}")
+            if s.get("silent"):
+                # Durations are binding for silent scenes (no TTS to measure) —
+                # require an authored, sane target up front, not at Step 6.
+                try:
+                    tgt = float(s.get("target_duration_seconds") or 0.0)
+                except (TypeError, ValueError):
+                    tgt = 0.0
+                if tgt <= 0:
+                    errors.append(f"Scene {s.get('id', '?')}: silent scene needs "
+                                  f"target_duration_seconds > 0 (no audio to measure it from)")
+                elif tgt > pl.SILENT_SCENE_MAX_SECONDS:
+                    errors.append(f"Scene {s.get('id', '?')}: silent target {tgt:g}s exceeds "
+                                  f"the {pl.SILENT_SCENE_MAX_SECONDS:g}s cap")
 
     if step >= 5:
         for s in scenes:
+            if s.get("silent"):
+                continue  # voiceless by design: no MP3, no hash, ever
             if not s.get("voiceover_file"):
                 errors.append(f"Scene {s['id']}: missing voiceover_file for step {step}")
             if not s.get("voiceover_hash"):

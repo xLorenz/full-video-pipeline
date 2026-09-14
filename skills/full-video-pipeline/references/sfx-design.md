@@ -65,7 +65,8 @@ output.
   `groove_light` for hopeful/playful stretches, `drone_dark` for a dark bed that
   stays out of the narration's way.
 - The bed ducks under the voiceover automatically (sidechain). `null` per scene = silence
-  there; use it for hard-hitting beats.
+  there; use it for hard-hitting beats. There is no voiceover to duck under in a
+  silent scene, so the bed plays there at full `bed_db` — set its volume deliberately.
 - Repeated (track, volume) flows seamlessly across scene boundaries — the engine carries
   the loop, you never hear a cut between those scenes.
 - Changing track/volume: the engine blends with a 0.5 s equal-power crossfade
