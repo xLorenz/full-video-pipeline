@@ -40,6 +40,16 @@
 - **Packaging–intro compatibility.** The first shot and first line must show
   or restate the thumbnail situation + title question. Mismatch buys the
   click and refunds it within 30 seconds.
+- **Vibe match (tone is a promise).** The thumbnail's palette, energy, and
+  styling promise an experience — calm, cozy, intense, chaotic — and the
+  first 30 seconds must deliver that exact tone. A calm promise opened loud
+  (or an intense promise opened flat) reads as wrong-video and exits faster
+  than a weak hook, because the viewer judges fit before judging quality.
+  Cap the thumbnail's implied expectations at two: the situation plus the
+  tone. Every further implied promise is an unkept one waiting to happen.
+  Palette does quiet work here: warm, soft grades pre-signal cozy; harsh
+  light and bleak grades pre-signal tension — set the grade to the video you
+  actually made.
 - **Standalone thumbnail test.** Hide the title: are the emotion and the
   situation readable — not the full question, just what is happening and how
   it feels? Viewing order is thumbnail → title → click. If the thumbnail
@@ -109,6 +119,11 @@
 - **Brightness contrast.** Maximize light-vs-dark separation between subject
   and background (dark subject on light ground or vice versa). Check in
   grayscale — the subject must still pop. Mid-tones on mid-tones disappear.
+  Never buy mood by degrading the focal element: background, palette, and
+  grade carry the atmosphere while the subject keeps full legibility. A
+  focal element dimmed or camouflaged "for aesthetic" fails the very scan it
+  was styled for — the scene already sets the mood; the subject's job is to
+  be seen.
 - **Color contrast + saturation intent.** Choose wardrobe, props, and
   backgrounds for deliberate hue clash (warm focal element in a cool scene or
   reverse). Boost saturation on the focal element only; desaturate the rest.
@@ -242,6 +257,14 @@
 - **Default to the driving question.** If stuck, phrase the title as the
   question the video answers, not what happens. Questions open loops;
   summaries close them. Tease the peak 5 seconds without resolving them.
+- **Withhold strategically (vaguer can pull harder).** A title that names the
+  object and outcome closes the loop before the click; the same title with
+  the key noun withheld opens a question only watching answers ("building
+  with no plan" beats "building a barn with no plan" — what will it become?).
+  Prefer the vaguer title whenever the thumbnail already carries the
+  specificity the title drops. Withholding fails when it withholds the reason
+  to care instead of the answer — vague about the payoff is mystery, vague
+  about the stakes is noise.
 - **Front-load, shorten, simplify.** Most important words first (ends get cut
   off); prefer short common words; target under 55 characters — longer only
   if front-loaded so the payoff survives truncation. Read only the first 40
@@ -281,7 +304,9 @@ grayscale export (one export judges both subject pop and text legibility).
 
 Rework when you see: same info twice in title + thumbnail; screenshot
 thumbnail; confusion disguised as mystery; >1-second decode; low brightness /
-color contrast; missing-piece puzzle with no stakes; secret/surprise with
+color contrast; focal element dimmed for mood; tone promise broken in the
+opening (calm promised, loud delivered, or reverse); thumbnail implying 3+
+expectations; missing-piece puzzle with no stakes; secret/surprise with
 weak payoff; fear packaging on a calm video; realistic setting underselling
 the story; topic buried at the end of a long title; summary title on a story
 or spectacle video; bold promise with no proof; style that neither stands out

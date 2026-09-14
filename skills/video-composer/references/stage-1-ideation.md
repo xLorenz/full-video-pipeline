@@ -47,6 +47,37 @@ Why: taste is revealed by behavior, not opinion. Views are votes for value.
 Common mistake: studying only favorite creators instead of the niche's actual
 outliers, or copying editing tricks while missing the premise advantage.
 
+- **Small-channel wins transfer best.** Weight a recent breakout from a young
+  or small channel above a giant's hit: it proves the format works with no
+  established audience carrying it, which is exactly your situation. A mega-
+  channel's personality-led premise (audience watches for the host, not the
+  question) is untransferable — an unknown channel borrowing it earns every
+  click the hard way, against the original, with no freestanding question to
+  offer. Rule: never borrow a skeleton that only works with a returning
+  audience; every premise you ship must carry a question a stranger would
+  click from a stranger.
+- **Keyword-format check (placeability).** Search the topic keyword and catalog
+  which skeletons own the top results (endurance challenge, ranked test,
+  myth-bust, constraint build…). A title matching none of them is a
+  placeability risk: there is no proven demand shelf for it to sit on, so
+  expect slow discovery unless the curiosity gap is extreme. This is the
+  operational content of "the recommender doesn't know what to do with it" —
+  no comparable inventory, no comparable audience. Either re-skeleton the idea
+  into a stocked format or accept the discovery cost explicitly.
+- **Borrow-then-twist (Trojan horse).** The default ideation move is not
+  invention and not cloning: take a proven skeleton and change exactly one
+  variable to fit your style (the trigger, the constraint, the stakes, the
+  subject). The familiar format is the Trojan horse that carries your unknown
+  personality to viewers who would never sample an original format from an
+  unknown channel — and the twist is how a brand starts. Never ship a 1:1
+  clone: no novelty, no brand, and you lose the comparison against the
+  original every time.
+- **Format saturation discount.** Proven formats decay as copies flood the
+  niche: check win recency, not just win size. A skeleton whose wins are all
+  old is discounted — still usable, but it needs a bigger twist or a fresher
+  sub-angle. Debut-context formats (introduce-yourself, first-build) keep
+  their value for debuts long after they stop working as regular uploads.
+
 - **Recency edge (newsjack window).** Separate from the 12–24-month study:
   scan what the audience is excited about in the last 24–72 hours. If you can
   research and ship while the conversation is hot, timeliness supplies free
@@ -77,6 +108,12 @@ outliers, or copying editing tricks while missing the premise advantage.
   repeatable engine (ranking, testing, myth-busting a category) compounds a
   catalog and feeds the session bridge; one-shot premises discount
   accordingly.
+- **Concentrate reps while establishing.** Until one format shows traction,
+  put volume into it and park weaker secondary formats — split effort slows
+  both, because neither reaches the reps needed to compound. A secondary
+  format earns its slot only after the primary is monetized or growing on its
+  own. (Heuristic, not law: if the secondary format IS the traction, promote
+  it and park the old primary.)
 
 ## 3. Premise patterns that carry built-in uncertainty
 
@@ -227,6 +264,9 @@ Decide and write down:
   no evidence, no pass.
 - [ ] One primary premise shape + at most one secondary, chosen by the
   constraint picker above. Record the pick and why.
+- [ ] Borrow-then-twist recorded: source skeleton + the one twisted variable;
+  keyword-format check done (demand shelf named, or slow-discovery cost
+  explicitly accepted). 1:1 clones fail.
 - [ ] Who / what-at-risk / why-now answerable in one sentence each (this is
   the video-level stakes pass; loop-level restatement happens in Stage 4).
 - [ ] Drain rate D declared with 3-comp justification; word budget computed;

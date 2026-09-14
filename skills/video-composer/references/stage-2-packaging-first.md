@@ -75,6 +75,11 @@ Each surviving angle must pass:
   illustrated legibly at feed size (Stage 8: build from scratch, don't
   screenshot)? If the hook is purely abstract with no familiar visual anchor,
   invent the symbol now or choose a different angle.
+- **Placeable from a stranger.** Would a viewer who has never heard of you
+  click this on the question alone? Angles that assume prior investment in
+  you (episode numbers, returning characters with no setup, inside jokes)
+  only work with a returning audience — from an unknown channel they are
+  unpackagable. Either attach a freestanding question or kill the angle.
 
 ## 4. Kill / rework triggers
 

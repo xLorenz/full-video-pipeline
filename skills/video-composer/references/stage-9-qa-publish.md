@@ -33,6 +33,12 @@
 
 - First shot shows the thumbnail situation; first line restates the title
   question. Mismatch = mass early abandonment regardless of later quality.
+- Tone audit: the first 30 seconds deliver the exact vibe the thumbnail's
+  palette and energy promised — no calm promise opened loud, no intense
+  promise opened flat. Implied expectations capped at two (situation + tone).
+- No freestanding meta-segment (celebration, announcement, comment-beg)
+  between hook and first payoff; any meta-message rides continuing action or
+  waits until trust is funded.
 - Verify the boldest promise pays off fast and substantively (secret delivers
   depth, spectacle appears in minute one, answer arrives with its clues
   intact). Downgrade any promise the video cannot keep — a kept moderate

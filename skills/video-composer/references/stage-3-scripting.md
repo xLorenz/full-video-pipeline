@@ -138,6 +138,15 @@ or an upsell with no proof inside 60 seconds, is a clickbait fail.
   opening. The viewer came for the promised payoff, and any ask delays
   confirmation and violates the expectation match. Earn the ask after
   delivering — at most one, tied to what they just experienced (see §10).
+- **No intermission between hook and first payoff.** No hard cutaway for
+  meta-messages (milestone celebrations, announcements, calls to comment,
+  channel news) in the stretch the hook just opened. A clean loop with a hole
+  cut in its middle is still a broken loop: the viewer came for the payoff,
+  and anything that stops the forward motion reads as the video abandoning
+  its own promise. Weave unavoidable meta-messages into the running flow —
+  spoken over continuing action as part of a bridge, never as a freestanding
+  segment — and give freestanding ones their earliest slot after the first
+  payoff lands, when trust is funded.
 - **Never let them feel they know enough.** Before explaining, state what they
   are missing by not knowing it. Cadence: vivid detail → provocative question
   it raises → next detail. Pair each solution with its "other half you haven't
@@ -254,6 +263,14 @@ show" without naming the study. One anecdote supports "in this case," never
   framings) plus one cutaway asset so unscripted stretches have cut points.
   Diagnose bloat honestly: an overlong runtime is under-writing — fix with
   frame + cut, never with more content.
+- **Story-first conversion of raw process material.** When the raw material is
+  a long unedited session (a full playthrough, a work session, a stream
+  archive), the session itself is unplaceable — nobody clicks raw duration.
+  Convert it by front-loading a story block that earns the title: open with
+  setup + stakes + Big Question in a proven skeleton, then let the raw
+  process run underneath as the attempt to answer it. The first minutes carry
+  the story; the remainder is evidence. Without that story bridge the video
+  is a recording; with it, the same footage is an answer.
 
 ## 8. Macro-template for mechanism explainers
 
@@ -327,7 +344,8 @@ the video is not. Shorts endings follow the appendix (payoff, hard stop).
 - [ ] Every beat passes the 3-part litmus (verb-led what / why-important /
   what-could-go-wrong) or is cut to a 1–2 sentence summary.
 - [ ] Hook records its priority pick (proof + ONE of question/pain + optional
-  upsell) with reason; hook ≤25s; no and-then chains at any level.
+  upsell) with reason; hook ≤25s; no freestanding segment between hook and
+  first payoff; no and-then chains at any level.
 - [ ] Every abstract concept has analogy + example; every non-obvious claim
   carries a source tag + steelman where contested.
 - [ ] Every spoken line has a proving (not duplicating) visual; word budget

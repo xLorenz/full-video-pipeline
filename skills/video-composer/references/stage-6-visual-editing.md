@@ -56,6 +56,17 @@ Rule: if you say it, show it. Map every script line to an asset before
 locking the edit. Fast talk over a static frame loses details the viewer can
 never get back.
 
+- **No valueless filler; learn the rejected-asset list.** A visual that adds
+  no information and no feeling does not merely waste its seconds — it
+  actively subtracts trust, because the viewer reads it as the creator having
+  nothing to show. And every niche has a rejected-asset list: styles,
+  generators, or treatments the audience reads as low-effort or hostile
+  (default outputs of overused tools, off-house stock looks, effects the
+  community mocks). Research it during Stage 1 like any other audience value:
+  one rejected asset placed where attention is highest costs more than a
+  missing visual. When in doubt, hold the honest frame over dressing it in a
+  despised one.
+
 - **Equal-coverage comparison template.** For ranked or versus items, lock one
   coverage template (e.g., overview, detail, vibe shot) and repeat it exactly
   per item — deviations only for the winner or reveal. The viewer learns the
@@ -205,7 +216,8 @@ no point where immersion drops.
 
 - [ ] Edit density matches the Stage 1 promise (not a copied trend).
 - [ ] Footage follows the decision tree; every spoken line has a visual;
-  complicated passages use motion graphics.
+  complicated passages use motion graphics; no valueless filler; niche
+  rejected-asset list checked against every placed visual.
 - [ ] Static frames have drift/perspective/zoom; punch captions ≤3 words,
   comprehension-critical only; base subtitle track present but not counted
   as visual variety; mute test passes.
