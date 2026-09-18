@@ -11,7 +11,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 | **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
 | **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel, captures word timings), Step 6 (ffprobe duration measurement + word-level `TRANSCRIPT.md` / `voiceover_timings.json`) |
 | **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent, video-only MP4s** (`--muted`, no audio track) — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (video-only concat + timeline-gated single-pass ffmpeg stitch) |
-| **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (3 variants), `DESCRIPTION.md` (with chapters/timestamps), `TAGS.md`, `Thumbnail.tsx` (pure Remotion primitives, no AI images) | Step 13 (`npx remotion still` to versioned PNG) |
+| **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (5 variants), `DESCRIPTION.md` (hook + short description + chapters + sources), `TAGS.md` (keyword-led, main focus), `Thumbnail.tsx` (pure Remotion primitives, no AI images, text hand-coded) | Step 13 (`npx remotion still` to versioned PNG) |
 
 The orchestrator advances state one step at a time internally; the SKILL.md presents them as 4 phases so the agent has a single coherent context per block of creative work. Each creative phase prints a "Follow these instructions:" block referencing external skill files under `skills/` (script writing, Remotion coding, SEO, thumbnail design). The orchestrator's trailer also includes a `skills_files` array with the exact paths for the current phase.
 
@@ -162,9 +162,9 @@ full-video-pipeline/
         ├── TRANSCRIPT.md           # Word-level voiceover timings (Step 6, always auto-built)
         ├── voiceover_timings.json  # Same timings machine-readable
         ├── STYLES.md               # Visual style guide
-        ├── TITLE.md                # 3 YouTube title variants (Step 11)
-        ├── DESCRIPTION.md          # YouTube description with timestamps (Step 11)
-        ├── TAGS.md                 # 10-15 YouTube tags (Step 11)
+        ├── TITLE.md                # 5 YouTube title variants (Step 11)
+        ├── DESCRIPTION.md          # Hook + short description + chapters + sources (Step 11)
+        ├── TAGS.md                 # Keyword-led tags, main metadata focus (Step 11)
         ├── scenes.json             # Scene data (durations, status, files, hashes, captions)
         ├── pipeline_state.json     # Pipeline progress (per-step attempts + last_error)
         ├── logs/                   # Per-step + per-scene append-only logs

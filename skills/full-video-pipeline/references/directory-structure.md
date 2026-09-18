@@ -8,9 +8,9 @@ videos/{video-title}/
 │                                # timings per scene — open at Step 8 for A/V sync
 ├── voiceover_timings.json       # Same timings machine-readable (source of truth)
 ├── STYLES.md                  # Phase 3: visual style guide
-├── TITLE.md                   # Phase 4: 3 YouTube title variants
-├── DESCRIPTION.md             # Phase 4: YouTube description with timestamps
-├── TAGS.md                    # Phase 4: 10-15 YouTube tags
+├── TITLE.md                   # Phase 4: 5 YouTube title variants
+├── DESCRIPTION.md             # Phase 4: hook + short description + chapters + sources
+├── TAGS.md                    # Phase 4: keyword-led tags (main metadata focus)
 ├── scenes.json                # Structured scene data (durations, status, files, hashes, visual_notes)
 ├── pipeline_state.json        # Pipeline progress (per-step attempts + last_error) — orchestrator-owned, read via `pipeline.py status`
 ├── voiceover_aligned.mp3      # Concatenated voiceover (created by assemble.py)

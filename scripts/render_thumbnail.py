@@ -71,58 +71,6 @@ def get_last_frame(remotion_dir):
     return 0
 
 
-def read_title_md(video_dir):
-    """Read TITLE.md and extract the recommended/hybrid title.
-
-    Prefers an explicit ``## Recommended Title`` machine-readable block
-    (a ``Title: <value>`` or ``Hybrid | <value>`` line); falls back to scanning
-    the whole document for the first ``Hybrid | <value>`` line, then for any
-    plausible title line.
-    """
-    title_md = Path(video_dir) / "TITLE.md"
-    if not title_md.exists():
-        return None
-    text = title_md.read_text(encoding="utf-8")
-    # Strip HTML comments first: agents sometimes paste the template's own
-    # `<!-- ... "Hybrid |" ... -->` annotation, whose "|" would otherwise
-    # parse as a hybrid-title separator and yield comment garbage.
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-
-    def _extract_value(line):
-        # "Hybrid | <value>" -> split on the first "|"
-        if "|" in line and "Hybrid" in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            if len(parts) >= 2:
-                return parts[1]
-        # "Title: <value>" -> strip the prefix
-        m = re.match(r"^\s*Title:\s*(.+?)\s*$", line, re.IGNORECASE)
-        if m:
-            return m.group(1)
-        return None
-
-    # 1. Prefer the machine-readable block.
-    block = _block_text(text, "Recommended Title")
-    if block:
-        for line in block.splitlines():
-            val = _extract_value(line)
-            if val:
-                return val
-
-    # 2. Fallback: hybrid line anywhere in the doc.
-    for line in text.split("\n"):
-        if "Hybrid" in line and "|" in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            if len(parts) >= 2:
-                return parts[1]
-
-    # 3. Fallback: any non-empty line that looks like a title.
-    for line in text.split("\n"):
-        stripped = line.strip()
-        if stripped and not stripped.startswith("|") and not stripped.startswith("#") and len(stripped) > 10:
-            return stripped
-    return None
-
-
 def _block_text(text, heading):
     """Return the body of the ``## <heading>`` section (exclusive of the header
     and the next ``## `` heading), or '' if the heading is absent."""
@@ -177,10 +125,9 @@ def build_thumbnail_props(video_dir, scenes_json):
     with open(scenes_json, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Try TITLE.md for the title, fallback to video_title from scenes.json
-    title = read_title_md(video_dir)
-    if not title:
-        title = data.get("video_title", "Video Title")
+    # Thumbnail text is hand-coded in Thumbnail.tsx; the title prop is only a
+    # fallback to satisfy ThumbnailProps.
+    title = data.get("video_title", "Video Title")
 
     # Try STYLES.md for palette, merged per-key over defaults so a
     # STYLES.md missing one label (e.g. no Accent:) can't leave that
