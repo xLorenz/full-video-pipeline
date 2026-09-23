@@ -523,6 +523,26 @@ def test_pad_graph_silent_never_counts_as_missing(tmp_path):
     assert missing == [1]
 
 
+def test_pad_graph_silent_mid_list_keeps_input_indexes_aligned(tmp_path):
+    # A silent scene mid-list consumes no -i input: later voiced scenes must
+    # reference [1:a], not [2:a] (ffmpeg "Invalid file index" otherwise).
+    vo = tmp_path / "voiceover"
+    vo.mkdir()
+    (vo / "scene-01.mp3").write_bytes(b"\xff\xfb fake mp3")
+    (vo / "scene-03.mp3").write_bytes(b"\xff\xfb fake mp3")
+    scenes = [_voiced_scene(1),
+              dict(_silent_scene(2), actual_duration_seconds=2.5,
+                   actual_duration_frames=75),
+              _voiced_scene(3)]
+    inputs, graph, missing = pl.voiceover_pad_graph(vo, scenes, 30)
+    assert missing == []
+    assert len(inputs) == 4  # two -i inputs (flat ["-i", path] pairs)
+    assert "[0:a]aresample=44100" in graph
+    assert "[1:a]aresample=44100" in graph
+    assert "[2:a]" not in graph
+    assert "anullsrc=r=44100:cl=mono:d=2.500000[a1];" in graph
+
+
 def test_validate_silent_exemptions():
     import sys as _sys
     _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -545,6 +565,28 @@ def test_validate_silent_exemptions():
         vdir, {"scenes": [silent]}, 5) == []
     assert any("voiceover_file" in e for e in _v.check_step_requirements(
         vdir, {"scenes": [dict(_voiced_scene(), voiceover_file=None)]}, 5))
+
+
+def test_run_step_5_verifier_skips_silent_scenes(monkeypatch, tmp_path):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import pipeline as pipe
+
+    monkeypatch.setattr(pipe, "run_cmd",
+                        lambda *a, **k: type("R", (), {"returncode": 0})())
+    vdir = tmp_path / "vid"
+    (vdir / "voiceover").mkdir(parents=True)
+    (vdir / "voiceover" / "scene-01.mp3").write_bytes(b"\xff\xfb fake mp3")
+    voiced = dict(_voiced_scene(1), voiceover_file="voiceover/scene-01.mp3")
+
+    monkeypatch.setattr(pipe, "load_scenes", lambda title: [voiced, _silent_scene(2)])
+    assert pipe.run_step_5("vid", vdir) is True
+
+    # A missing MP3 for a VOICED scene still fails verification.
+    monkeypatch.setattr(pipe, "load_scenes",
+                        lambda title: [dict(voiced, voiceover_file=None),
+                                       _silent_scene(2)])
+    assert pipe.run_step_5("vid", vdir) is False
 
 
 def test_schema_accepts_silent_flag():

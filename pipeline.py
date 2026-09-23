@@ -726,6 +726,8 @@ def run_step_5(title, vdir):
         return False
     missing = []
     for s in scenes:
+        if s.get("silent"):
+            continue  # voiceless by design — no MP3, no hash, ever
         rel = (s.get("voiceover_file") or "").strip()
         if not rel:
             missing.append(s.get("id", "?"))

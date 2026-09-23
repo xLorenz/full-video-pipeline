@@ -844,6 +844,11 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
     labels = []
     missing = []
     warned = set()
+    # ffmpeg input references count ONLY inputs actually appended to
+    # `input_args` — silent scenes synthesize anullsrc and missing MP3s are
+    # skipped, so both must not advance the input cursor (a silent scene
+    # mid-list would otherwise shift every later [N:a] reference).
+    input_idx = 0
     # Skip malformed entries instead of KeyErroring the whole stitch.
     valid = [s for s in (scenes or []) if isinstance(s, dict)
              and isinstance(s.get("id"), int)]
@@ -870,12 +875,13 @@ def voiceover_pad_graph(voiceover_dir, scenes, fps):
             warned.add(s["id"])
         input_args += ["-i", mp3.resolve().as_posix()]
         pads.append(
-            f"[{idx}:a]aresample=44100,"
+            f"[{input_idx}:a]aresample=44100,"
             f"aformat=sample_fmts=s16:channel_layouts=mono,"
             f"apad=whole_dur={dur:.6f},"
             f"atrim=0:{dur:.6f}[a{idx}];"
         )
         labels.append(f"[a{idx}]")
+        input_idx += 1
     n = len(labels)
     if n == 0:
         # concat=n=0 is invalid ffmpeg — return an anullsrc graph so callers
