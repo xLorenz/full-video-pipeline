@@ -38,3 +38,6 @@ scripts/generate_voiceover_deepgram.py
 # scaffold/cleanup), not real dependency pins — scaffold regenerates it via
 # `npm install`, and tracking it is pure churn + cross-agent conflicts.
 package-lock.json
+
+# Shared assets, local, must not commit
+shared_assets/
