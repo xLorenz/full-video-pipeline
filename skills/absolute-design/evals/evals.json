@@ -1,0 +1,23 @@
+{
+  "skill_name": "absolute-design",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm organizing a small jazz festival called \"Night Signals\" — 3 nights, 9 bands, October 17–19 at the Crystal Hall in Portland. Headliners are the Mara Voss Quartet and Blue Meridian. I need a poster I can actually get printed, 18x24 inches. We want it to feel like 1960s Blue Note album covers but not like a cheap retro costume — cool, night-time, sophisticated. Deliverable as an SVG I can hand to a print shop.",
+      "expected_output": "An SVG poster at 18x24in proportion with a real grid, coherent type hierarchy (event name, headliners, dates/venue legible), a period-appropriate palette, and no AI-tell artifacts (purple gradients, default fonts, everything centered without reason).",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "ok so I'm launching a specialty coffee roastery called Meridian Coffee Roasters (we're in Asheville). We roast single-origin light roasts and I want the brand to feel precise but warm — like a lab notebook and a warm kitchen at the same time. Not another generic cafe with a script font and a coffee bean. I need: a logo/wordmark, the color palette, a type pairing, and one mockup — the front of a 12oz coffee bag. SVGs are fine, plus a note on why you made the choices.",
+      "expected_output": "A brand system: a constructed wordmark/mark (not a plain typed name in a stock font), a role-based palette with hex values, a stated type pairing, a coffee-bag mockup SVG, and a design note explaining the concept and key decisions.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Make me a YouTube thumbnail for my design channel. Video is titled \"Why Swiss Design Still Rules\" — it's about Helvetica and grid systems. Thumbnail is 1280x720. It needs to be readable when it's tiny in the subscription feed. Also save the design tokens (colors/type) as a CSS file so I can reuse them on the channel.",
+      "expected_output": "A 1280x720 SVG/HTML thumbnail with dominant legible headline (survives small-scale viewing), plus a tokens.css with named color and type roles, and a short note on the decisions.",
+      "files": []
+    }
+  ]
+}
