@@ -1777,8 +1777,45 @@ def cmd_voice_test(args):
             _pv.stream_to_wav(model, voice_state, sample, tmp_wav)
             _pv.encode_mp3(tmp_wav, tmp)
             words = []
+        elif engine == "deepgram":
+            voice = args.voice or vo.get("voice", "flux-kit-en")
+            pl.load_dotenv_file()
+            api_key = (vo.get("api_key") or os.environ.get("DEEPGRAM_API_KEY") or "").strip()
+            if not api_key:
+                print("ERROR: no Deepgram API key for voice-test", file=sys.stderr)
+                sys.exit(2)
+            try:
+                expressivity = int(vo.get("expressivity", 1))
+            except (TypeError, ValueError):
+                print("ERROR: voiceover.expressivity must be an integer", file=sys.stderr)
+                sys.exit(2)
+            if expressivity not in (-2, -1, 0, 1, 2):
+                print("ERROR: voiceover.expressivity must be in -2..2", file=sys.stderr)
+                sys.exit(2)
+            import generate_voiceover_deepgram as _dg
+            _dg.deepgram_tts(sample, tmp, voice, rate, api_key, expressivity)
+            words = []
+        elif engine == "fish":
+            voice = args.voice or vo.get("voice", "s2.1-pro-free")
+            pl.load_dotenv_file()
+            api_key = (vo.get("api_key") or os.environ.get("FISH_API_KEY") or "").strip()
+            if not api_key:
+                print("ERROR: no Fish Audio API key for voice-test", file=sys.stderr)
+                sys.exit(2)
+            import generate_voiceover_fish as _fa
+            latency = vo.get("latency", "normal")
+            _fa.fish_tts(sample, tmp, voice, (vo.get("reference_id") or "").strip(),
+                         api_key, _fa.rate_to_speed(rate),
+                         float(vo.get("volume_db", 0.0)),
+                         float(vo.get("temperature", 0.7)),
+                         float(vo.get("top_p", 0.7)),
+                         latency if latency in _fa.VALID_LATENCY else "normal",
+                         int(vo.get("mp3_bitrate", 192)),
+                         int(vo.get("sample_rate", 44100)))
+            words = []
         else:
-            print(f"ERROR: unknown voiceover engine {engine!r} (want edge|pocket)")
+            print(f"ERROR: unknown voiceover engine {engine!r} "
+                  "(want edge|pocket|deepgram|fish)")
             sys.exit(2)
 
         duration = pl.get_audio_duration(tmp)
@@ -2391,7 +2428,7 @@ def main():
                       help="Custom sample text instead of a scene's voiceover_text")
     vt_p.add_argument("--voice", default="",
                       help="Override the configured voice for this sample only")
-    vt_p.add_argument("--engine", choices=["edge", "pocket"], default="",
+    vt_p.add_argument("--engine", choices=["edge", "pocket", "deepgram"], default="",
                       help="Override the configured engine for this sample only")
 
     preview_p = sub.add_parser("preview", help="Quick low-res smoke render of scene 1")

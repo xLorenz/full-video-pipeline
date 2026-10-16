@@ -602,8 +602,12 @@ def main():
             if mean_volume is None:
                 print("  WARNING: could not measure final audio level — publishing anyway")
             elif mean_volume < -40.0:
-                print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
-                sys.exit(1)
+                all_silent = all(s.get("silent") for s in scenes)
+                if all_silent:
+                    print(f"  Audio level: {mean_volume:.1f} dB (all-silent project — OK)")
+                else:
+                    print("ERROR: Final video is silent or near-silent — mux likely picked scene audio instead of voiceover")
+                    sys.exit(1)
         if mean_volume is None:
             print("  Audio level: unknown (probe failed) — mux verified by filter graph, publishing")
         else:

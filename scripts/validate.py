@@ -389,9 +389,21 @@ def check_phase1_content(video_dir, data):
         warnings.append("Scene 1 does not look like a hook (no 'hook' in title/script_text)")
     if "promise" not in titles_blob and "promise" not in text.lower():
         warnings.append("No 'Promise' scene/section found (hook 3-part: Grab/Promise/Stakes)")
-    last_vo = (scenes[-1].get("voiceover_text", "") if scenes else "").lower()
-    if scenes and not re.search(r"subscribe|follow|comment|like|next video|check out", last_vo):
-        warnings.append("Final scene has no CTA marker (subscribe/follow/comment/like/next video)")
+    # CTA marker: spoken words for voiced scenes. A silent scene is voiceless
+    # by design (check_step_requirements hard-requires empty voiceover_text),
+    # so for those the marker is delivered as on-screen copy — searching
+    # voiceover_text there would contradict the silent-scene contract. Spanish
+    # markers included so non-English videos are checkable too.
+    cta_re = (r"subscribe|follow|comment|like|next video|check out"
+              r"|suscr[ií]bete|comenta|comparte|s[íi]gueme|gu[áa]rdalo")
+    if scenes:
+        last = scenes[-1]
+        if last.get("silent"):
+            cta_src = (last.get("title", "") + " " + (last.get("script_text") or "")).lower()
+        else:
+            cta_src = (last.get("voiceover_text", "") or "").lower()
+        if not re.search(cta_re, cta_src):
+            warnings.append("Final scene has no CTA marker (subscribe/follow/comment/like/next video, or ES equivalent)")
 
     # Warnings: pattern-interrupt log density + average spacing.
     if log_body:

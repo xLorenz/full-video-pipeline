@@ -70,8 +70,22 @@ def normalize_token(tok: str) -> str:
 
 
 def expected_tokens(text: str) -> list:
-    """Script words as the agent sees them (whitespace split, original form)."""
-    return [t for t in text.split() if t]
+    """Script words as the agent sees them (whitespace split, original form).
+
+    Script-direction tokens are dropped: a token entirely wrapped in square
+    brackets is a stage direction for the TTS engine, never a spoken word
+    (Fish Audio S2.1 inline emotion tags `[serious]`, `[whispers]`, ... are
+    consumed by the model, so keeping them here would both pollute
+    TRANSCRIPT.md and depress the alignment match ratio).
+    """
+    out = []
+    for t in text.split():
+        if not t:
+            continue
+        if t.startswith("[") and t.endswith("]"):
+            continue
+        out.append(t)
+    return out
 
 
 def load_sidecar(voiceover_dir: Path, scene_id: int):

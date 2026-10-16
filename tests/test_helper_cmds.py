@@ -85,6 +85,33 @@ def test_transcript_missing_file_exits_2(tmp_path, monkeypatch):
     assert e.value.code == 2
 
 
+def test_voice_test_deepgram_uses_config(tmp_path, monkeypatch, capsys):
+    vdir = tmp_path / "vid"
+    vdir.mkdir()
+    monkeypatch.setattr(pipeline, "video_dir", lambda title: vdir)
+    monkeypatch.setattr(
+        pipeline, "load_scenes", lambda title: [{
+            "id": 1, "voiceover_text": "hello world",
+            "target_duration_seconds": 10}])
+    monkeypatch.setattr(
+        pipeline, "load_pipeline_config", lambda video_dir: {
+            "voiceover": {
+                "engine": "deepgram", "voice": "flux-kit-en",
+                "expressivity": 1, "api_key": "test-key"}})
+    import generate_voiceover_deepgram as deepgram
+    monkeypatch.setattr(
+        deepgram, "deepgram_tts",
+        lambda text, output_path, voice, rate, api_key, expressivity:
+            Path(output_path).write_bytes(b"audio"))
+    monkeypatch.setattr(pl, "get_audio_duration", lambda path: 2.0)
+    pipeline.cmd_voice_test(argparse.Namespace(
+        title="demo", scene=1, text="", voice="", engine=""))
+    out = capsys.readouterr().out
+    assert "engine=deepgram" in out
+    assert "voice=flux-kit-en" in out
+    assert "2.00s audio" in out
+
+
 # ---------------------------------------------------------------------------
 # logs
 # ---------------------------------------------------------------------------

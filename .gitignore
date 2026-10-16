@@ -16,18 +16,13 @@ animations/*/preview/frames-*/
 # SFX catalog dial-in preview (generated artifact)
 sfx/preview/
 
-# Obsidian vault workspace
-.obsidian/
-
-# Scratch implementation plan (deleted after completion — never commit)
-sfx-implementation-plan/
-
 # Vosk acoustic models for transcript alignment (~50 MB each, downloaded once
 # from https://alphacephei.com/vosk/models into models/ — never commit)
 models/
 
-# V.O. engine alternative
+# V.O. engine alternatives
 scripts/generate_voiceover_deepgram.py
+scripts/generate_voiceover_fish.py
 
 # Local secrets (API keys for cloud engines — loaded by pl.load_dotenv_file();
 # never commit). See .env.example for the documented variable names.
