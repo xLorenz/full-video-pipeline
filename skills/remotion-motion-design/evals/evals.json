@@ -1,0 +1,29 @@
+{
+  "skill_name": "remotion-motion-design",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "make a 15s vertical promo for my app Orbit (a habit tracker). punchy, going on tiktok/reels. do it in remotion",
+      "expected_output": "States assumptions in 2-3 lines and writes a brief card + storyboard table BEFORE code. 9:16 1080x1920 at 30fps, ~15s. Hook already visible at frame 0 (pre-rolled), <=6 words; 3 short beats; one proof/demo beat; CTA lockup assembled by ~12.5s and held >=2s. One hero per beat, capped stagger, eased transitions (no bare fade(), no linear defaults). Text inside the 9:16 safe zone, headline >=84px. A real font that loaded (not Arial fallback). Not a flat background. motion_lint.py reports no ERROR/WARN; filmstrip.py contact sheet + energy graph were generated AND viewed, with at least one fix made as a result. Final summary lists decisions and where to change palette/copy.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I need a 5 second animated logo reveal for NORTHWIND, it's a luxury watch brand. elegant, 16:9. no logo file yet so just do the wordmark",
+      "expected_output": "Chooses a Cinematic personality (long eases: enterSoft/drift, heavy or no springs, NO bounce) and the noirgold palette or equivalent near-black + warm metallic accent. Display face is a refined serif; single-weight faces (e.g. Instrument Serif) are used at weight 400 only (no faux bold). Large negative space, wide-tracked caps for any label, slow camera creep, subtle grain/vignette. Wordmark lands with mask or blur reveal, then holds >=1.5s with a restrained shine at most. Total ~5s with the final hold. No cartoon spring defaults; any exit/transition eased. Review loop performed (lint + filmstrip viewed).",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "quarterly revenue was Q1 1.2M, Q2 1.8M, Q3 2.4M, Q4 3.9M. make an animated chart video for the board meeting, 16:9, around 15 seconds",
+      "expected_output": "Follows the data-story playbook: question/title, chart skeleton, bars build with stagger, ONE highlight (Q4 / the growth insight) with an annotation rather than just a chart, takeaway headline, hold. Bars start at zero, direct labels (no legend), tabular numerals, counter eased and >=1.2s, bars/line/labels share one SVG coordinate system so they align, all values from the user's data (nothing invented). Palette: one accent + neutrals, light or dark chosen deliberately. Sober, precise personality. Values displayed exactly as given. Review loop performed.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "this remotion video I made feels cheap and robotic. can you make it feel more premium? don't change the content or my brand colors",
+      "expected_output": "Starts by reading the project and running motion_lint.py and filmstrip.py (with --energy) and VIEWING the output BEFORE changing anything; diagnoses with specific findings (e.g. linear interpolate, default spring, flat backdrop, simultaneous entrances, no hold, fallback font) using the director's checklist. Keeps the user's copy and brand colours exactly (derives only neutrals). Adds motion-language consistency (named curves, capped stagger, overlap), depth (backdrop/grain/surfaces), type fixes, and holds; reports what changed and why, with before/after frames. Re-runs lint (clean) and the filmstrip after fixes.",
+      "files": []
+    }
+  ]
+}
