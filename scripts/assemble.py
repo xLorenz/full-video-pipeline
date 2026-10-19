@@ -635,12 +635,14 @@ def main():
         print(f"  Size: {final_size:.1f} MB")
         print(f"  Version: v{next_version}")
 
-        # Post-stitch cleanup (retention config)
+        # Post-stitch cleanup (retention config). Only the concatenated
+        # voiceover_aligned.mp3 goes: the per-scene voiceover/scene-*.mp3 stay
+        # (re-stitch inputs; generate_sfx rebuilds the aligned file from them).
         ren = cfg.get("retention", {})
         if ren.get("clean_voiceover_aligned_after_stitch", True):
             if aligned_audio.exists():
                 aligned_audio.unlink(missing_ok=True)
-                print(f"  Cleaned: {aligned_audio.name}")
+                print(f"  Cleaned: {aligned_audio.name} (voiceover/ per-scene MP3s kept — required for re-stitch)")
         # Prune old versions
         keep_v = ren.get("keep_versions", 2)
         to_prune = pl.find_versions_to_prune(

@@ -46,10 +46,11 @@ def validate_file(data_path: Path, schema_path: Path) -> list:
     if not schema_path.exists():
         return [f"{schema_path}: schema not found"]
     try:
-        with open(data_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = pl._load_json_strict(data_path)
     except json.JSONDecodeError as e:
         return [f"{data_path}: invalid JSON: {e}"]
+    except ValueError as e:
+        return [f"{data_path}: {e}"]
     with open(schema_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
     validator = jsonschema.Draft7Validator(schema)

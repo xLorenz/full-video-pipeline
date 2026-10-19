@@ -315,21 +315,33 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   "retention": {
     "keep_versions": 2,
     "clean_voiceover_aligned_after_stitch": true,
-
     "clean_remotion_node_modules_after_step_13": true,
     "clean_preview_after_success": true,
     "reap_remotion_tmpdir_after_render": true,
     "max_log_size_mb": 0,
     "keep_last_n_log_runs": 10,
-    "clean_scene_mp4s_after_stitch": false
+    "clean_scene_mp4s_after_stitch": true,
+    "clean_sfx_bgm_aligned_after_stitch": false
   }
 }
 ```
 
 The `retention` section controls automatic disk cleanup (all optional, sensible
-defaults). Set `max_log_size_mb: 0` to disable log rotation (unlimited). Set
-`clean_scene_mp4s_after_stitch: true` to delete per-scene MP4s after a stitch
-(saves ~1 GB per video but forfeits re-stitch without re-render).
+defaults). Notes:
+
+- `clean_voiceover_aligned_after_stitch` deletes only the concatenated
+  `voiceover_aligned.mp3`; the per-scene `voiceover/scene-*.mp3` are always
+  kept (they are re-stitch inputs and what `pipeline.py sfx` rebuilds the
+  aligned track from).
+- `clean_scene_mp4s_after_stitch: true` (shipped) deletes per-scene MP4s after
+  a stitch — re-stitch then requires re-render (Step 9).
+- `clean_sfx_bgm_aligned_after_stitch: true` additionally deletes
+  `sfx_aligned.mp3` + `bgm_aligned.mp3` after a stitch; Step 10 or
+  `pipeline.py sfx` regenerate them on demand.
+- `max_log_size_mb: 0` disables size-based log rotation (unlimited).
+- `keep_last_n_log_runs` caps auxiliary log files (per-scene render logs,
+  rotated archives) at the N most recent after each successful step; the main
+  `step-N.log` files are always kept (logs of failed runs are never pruned).
 
 The `steps.{key}.command_template` strings support `{variable}` substitution:
 `{video_dir}`, `{scene_id}`, and any dotted config path (e.g., `{voiceover.voice}`,

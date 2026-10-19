@@ -333,6 +333,33 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     return out
 
 
+def _dup_key_hook(path: Path):
+    """json object_pairs_hook factory: reject duplicate keys.
+
+    Plain `json.load` silently keeps the LAST occurrence of a duplicated key
+    (a config with two `clean_scene_mp4s_after_stitch` entries reads as the
+    second value). That class of edit bug must fail loudly instead.
+    """
+    def _hook(pairs):
+        seen = set()
+        out = {}
+        for k, v in pairs:
+            if k in seen:
+                raise ValueError(
+                    f"duplicate key {k!r} in {path} "
+                    f"(JSON objects must have unique keys)")
+            seen.add(k)
+            out[k] = v
+        return out
+    return _hook
+
+
+def _load_json_strict(path: Path):
+    """Load a JSON file, raising ValueError on duplicate keys."""
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f, object_pairs_hook=_dup_key_hook(Path(path)))
+
+
 def load_config(video_dir=None):
     """Load pipeline config with three-layer merge.
 
@@ -352,14 +379,12 @@ def load_config(video_dir=None):
     # Layer 1: repo-root config
     cfg = {}
     if PIPELINE_CONFIG.exists():
-        with open(PIPELINE_CONFIG, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = _load_json_strict(PIPELINE_CONFIG)
 
     # Layer 2: --config CLI override
     if _CONFIG_OVERRIDE_PATH is not None:
         if _CONFIG_OVERRIDE_PATH.exists():
-            with open(_CONFIG_OVERRIDE_PATH, "r", encoding="utf-8") as f:
-                override = json.load(f)
+            override = _load_json_strict(_CONFIG_OVERRIDE_PATH)
             cfg = _deep_merge(cfg, override)
         else:
             print(f"WARNING: --config override not found: {_CONFIG_OVERRIDE_PATH}",
@@ -388,8 +413,7 @@ def load_config(video_dir=None):
         if tvdir is not None and tvdir.exists():
             per_video_cfg = tvdir / "pipeline_config.json"
             if per_video_cfg.exists():
-                with open(per_video_cfg, "r", encoding="utf-8") as f:
-                    overlay = json.load(f)
+                overlay = _load_json_strict(per_video_cfg)
                 cfg = _deep_merge(cfg, overlay)
 
     return cfg
@@ -613,8 +637,7 @@ def load_scenes(title):
     p = scenes_json_path(title)
     if not p.exists():
         return []
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f).get("scenes", [])
+    return _load_json_strict(p).get("scenes", [])
 
 
 def save_scenes_full(video_dir_path, data):
@@ -1258,6 +1281,73 @@ def rotate_log_if_needed(logpath: Path, max_size_mb: int = 0, keep_last_n: int =
     # Start fresh — open_log will re-create the file
 
 
+_MAIN_LOG_RE = re.compile(r"^step-\d+\.log$")
+_STEP_LOG_NUM_RE = re.compile(r"^step-(\d+)")
+
+
+def prune_logs(vdir, keep_last_n: int, protect_since: float = None) -> list:
+    """Bound auxiliary log files under videos/<title>/logs/.
+
+    `keep_last_n_log_runs` caps the AUXILIARY logs — per-scene render logs
+    (`step-9-scene-N.log`, preview logs) and rotated `*.log.N` archives — at
+    the keep_last_n most recent by mtime. The main `step-N.log` files are
+    always kept: `pipeline.py logs --step N` and `audit` depend on them.
+
+    Never deleted:
+      - logs written during the current invocation (mtime >= protect_since)
+      - logs whose `step-N` stem belongs to a step that is not `complete`
+        (failed/in-progress runs must stay inspectable)
+
+    keep_last_n <= 0 disables pruning. Returns [(path, size_bytes)] for the
+    deleted files (oldest first) so callers can report freed space.
+    """
+    vdir = Path(vdir)
+    log_dir = vdir / "logs"
+    if keep_last_n <= 0 or not log_dir.is_dir():
+        return []
+
+    step_status = {}
+    state_p = vdir / "pipeline_state.json"
+    if state_p.exists():
+        try:
+            with open(state_p, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            steps = state.get("steps") or {}
+            for i, key in enumerate(STEP_KEYS, start=1):
+                step_status[i] = (steps.get(key) or {}).get("status", "")
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    candidates = []
+    for f in log_dir.iterdir():
+        if not f.is_file() or _MAIN_LOG_RE.match(f.name):
+            continue
+        if protect_since is not None:
+            try:
+                if f.stat().st_mtime >= protect_since:
+                    continue
+            except OSError:
+                continue
+        m = _STEP_LOG_NUM_RE.match(f.name)
+        if m:
+            num = int(m.group(1))
+            if step_status.get(num, "complete") != "complete":
+                continue
+        candidates.append(f)
+
+    candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    deleted = []
+    for f in candidates[keep_last_n:]:
+        try:
+            sz = f.stat().st_size
+            f.unlink()
+            deleted.append((f, sz))
+        except OSError:
+            pass
+    deleted.reverse()
+    return deleted
+
+
 def find_versions_to_prune(versions_dir: Path, safe_title: str, pattern_str: str, keep: int) -> list:
     """Return a list of versioned files that exceed the keep count (oldest first).
     
@@ -1363,6 +1453,16 @@ def run_cmd(cmd, cwd=None, check=True, logpath: Path = None, quiet_progress: boo
     else:
         print(f"  $ {_short_cmd(cmd)}")
         parts = cmd
+    # Size-rotate BEFORE appending a new run block: an oversized log from a
+    # previous run is archived to .log.N so `logs --step N` and audit always
+    # see the current run (max_log_size_mb == 0 = no rotation).
+    if logpath is not None:
+        _ren = load_config().get("retention", {})
+        rotate_log_if_needed(
+            Path(logpath),
+            max_size_mb=_ren.get("max_log_size_mb", 0),
+            keep_last_n=_ren.get("keep_last_n_log_runs", 10),
+        )
     log_f = open(logpath, "a", encoding="utf-8") if logpath else None
     try:
         # The full command line always lands in the log file (the console

@@ -5,8 +5,11 @@ publish_animations.py — publish animation templates into a per-video project.
 Walks the repo-root `animations/` directory and copies each template's
 component.tsx, config/*.json, animation.md, and preview/ into the per-video
 Remotion project at `videos/<title>/remotion/src/components/animations/<name>/`.
-Also publishes the shared helpers in `animations/_shared/` and generates a
-barrel `index.ts` re-exporting every template component.
+Media files (rendered preview mp4s etc.) are hardlinked from the catalog when
+the filesystem supports it so each project costs ~zero extra disk; code,
+config and docs stay plain copies so per-video edits can never corrupt the
+catalog. Also publishes the shared helpers in `animations/_shared/` and
+generates a barrel `index.ts` re-exporting every template component.
 
 Templates whose `config/defaults.json` fails validation against either the
 global `schemas/animations.schema.json` or the template's own
@@ -26,6 +29,7 @@ Exit codes:
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -58,6 +62,32 @@ INDEX_FILE = "index.ts"              # within animations/
 REQUIRED_TEMPLATE_FILES = ("component.tsx", "animation.md")
 REQUIRED_TEMPLATE_DIRS = ("config", "preview")
 REQUIRED_CONFIG_FILES = ("defaults.json", "schema.json")
+
+# Code/config/docs are copied as plain writable files; everything else
+# (mostly rendered preview/*.mp4 — ~30 MB of the catalog) is hardlinked.
+CODE_SUFFIXES = {".tsx", ".ts", ".js", ".mjs", ".cjs", ".css", ".json", ".md"}
+
+
+def _copy_or_link(src: str, dst: str) -> None:
+    """shutil.copytree copy_function: hardlink media, copy code/config/docs.
+
+    The catalog is ~30 MB per project when fully copied; hardlinks share
+    inodes so each project costs ~nothing (same-volume only). Code/config/
+    docs stay real per-video copies so an in-place edit of a published file
+    can never mutate the shared catalog for every other project. Falls back
+    to a full copy where os.link is unavailable (cross-device volumes,
+    FAT/exFAT, network shares).
+    """
+    src_p, dst_p = Path(src), Path(dst)
+    if dst_p.exists():
+        dst_p.unlink()
+    if src_p.suffix.lower() in CODE_SUFFIXES:
+        shutil.copy2(src_p, dst_p)
+        return
+    try:
+        os.link(src_p, dst_p)
+    except (OSError, NotImplementedError, AttributeError):
+        shutil.copy2(src_p, dst_p)
 
 
 def fail(msg: str, code: int = 1) -> "NoReturn":  # noqa: F821
@@ -236,6 +266,7 @@ def copy_template(template_dir: Path, dest_anim_dir: Path, dry_run: bool) -> Non
         dest,
         ignore=_ignore,
         dirs_exist_ok=True,
+        copy_function=_copy_or_link,
     )
 
 
@@ -250,7 +281,7 @@ def publish_shared(dest_anim_dir: Path, dry_run: bool) -> None:
         return
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(shared_src, dest, dirs_exist_ok=True)
+    shutil.copytree(shared_src, dest, dirs_exist_ok=True, copy_function=_copy_or_link)
 
 
 def components_name(template_name: str) -> str:
@@ -276,7 +307,11 @@ def write_barrel_index(dest_anim_dir: Path, templates: list, dry_run: bool) -> N
     if dry_run:
         print(f"  (dry-run) would write index.ts with {len(templates)} exports")
         return
-    (dest_anim_dir / "index.ts").write_text("\n".join(lines), encoding="utf-8")
+    index_path = dest_anim_dir / "index.ts"
+    # Unlink first: never write through a stale hardlinked barrel (that
+    # would truncate the shared catalog copy if one ever ends up linked).
+    index_path.unlink(missing_ok=True)
+    index_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main(argv=None):

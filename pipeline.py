@@ -28,6 +28,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,6 +43,9 @@ REPO_ROOT = Path(__file__).resolve().parent
 PIPELINE_CONFIG = REPO_ROOT / "pipeline_config.json"
 FOUNDATION_DIR = REPO_ROOT / "remotion-foundation"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "pipeline_state.schema.json"
+
+# Log pruning never touches files written by this invocation (see prune_logs).
+_INVOCATION_START = time.time()
 
 # Re-export commonly used helpers from the shared lib so existing code reads cleanly
 video_dir = pl.video_dir
@@ -659,11 +663,8 @@ def auto_run_automated_steps(title):
             save_state(title, state)
             print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
-            # Cleanup hooks (moved here from cmd_continue so auto-chain gets them too)
-            if step_key == "10_stitching":
-                _clean_after_assemble(vdir)
-            elif step_key == "13_thumbnail_rendering":
-                _clean_after_step_13(vdir)
+            # Cleanup hooks (single helper shared with cmd_continue)
+            post_success_cleanup(step_key, title, vdir)
         else:
             # Mirror cmd_continue's failure path
             state = load_state(title)
@@ -1130,7 +1131,7 @@ def _clean_after_step_13(vdir):
 
 
 def _clean_after_assemble(vdir):
-    """Optional: remove scene MP4s after a successful stitch."""
+    """Retention cleanup after a successful stitch (scene MP4s, SFX/BGM, scratch)."""
     cfg = pl.load_config(video_dir=vdir)
     ren = cfg.get("retention", {})
     if ren.get("clean_scene_mp4s_after_stitch", False):
@@ -1139,6 +1140,39 @@ def _clean_after_assemble(vdir):
             for f in scenes_dir.glob("*.mp4"):
                 f.unlink(missing_ok=True)
             print(f"  Cleaned: scenes/*.mp4 (clean_scene_mp4s_after_stitch=True)")
+    if ren.get("clean_sfx_bgm_aligned_after_stitch", False):
+        for name in ("sfx_aligned.mp3", "bgm_aligned.mp3"):
+            f = vdir / name
+            if f.exists():
+                f.unlink(missing_ok=True)
+                print(f"  Cleaned: {name} (clean_sfx_bgm_aligned_after_stitch=True)")
+    # Crash leftovers: generate_sfx/assemble remove their scratch dirs in a
+    # finally, so anything still here is from a killed run. Safe to reap.
+    for scratch in (vdir / ".sfx_tmp", vdir / ".assemble_tmp"):
+        if scratch.is_dir():
+            shutil.rmtree(scratch, ignore_errors=True)
+            print(f"  Reaped leftover scratch dir: {scratch.name}/")
+
+
+def post_success_cleanup(step_key, title, vdir):
+    """Retention hooks after a successful automated step.
+
+    Single wiring point for both entry paths (cmd_continue and
+    auto_run_automated_steps): step-specific cleanup plus log pruning, so
+    `keep_last_n_log_runs` is enforced automatically instead of only via
+    manual `pipeline.py clean`.
+    """
+    if step_key == "10_stitching":
+        _clean_after_assemble(vdir)
+    elif step_key == "13_thumbnail_rendering":
+        _clean_after_step_13(vdir)
+    ren = pl.load_config(video_dir=vdir).get("retention", {})
+    keep_n = ren.get("keep_last_n_log_runs", 10)
+    pruned = pl.prune_logs(vdir, keep_n, protect_since=_INVOCATION_START)
+    if pruned:
+        names = ", ".join(p.name for p, _ in pruned[:3])
+        more = f" (+{len(pruned) - 3} more)" if len(pruned) > 3 else ""
+        print(f"  Pruned {len(pruned)} old log file(s) (keep_last_n_log_runs={keep_n}): {names}{more}")
 
 
 def _continue_gate_step(state):
@@ -1249,12 +1283,8 @@ def cmd_continue(args):
         save_state(title, state)
         print(f"\n=== Step {step_num} ({step_name}) complete ===")
 
-        # Post-step cleanup (kept here for the continue path; auto-chain has its own
-        # copy inside auto_run_automated_steps)
-        if step_key == "13_thumbnail_rendering":
-            _clean_after_step_13(vdir)
-        elif step_key == "10_stitching":
-            _clean_after_assemble(vdir)
+        # Post-step cleanup (single helper shared with auto_run_automated_steps)
+        post_success_cleanup(step_key, title, vdir)
 
         next_num, next_key = find_next_step(state)
         if next_num is None:
@@ -1404,12 +1434,16 @@ def cmd_audit(args):
         icon = {"complete": "[OK]", "in_progress": "[>>]", "failed": "[!!]", "pending": "[--]"}.get(status, "[??]")
         print(f"  {i:<5} {STEP_NAMES[key]:<28} {icon} {status}")
 
-    # 2. Log tail (last 50 lines per step log) — streamed, bounded, no OOM.
+    # 2. Log tail (last 50 lines per main step log) — streamed, bounded, no
+    # OOM. Per-scene render logs are skipped here (they flood the output);
+    # they still feed the consistency scan in section 4.
     from collections import deque as _deque
     log_dir = vdir / "logs"
     print(f"\n--- Log tails ---")
     if log_dir.exists():
-        for lf in sorted(log_dir.glob("step-*.log")):
+        main_logs = [lf for lf in sorted(log_dir.glob("step-*.log"))
+                     if re.match(r"step-\d+\.log$", lf.name)]
+        for lf in main_logs:
             try:
                 tail = _deque(maxlen=50)
                 count = 0
@@ -1531,8 +1565,13 @@ def cmd_audit(args):
         if has_bgm and not (vdir / "bgm_aligned.mp3").exists():
             missing_tracks.append("bgm_aligned.mp3")
         if missing_tracks:
-            print(f"  WARNING: sfx tracks missing ({', '.join(missing_tracks)} in scenes.json "
-                  f"but no track files — re-run Step 10 or 'pipeline.py sfx {title}')")
+            if ren.get("clean_sfx_bgm_aligned_after_stitch", False):
+                print(f"  SFX/BGM tracks for {missing_tracks} absent — expected "
+                      f"(clean_sfx_bgm_aligned_after_stitch=true); regenerate with "
+                      f"'pipeline.py sfx {title}' or Step 10 before re-muxing.")
+            else:
+                print(f"  WARNING: sfx tracks missing ({', '.join(missing_tracks)} in scenes.json "
+                      f"but no track files — re-run Step 10 or 'pipeline.py sfx {title}')")
         else:
             print("  SFX/BGM tracks present.")
 
@@ -1916,13 +1955,27 @@ def cmd_clean(args):
         freed += sz
         print(f"  Removed: remotion/node_modules/ ({sz/1024/1024:.1f} MB)")
 
-    # 5. .preview/
-    preview_dir = vdir / ".preview"
-    if preview_dir.exists():
-        sz = sum(f.stat().st_size for f in preview_dir.rglob("*") if f.is_file())
-        shutil.rmtree(preview_dir, ignore_errors=True)
+    # 5. Scratch dirs (preview renders, SFX/assemble/voiceover-align temps,
+    # animation previews). All regenerable; the step scripts clean their own
+    # in the normal path, so anything here is leftover or post-QA cruft.
+    scratch_names = [".preview", ".sfx_tmp", ".assemble_tmp", ".animation-previews"]
+    scratch_dirs = [vdir / n for n in scratch_names if (vdir / n).exists()]
+    scratch_dirs += [p for p in sorted(vdir.glob(".vo_align_*")) if p.is_dir()]
+    for sdir in scratch_dirs:
+        sz = sum(f.stat().st_size for f in sdir.rglob("*") if f.is_file())
+        shutil.rmtree(sdir, ignore_errors=True)
         freed += sz
-        print(f"  Removed: .preview/ ({sz/1024/1024:.1f} MB)")
+        print(f"  Removed: {sdir.name}/ ({sz/1024/1024:.1f} MB)")
+
+    # 5b. Stale atomic-write temps (killed mid-write leaves *.tmp behind)
+    for tf in sorted(vdir.glob("*.tmp")):
+        try:
+            sz = tf.stat().st_size
+            tf.unlink(missing_ok=True)
+            freed += sz
+            print(f"  Removed: {tf.name} ({sz/1024/1024:.1f} MB)")
+        except OSError:
+            pass
 
     # 6. Scene MP4s (only if configured, default off)
     if ren.get("clean_scene_mp4s_after_stitch", False):
@@ -1955,16 +2008,19 @@ def cmd_clean(args):
         freed += sz
         print(f"  Reaped: Remotion TMPDIR ({sz/1024/1024:.1f} MB)")
 
-    # 8. Rotate logs
+    # 8. Prune auxiliary logs (keep_last_n_log_runs) + size-rotate the rest
     log_dir = vdir / "logs"
     if log_dir.exists():
+        keep_n = ren.get("keep_last_n_log_runs", 10)
+        pruned = pl.prune_logs(vdir, keep_n)
+        freed += sum(sz for _, sz in pruned)
         for lf in sorted(log_dir.glob("*.log")):
             pl.rotate_log_if_needed(
                 lf,
                 max_size_mb=ren.get("max_log_size_mb", 0),
-                keep_last_n=ren.get("keep_last_n_log_runs", 10),
+                keep_last_n=keep_n,
             )
-        print(f"  Rotated logs in: {log_dir}")
+        print(f"  Pruned {len(pruned)} old log file(s); rotated oversized logs in: {log_dir}")
 
     # 9. Prune this title's --force backups (videos/.trash/<title>-*).
     trash = REPO_ROOT / "videos" / ".trash"
