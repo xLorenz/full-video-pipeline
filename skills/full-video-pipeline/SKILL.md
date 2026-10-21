@@ -116,6 +116,11 @@ brief (or "All steps complete!").
   or `generate_transcript.py`
   yourself. The orchestrator runs them with idempotency checks, lint gates,
   atomic writes, and per-step logging that you would bypass.
+- **Keep every log under the video's logs dir.** Any command output you
+  redirect — chunked `run`/`continue`/`complete` runs, lint/npm/ffmpeg
+  diagnostics — goes to `videos/<title>/logs/` (e.g. `step-9-chunk-b.log`),
+  never to the repo root. Pipeline logs already live there; a root-level
+  `*.log` file is a violation.
 - **Don't hand-edit `pipeline_state.json`'s step-tracking fields** — `current_step`,
   per-step `attempts`, `last_error`, `render_status`, and similar. Treat those as
   orchestrator-owned; inspect them with `python3 pipeline.py status <title>` instead

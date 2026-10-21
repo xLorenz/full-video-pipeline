@@ -530,6 +530,10 @@ under `videos/<title>/logs/`. Step-level files: `step-5.log`, `step-6.log`,
 `step-9-scene-{id}.log`, `step-10.log`, `step-13.log`. These are append-only
 and survive across runs — useful for post-mortem analysis of overnight failures.
 
+Agent-captured command output (chunked `continue`/`complete` runs, `npm run lint`,
+ffmpeg diagnostics) belongs in the same directory — e.g. `step-9-chunk-b.log` —
+never at the repo root.
+
 Console output is collapsed by design: per-frame progress chatter (Remotion,
 ffmpeg, Chrome downloads, vosk) shows only its last line plus a
 `[N progress lines collapsed]` note when the command succeeds. The log files

@@ -83,9 +83,12 @@ step (pocket TTS, scene renders, stitching) runs in the **main session** in
 - Idempotency is what makes kills cheap: `voiceover_hash` skips finished
   scenes, `render_hash` skips unchanged renders. A timeout kill wastes at most
   one in-flight scene (writes are atomic).
-- Log chunk output to a **file** (`> chunk9b.log 2>&1`), then tail the file.
-  Piping a killed command through `Select-Object -Last` emits nothing — the
-  progress evidence dies with the process.
+- Log chunk output to a **file under the title's logs dir** — e.g.
+  `python3 pipeline.py continue <title> >> "videos/<title>/logs/step-9-chunk-b.log" 2>&1`
+  — then tail the file. Never write `.log` files at the repo root: pipeline
+  logs already land in `videos/<title>/logs/`, and agent captures belong there
+  too. Piping a killed command through `Select-Object -Last` emits nothing —
+  the progress evidence dies with the process.
 - Expect transient failures at scale and retry rather than redesign: isolated
   mid-render Chrome crashes (exit 1, no error text) passed on retry; pocket
   TTS RAM-stops resume scene-by-scene. Only persistent, same-scene failures
