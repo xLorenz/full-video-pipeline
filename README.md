@@ -295,7 +295,7 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   },
   "bgm": {
     "enabled": true,
-    "default_track": "pulse_light",
+    "default_track": "neon_drop",
     "default_volume": 0.6,
     "bed_db": -12.0,
     "duck": true,

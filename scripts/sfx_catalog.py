@@ -29,7 +29,8 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 6   # v6: +3 tone sounds (page_turn, sonar_ping, heartbeat)
+CATALOG_VERSION = 7   # v7: +neon_drop BGM asset bed (looping-tail arrangement)
+                      # v6: +3 tone sounds (page_turn, sonar_ping, heartbeat)
                       # v5: all 27 cues moved to the tone engine, Python synth engine removed
                       # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
 
@@ -42,6 +43,8 @@ TAGS = ("transition", "emphasis", "impact", "ui", "organic", "riser", "glitch",
 # not a video or scene mood. Keep this note and the schema enum in lockstep.
 
 # BGM beds implemented in generate_sfx.py — metadata lives here, recipes there.
+# An entry with "asset" is a pre-rendered arrangement bed: the asset's head
+# plays once, then [loop_start_seconds, loop_end_seconds) tiles forever.
 BGM_TRACKS = {
     "pulse_light":     {"bpm": 112, "moods": ("neutral", "calm", "upbeat"), "energy": "low"},
     "pulse_dark":      {"bpm": 95,  "moods": ("serious", "tense"),          "energy": "mid"},
@@ -49,6 +52,10 @@ BGM_TRACKS = {
     "tension_riser":   {"bpm": None, "moods": ("tense", "serious"),         "energy": "rising"},
     "groove_light":    {"bpm": 116, "moods": ("upbeat", "playful", "neutral"), "energy": "mid"},
     "drone_dark":      {"bpm": None, "moods": ("serious", "tense", "calm"),    "energy": "none"},
+    "neon_drop":       {"bpm": 140, "moods": ("serious", "tense", "upbeat"), "energy": "high",
+                        "asset": "bgm/neon_drop.wav",
+                        "loop_start_seconds": 82.285714285714,
+                        "loop_end_seconds": 109.714285714286},
 }
 
 

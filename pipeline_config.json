@@ -122,10 +122,10 @@
     },
     "bgm": {
         "enabled": true,
-        "default_track": "pulse_light",
+        "default_track": "neon_drop",
         "default_volume": 0.6,
         "bed_db": -4.0,
-        "track_trim": {"tension_riser": -5.0},
+        "track_trim": {"tension_riser": -5.0, "neon_drop": -5.0},
         "duck": true,
         "duck_threshold_db": -15.0,
         "duck_ratio": 3.0,

@@ -316,6 +316,115 @@ def _tile(loop, n):
     return out[:n]
 
 
+# ---------------------------------------------------------------------------
+# Asset beds (pre-rendered arrangements with a looping tail)
+# ---------------------------------------------------------------------------
+
+BGM_ASSET_CACHE = {}
+
+
+def decode_audio_array(path, sr):
+    """Decode an audio file to mono channel samples at `sr` (array('f'), flat RAM)."""
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-i", str(path), "-f", "f32le", "-ac", "1", "-ar", str(sr), "-"],
+            capture_output=True, timeout=120,
+        )
+    except FileNotFoundError:
+        raise RuntimeError(f"ffmpeg not found — cannot decode BGM asset {path}")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"ffmpeg decode timed out for BGM asset {path}")
+    if result.returncode != 0 or not result.stdout:
+        raise RuntimeError(f"could not decode BGM asset {path}")
+    raw = result.stdout
+    out = array("f")
+    out.frombytes(raw[: (len(raw) // 4) * 4])
+    if sys.byteorder == "big":
+        out.byteswap()
+    return out
+
+
+def load_bgm_asset(track, sr):
+    """Decode + cache an asset bed, verifying its manifest SHA-256."""
+    meta = sfx.BGM_TRACKS.get(track) or {}
+    rel = meta.get("asset")
+    if not rel:
+        return None
+    key = (rel, sr)
+    if key in BGM_ASSET_CACHE:
+        return BGM_ASSET_CACHE[key]
+    path = sfx.ASSETS_DIR / rel
+    if not path.exists():
+        raise RuntimeError(f"BGM asset missing: {path}")
+    manifest = sfx._load_manifest()
+    expected = {e.get("file"): e.get("sha256")
+                for e in manifest.get("files", []) if isinstance(e, dict)}
+    actual = sfx.hash_manifest_file(rel)
+    if expected.get(rel) is None:
+        raise RuntimeError(f"BGM asset not registered in sfx/assets/manifest.json: {rel}")
+    if actual != expected[rel]:
+        raise RuntimeError(f"BGM asset SHA-256 mismatch: {rel}")
+    samples = decode_audio_array(path, sr)
+    BGM_ASSET_CACHE[key] = samples
+    return samples
+
+
+def bgm_loop_bounds(track, sr):
+    meta = sfx.BGM_TRACKS.get(track) or {}
+    start = int(round(float(meta["loop_start_seconds"]) * sr))
+    end = int(round(float(meta["loop_end_seconds"]) * sr))
+    if end <= start:
+        raise RuntimeError(f"BGM bed '{track}': loop_end_seconds must exceed loop_start_seconds")
+    return start, end
+
+
+def render_asset_run(asset, start_sample, n_samples, loop_start, loop_end):
+    """Samples for one continuous bed run, playing the head once then tiling
+    the [loop_start, loop_end) region. start_sample is the track's playhead
+    (accumulated active time across earlier runs)."""
+    loop_len = loop_end - loop_start
+    if len(asset) < loop_end:
+        raise RuntimeError(
+            f"BGM asset is {len(asset)} samples but loop_end is {loop_end} — rebuild the asset")
+    out = array("f", [0.0]) * n_samples
+    x, k = start_sample, 0
+    while k < n_samples:
+        if x < loop_start:
+            take = min(n_samples - k, loop_start - x)
+            out[k:k + take] = asset[x:x + take]
+            x += take
+            k += take
+        else:
+            pos = loop_start + (x - loop_start) % loop_len
+            take = min(n_samples - k, loop_end - pos)
+            out[k:k + take] = asset[pos:pos + take]
+            x += take
+            k += take
+    return out
+
+
+def _effective_bed_track(scene, default_track):
+    sb = scene.get("bgm", "ABSENT")
+    if sb == "ABSENT":
+        return default_track
+    if sb is None:
+        return None
+    return sb["track"]
+
+
+def used_bgm_assets(all_scenes, cfg):
+    """{asset_rel: sha256} for every asset bed this video actually uses."""
+    default_track = cfg.get("bgm", {}).get("default_track", "pulse_light")
+    out = {}
+    for s in all_scenes:
+        track = _effective_bed_track(s, default_track)
+        meta = sfx.BGM_TRACKS.get(track) if track else None
+        if meta and meta.get("asset"):
+            rel = meta["asset"]
+            out[rel] = _sha256_file(sfx.ASSETS_DIR / rel)
+    return out
+
+
 def pulse_light(rng, sr, duration_sec):
     step = int(60.0 / 112.0 * sr)
     n = step * 8
@@ -609,6 +718,7 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
 
     # 3. render each audio run: one seed, continuous tiling over the whole run span
     segs = []
+    track_elapsed = {}
     for a, b, tv in runs:
         if tv is None:
             continue
@@ -617,14 +727,23 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
         dur = sum(scene_duration(order[k], fps) for k in range(a, b + 1))
         if dur <= 0:
             continue
-        rng = random.Random(per_cue_seed(track, {"volume": vol}, start_abs))
-        loop = _loop_pad(BGM_FUNCS[track](rng, sr, dur))
+        n_samples = int(round(dur * sr))
+        meta = sfx.BGM_TRACKS.get(track) or {}
+        if meta.get("asset"):
+            asset = load_bgm_asset(track, sr)
+            loop_start, loop_end = bgm_loop_bounds(track, sr)
+            base = track_elapsed.get(track, 0)
+            raw = render_asset_run(asset, base, n_samples, loop_start, loop_end)
+            track_elapsed[track] = base + n_samples
+        else:
+            rng = random.Random(per_cue_seed(track, {"volume": vol}, start_abs))
+            loop = _loop_pad(BGM_FUNCS[track](rng, sr, dur))
+            raw = _tile(loop, n_samples)
         # Per-track trim (config bgm.track_trim): corrects inherent loudness
         # differences between bed designs (e.g. tension_riser's dense rising
         # texture runs hotter than the sparse pulse beds at equal volume).
         trim_db = float(trims.get(track, 0.0))
-        seg = apply_gain_db(_tile(loop, int(round(dur * sr))),
-                            bed_gain_db(vol, bcfg.get("bed_db", -12.0)) + trim_db)
+        seg = apply_gain_db(raw, bed_gain_db(vol, bcfg.get("bed_db", -12.0)) + trim_db)
         segs.append((int(round(start_abs * sr)), seg))
 
     if not segs:                                       # all-silent run set → no track
@@ -674,10 +793,21 @@ def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
 # ---------------------------------------------------------------------------
 
 
+_SHA256_CACHE = {}
+
+
 def _sha256_file(path):
-    """SHA-256 hex of an arbitrary file, None on missing."""
+    """SHA-256 hex of an arbitrary file, None on missing (mtime+size cached)."""
     try:
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        p = Path(path)
+        st = p.stat()
+        key = (str(p), st.st_mtime_ns, st.st_size)
+        hit = _SHA256_CACHE.get(key)
+        if hit is not None:
+            return hit
+        digest = hashlib.sha256(p.read_bytes()).hexdigest()
+        _SHA256_CACHE[key] = digest
+        return digest
     except OSError:
         return None
 
@@ -711,6 +841,7 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
         "scene_bgm": scene.get("bgm"),                 # raw override (None / {..} / absent->None)
         "cues": resolved_cues_for_scene,               # scene-relative, sorted by (when, sound)
         "tone_recipes": tone_recipes,                  # recipe .mjs sha256s (tone backend only)
+        "bgm_assets": used_bgm_assets(all_scenes, cfg),  # pre-rendered bed files actually used
     })
 
 

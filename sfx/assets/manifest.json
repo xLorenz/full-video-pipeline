@@ -24,6 +24,10 @@
     {
       "file": "siren_01.mp3",
       "sha256": "bcfd3b2d4cc02a3224a63bc650580ae63c49a93259020a848502f404e795668a"
+    },
+    {
+      "file": "bgm/neon_drop.wav",
+      "sha256": "de3c9dbb86bb770416c735ad17936b7042fd9464a6a45422526ccdc1e3ab237c"
     }
   ]
 }

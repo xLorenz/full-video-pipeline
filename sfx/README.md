@@ -53,12 +53,30 @@ catalog and is **not loaded** in Phase 3 briefs.
 | `tension_riser` | tense, serious | accelerating | rising | Rising tone + accelerating ticks — countdowns, climaxes |
 | `groove_light` | upbeat, playful, neutral | 116 bpm | mid | Upbeat kick + walking bass + bright pad — hopeful/playful content |
 | `drone_dark` | serious, tense, calm | — | none | Low evolving drone, no percussion — dark narration-forward bed |
+| `neon_drop` | serious, tense, upbeat | 140 bpm | high | Electronic three-part bed — intro/drop once, part 3 loops forever |
 
 Per-scene override: `"bgm": { "track": "ambient_calm", "volume": 0.4 }`. `"bgm": null` inserts
 a silence span. Bed continuity is engine-owned: same (track, volume) flows seamlessly across
 consecutive scenes; changes blend with an equal-power crossfade; the bed ducks under the
 voiceover automatically. `--catalog` preview includes one-loop auditions of every bed at mix
 level.
+
+`neon_drop` is an **asset bed**: its pre-rendered head (intro + drop + one pass of part 3)
+plays once, then the final part-3 pass loops forever. An intervening bed or `null` pauses its
+playhead; a later re-entry resumes inside the loop instead of restarting the intro. The
+catalog preview auditions the loop region; the full transition is heard in the video mix.
+
+## Adding a BGM bed
+
+1. Render a lossless, loop-ready mono 44.1 kHz WAV and place it at `assets/bgm/<id>.wav`.
+   `sfx-render/bgm/neon-drop/` is the reference build (`neon-drop.js` + `render.mjs`);
+   it needs `npm i --no-save playwright-core` and a Chromium install.
+2. Register the bed in `scripts/sfx_catalog.py:BGM_TRACKS` with `asset`,
+   `loop_start_seconds`, `loop_end_seconds`, `bpm`, `moods`, and `energy`; add the WAV's
+   SHA-256 to `assets/manifest.json`; bump `CATALOG_VERSION`.
+3. Optional: add a description to `export_sfx_preview.py`'s `bgm_meta`.
+
+The head before `loop_start_seconds` plays once; `[loop_start, loop_end)` tiles forever.
 
 ## Aliases
 

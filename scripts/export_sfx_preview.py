@@ -268,12 +268,18 @@ def export_catalog_preview():
         "tension_riser": "Rising tone + accelerating ticks — countdowns, climaxes",
         "groove_light": "Upbeat kick + walking bass + bright pad — hopeful/playful content",
         "drone_dark": "Low evolving drone, no percussion — dark narration-forward bed",
+        "neon_drop": "140 bpm electronic three-part bed — intro/drop once, part 3 loops forever",
     }
     bgm_items = []
     for track, meta in sorted(sfx.BGM_TRACKS.items()):
-        rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0))
-                            & 0xFFFFFFFF)
-        loop = g._loop_pad(g.BGM_FUNCS[track](rng, sr, 0.0))
+        if meta.get("asset"):
+            asset = g.load_bgm_asset(track, sr)
+            ls, le = g.bgm_loop_bounds(track, sr)
+            loop = asset[ls:le]
+        else:
+            rng = random.Random(int(g.per_cue_seed(track, {"volume": 0.6}, 0.0))
+                                & 0xFFFFFFFF)
+            loop = g._loop_pad(g.BGM_FUNCS[track](rng, sr, 0.0))
         raw = g.apply_gain_db(loop, g.bed_gain_db(0.6, _bed_db) + float(_trims.get(track, 0.0)))
         with _tf.TemporaryDirectory(prefix=f"bgmprev-{track}-") as _td:
             wav = Path(_td) / f"{track}.wav"
