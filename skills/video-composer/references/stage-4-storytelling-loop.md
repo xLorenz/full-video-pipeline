@@ -193,6 +193,41 @@ Connective-tissue phrasing that closes and opens in one breath:
 - "…which is exactly why…"
 - "…but standing next to it was… wait, why…? how…?"
 
+Devices — each realizes one of the three bridge types below. Pick by which
+prediction you want live in the viewer's head, not by which sounds cleverest:
+
+- **False binary → third option (new implication).** "It's not A. It's not B.
+  It's actually C." Name the two answers the viewer was already generating,
+  kill both, then open C. Works because exhausting the obvious guesses leaves
+  exactly one unresolved slot — the viewer's prediction has nowhere to land
+  except forward. Strongest device when you know what the audience assumes.
+  Weak form: asserting C without killing A and B first (no bet was placed, so
+  nothing is at stake).
+- **Belief contradiction (new question).** State the common belief plainly,
+  flatly, as if agreeing — then break it in the next breath. "Most creators
+  do X. That's exactly why their videos die." The question the viewer now
+  holds is *why*, which is the thing you were about to explain anyway. Do not
+  signal the contradiction before delivering it ("but actually…", "contrary to
+  popular belief") — the turn is the hook, and telegraphing it spends the
+  surprise.
+- **Escalation ladder (escalation of prior stakes).** "That's the better way.
+  But here's the best way." The first rung pays off what you just promised,
+  then immediately implies a higher one exists. Costs one sentence, buys a
+  fresh loop. Requires a real third rung — if the "best way" is a restatement,
+  the viewer learns the ladders are fake and stops climbing.
+- **Conditional gate (new complication).** "But this won't work unless you do
+  X." Opens a bet on *what X is* while implying the payoff is fragile. Strong
+  because it retroactively raises the stakes of everything just taught —
+  the viewer now has something to lose. Overused it becomes the cheap
+  "one weird trick" register; cap it at once or twice per video.
+- **Results-first / reverse chronology (structural, not a sentence).** Open on
+  the finished outcome, then walk backward through what produced it. Every
+  intermediate step arrives with the destination already visible, so each one
+  carries its own prediction ("did this step build the result, or was it
+  unnecessary?"). Far stronger than chronological process, where the viewer
+  has no idea whether the current step matters — this is the fix for process
+  footage that tests as boring despite being genuinely instructive.
+
 Strong shape: resolve the loop (budget doubled) and in the same sentence open
 the next (…which would have been amazing if an exclusivity deal signed the
 night before hadn't just made it impossible). New prediction instantly.
@@ -204,7 +239,11 @@ Rules: every section end gets a bridge sentence. Bridge with one of three —
 a **new question**, a **new complication**, or a **new implication /
 escalation of prior stakes** — whichever fires fastest; it need not always be
 a question. The bridge should escalate prior stakes, not start an unrelated
-thread. One loop closed, one loop opened, no gap.
+thread. One loop closed, one loop opened, no gap. **Rotate devices:** two
+consecutive section ends on the same device makes the seam audible, and a
+viewer who can predict the seam stops predicting the content — the
+connective tissue becomes a tell that a section is ending, which is the one
+thing it must never advertise.
 
 **Compress the payoff — resolution gives no hit.** Dopamine fires in
 anticipation, not on receipt: nobody feels anything the second after a goal
@@ -241,6 +280,9 @@ finished this one.
   instantly (surprising yet obvious in hindsight, clues planted).
 - [ ] Every section end has a same-breath bridge (except/but/realized/why…);
   no resolved-and-paused transitions remain.
+- [ ] Each bridge's device is named (false binary / belief contradiction /
+  escalation ladder / conditional gate) and no device repeats on consecutive
+  section ends.
 - [ ] Full draft labels S / BQ / HF / RH with no vending-machine stretch
   longer than a few sentences.
 - [ ] Flat-test passed: compress each section to pure chronology — if the flat

@@ -100,6 +100,34 @@ Application:
 
 ## 4. Hooks that earn the first 30 seconds
 
+**Two tiers, two separate jobs.** The opening is not one line but two, and
+they fail independently:
+
+1. **Hook (frame 1 / line 1) — recognition.** Show the specific thing your
+   viewer is dealing with, using words, images, and sounds that only that
+   viewer would recognize. Its job is identification: the right person thinks
+   "that is me, right now." Curiosity without recognition pulls a wide
+   audience that then leaves; recognition is what makes the narrow one stay.
+2. **Super hook (lines 2–4) — reason to listen to *you*.** Supply the context
+   the hook deliberately withheld, plus a reason this source deserves the next
+   minute: your own credibility, borrowed credibility (a source, a client, a
+   large sample), or a proof glimpse. Curiosity earns the stop; the super hook
+   converts the stop into a stay.
+
+Why the split is worth making explicit: the tiers fail differently. No
+recognition and the viewer swipes in two seconds. Intriguing hook with no
+super hook and the viewer watches ten seconds, decides the messenger has
+nothing, and leaves — the classic "good hook, dead video" pattern.
+
+**The specificity bar for the hook.** Early drop-off is almost always a topic
+failure, not a delivery failure: the opening is not naming a concrete problem
+the viewer is living through right now. The bar is not accuracy, and not
+relevance — it is this: name that problem *better than the viewer can describe
+it themselves*. When your version is sharper than their own private one, you
+have demonstrated you know something they don't, and staying is the only way
+to get it. A general version of their problem reads as a video for someone
+else.
+
 Hook priority order — do not stack everything below. Pick and record the
 choice with its reason:
 
@@ -133,6 +161,7 @@ or an upsell with no proof inside 60 seconds, is a clickbait fail.
 | Paradox ("X loses, Y wins — why?") | genuine inversion with a mechanism to reveal | no mechanism behind the surprise |
 | Failed attempt | process video with a real on-record failure | failure is staged or faked |
 | Direct pain address | fix/review premise | mystery premise (kills the question) |
+| Results-first reveal | tutorial/process whose outcome is visually striking | outcome is unremarkable or cannot be shown in one shot |
 
 - **No ask in the hook.** Never request likes, subscribes, or money in the
   opening. The viewer came for the promised payoff, and any ask delays
@@ -245,6 +274,21 @@ show" without naming the study. One anecdote supports "in this case," never
   animated): chapters make long videos skimmable and digestible, and stating
   the upcoming item before showing it sets the expectation that keeps viewers
   watching through.
+- **Reverse chronology: show the destination before the route.** Tutorials and
+  process videos die in chronological order because the viewer cannot tell
+  whether the current step matters. Put the finished outcome in the first
+  beat, then walk back through what produced it. Every step now arrives with
+  the destination already visible, so each one carries its own open bet — "did
+  this build the result, or was it wasted work?" — which turns each rung of the
+  ladder into a prediction instead of a chapter heading. Pair with the
+  results-first open (§4 cold-open taxonomy).
+- **One idea per body, told in a form they have not heard.** Every section
+  carries exactly one new idea — never two competing ones — and that idea
+  arrives in a treatment the audience has not already absorbed from a dozen
+  competitors. Novelty of information stops being enough once the niche has
+  covered the fact; novelty of *framing* is what makes a familiar idea land as
+  new. Test: if a follower could finish the section's key sentence from memory,
+  the treatment is stale — re-skin the delivery, not the substance.
 - **Density over budget.** Compress long arcs (setbacks, wins, funny moments,
   multiple locations) into a tight emotional rollercoaster. Clever density of
   highs, lows, and novelty beats expensive footage.
@@ -346,6 +390,9 @@ the video is not. Shorts endings follow the appendix (payoff, hard stop).
 - [ ] Hook records its priority pick (proof + ONE of question/pain + optional
   upsell) with reason; hook ≤25s; no freestanding segment between hook and
   first payoff; no and-then chains at any level.
+- [ ] Hook/super-hook split present: line 1 names the viewer's concrete current
+  problem better than they can state it themselves; lines 2–4 carry context
+  plus an explicit reason to listen.
 - [ ] Every abstract concept has analogy + example; every non-obvious claim
   carries a source tag + steelman where contested.
 - [ ] Every spoken line has a proving (not duplicating) visual; word budget

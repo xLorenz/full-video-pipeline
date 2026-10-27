@@ -21,6 +21,23 @@
 - Vary sentence length deliberately: a run of short punches, then one longer
   explanatory sentence, then a punch. Constant length is monotone even before
   anyone speaks.
+- **Long/short alternation is the rhythm.** The boring default is not big words
+  — it is a run of sentences that are all the same length doing the same job.
+  Break the run with lines of five words or fewer and alternate long → short →
+  long → short across each block. Sameness of length is the thing that reads
+  as flat; a reader cannot rescue a monotone page, and TTS certainly cannot.
+- **Shorten the turn, not the substance.** The five-word lines are the hinges —
+  transitions, verdicts, and re-hooks ("Let's find out." "But there was a
+  problem." "See?"). Let the substantive sentence carry its detail at full
+  length, then let the short line slam the door on it. Inverting this —
+  compressing the content and padding the hinge — reads like a summary and
+  kills the pattern. Note the two parts do different jobs: the long line
+  supplies information, the short line supplies momentum.
+- **Reconcile with the short-sentence rule.** These are not in conflict: keep
+  every *clause* short and clean, but let *sentences* vary in length. A
+  twenty-word sentence built from clean clauses reads fine; a twenty-word
+  sentence with nested clauses does not. "Short sentences" controls clause
+  complexity; rhythm controls sentence length. Apply both.
 
 Common mistake: pasting essay paragraphs into voiceover. If it reads well
 silently and fails aloud, it is not a script.
@@ -138,6 +155,9 @@ over-qualified, memorize-every-word prose — technically flawless, lifeless.
 - [ ] Key words front-loaded; verbs upgraded for intensity without obscurity.
 - [ ] Emotion (excitement/suspense/emphasis) is structural — sentence length,
   breaks, and order create it even in a flat read.
+- [ ] Cadence pass shown: long/short alternation marked per block, hinges are
+  ≤5 words and carry turns not content, and no stretch runs three or more
+  same-length sentences in a row.
 - [ ] Each line has a noted visual gesture equivalent for the edit.
 - [ ] Voiceover text is clean (no formatting/directions), split into short
   per-scene blocks, hardest lines test-generated.

@@ -57,6 +57,14 @@ only the stage you are working on, plus this file.
    predicted-most-enjoyable for millions: pick an audience you understand,
    study what that audience already rewarded with views, extract what they
    value, and deliver that value better than the competition.
+7. **Recognition before intrigue.** A viewer must see themselves in the first
+   second before they care what happens next. Curiosity without recognition
+   pulls strangers who then leave, because an intriguing unknown could belong
+   to anyone. The standard is to name the viewer's current problem more
+   sharply than they can name it themselves — that gap is what proves you know
+   something they don't (Stage 3 §4). In packaging, this means the thumbnail
+   and title carry a problem the target viewer recognizes as theirs, not merely
+   an intriguing unknown (Stage 8).
 
 ## Stage map — read the matching reference
 
