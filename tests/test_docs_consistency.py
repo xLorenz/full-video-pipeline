@@ -58,7 +58,8 @@ def test_sfx_engine_note_counts():
     assert "36 sounds" in design
     assert "30" in design and "6" in design
     assert "pulse_light" in design and "tension_riser" in design
-    assert "7 BGM beds" in design and "neon_drop" in design
+    assert "9 BGM beds" in design and "neon_drop" in design and "clear_skies" in design
+    assert "quiet_signal" in design
 
 
 def test_readme_config_matches_defaults():

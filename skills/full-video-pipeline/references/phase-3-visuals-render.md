@@ -181,10 +181,11 @@ scene via `python3 pipeline.py transcript <title> --scene N`; never Read raw
    scene max; prefer `beat:` over raw seconds so timing edits stay in one place.
    For SFX that must land on a spoken word, set the beat time to that word's transcript
    time, then reference `beat:<name>`.
-4. **bgm** — per scene: `{"track": "pulse_light", "volume": 0.6}` or `null` for silence.
-   Omit the key to use the global default bed (`bgm.default_track`, shipped as `neon_drop`).
-   `neon_drop` plays intro + drop once, then loops part 3; an intervening bed or `null`
-   pauses it and a later re-entry resumes inside the loop (see `references/sfx-design.md`).
+4. **bgm** — per scene: `{"track": "ambient_calm", "volume": 0.8}` or `null` for silence.
+   Omit the key to use the global default bed (`bgm.default_track`, shipped as `quiet_signal`).
+   `quiet_signal`, `clear_skies` and `neon_drop` are asset beds: the intro/drop (or
+   intro/lift) plays once, then part 3 loops; an intervening bed or `null` pauses it and a
+   later re-entry resumes inside the loop (see `references/sfx-design.md`).
 5. **style.mood** (top-level scenes.json) — set it from STYLES.md: serious / tense / calm /
    neutral / playful / humorous / upbeat. Validation warns on mood clashes; the agent-facing
    rules are in `references/sfx-design.md`.

@@ -102,9 +102,14 @@ Unknown sound ids get "did you mean" errors listing the closest alias.
 | `groove_light` | upbeat, playful, neutral | 116 bpm | mid | Upbeat kick + walking bass + bright pad — hopeful/playful content |
 | `drone_dark` | serious, tense, calm | — | none | Low evolving drone, no percussion — dark narration-forward bed |
 | `neon_drop` | serious, tense, upbeat | 140 bpm | high | Electronic three-part bed — intro/drop once, part 3 loops forever |
+| `clear_skies` | playful, upbeat, neutral | 94.5 bpm | mid | Bright piano three-part bed — intro/lift once, part 3 loops forever |
+| `quiet_signal` | upbeat, tense, serious | 76 bpm | high | Techno three-part bed — intro/drop once, part 3 loops forever |
 
-Default `neon_drop` at the config volume is the shipped bed; pick `tension_riser`/`pulse_dark`
-only for tense/serious content; `ambient_calm` when the voiceover should dominate;
-`groove_light` for hopeful/playful stretches; `drone_dark` for a dark bed that stays
-out of the narration's way. `neon_drop` plays its head once, then loops part 3; an
-intervening bed or `null` pauses it and a later re-entry resumes inside the loop. The engine ducks the bed under the voiceover automatically.
+Default `quiet_signal` at the config volume is the shipped bed (76 bpm techno). `clear_skies` is
+the bright, playful piano bed; `neon_drop` is the 140 bpm electronic one;
+`tension_riser`/`pulse_dark` only for tense/serious content; `ambient_calm` when the voiceover
+should dominate; `groove_light` for hopeful/playful stretches; `drone_dark` for a dark bed that
+stays out of the narration's way. All three asset beds (`quiet_signal`, `clear_skies`,
+`neon_drop`) play their head once, then loop part 3; an intervening bed or `null` pauses them
+and a later re-entry resumes inside the loop. The engine ducks the bed under the voiceover
+automatically.

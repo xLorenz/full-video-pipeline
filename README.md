@@ -8,7 +8,7 @@ Autonomous YouTube video production pipeline for AI agents. Takes a topic idea a
 
 | Phase | Steps | Agent produces | Auto-runs after `complete` |
 |-------|-------|----------------|-----------------------------|
-| **Phase 1: Research & Script** | 1-3 | `SCRIPT.md` + `scenes.json` (web research + retention-optimized script: hook / pattern interrupts / CTAs) | — |
+| **Phase 1: Research & Script** | 1-3 | `RESEARCH.md` + `SCRIPT.md` + `scenes.json` (condensed research, then retention-optimized script: hook / pattern interrupts / CTAs) | — |
 | **Phase 2: Voiceover** | 4-6 | `VOICEOVER.md` (TTS-ready text per scene) | Step 5 (edge-tts, idempotent + parallel, captures word timings), Step 6 (ffprobe duration measurement + word-level `TRANSCRIPT.md` / `voiceover_timings.json`) |
 | **Phase 3: Visuals & Render** | 7-10 | `STYLES.md` + Remotion project (`Root.tsx`, `MainVideo.tsx`, `Thumbnail.tsx` stub, `lib/*`, `scenes/SceneXX.tsx`). Scenes render **silent, video-only MP4s** (`--muted`, no audio track) — voiceover is muxed at stitch time. | Step 9 (one-scene-at-a-time rendering with hardware guardrails, resumable per-scene), Step 10 (video-only concat + timeline-gated single-pass ffmpeg stitch) |
 | **Phase 4: Metadata & Thumbnail** | 11-13 | `TITLE.md` (5 variants), `DESCRIPTION.md` (hook + short description + chapters + sources), `TAGS.md` (keyword-led, main focus), `Thumbnail.tsx` (pure Remotion primitives, no AI images, text hand-coded) | Step 13 (`npx remotion still` to versioned PNG) |
@@ -112,7 +112,7 @@ python3 pipeline.py clean my-video-topic
 full-video-pipeline/
 ├── AGENTS.md                       # Agent protocol summary (read skills/full-video-pipeline/SKILL.md first)
 ├── pipeline.py                  # CLI: run, new, continue, complete, status, validate, lint-script,
-│                                  #   preview, preview-frame, captions, sfx, audit, doctor, clean
+│                                  #   scenes-from-script, preview, preview-frame, captions, sfx, audit, doctor, clean
 ├── pipeline_config.json         # Default settings (voice, render, system limits, sfx, bgm)
 ├── package.json                 # npm workspace config
 ├── scripts/
@@ -154,9 +154,12 @@ full-video-pipeline/
 │   ├── video-composer/          # Video composition playbook: ideation → scripting → editing → packaging (in-repo)
 │   ├── claude-youtube/          # Legacy reference (submodule, no longer wired into any phase)
 │   └── remotion-best-practices/  # Remotion coding rules (submodule)
+├── .agents/skills/              # yt-* + content-principles skills (OpenCode auto-discovery)
+├── .opencode/agents/            # script-writer subagent (writes SCRIPT.md from RESEARCH.md)
 └── videos/                      # Auto-managed per-video projects (gitignored)
 ```
     └── {video-title}/
+        ├── RESEARCH.md             # Condensed research: claims, numbers, sources (Step 2, script writer's only input)
         ├── SCRIPT.md               # Full script
         ├── VOICEOVER.md            # Parseable voiceover text
         ├── TRANSCRIPT.md           # Word-level voiceover timings (Step 6, always auto-built)
@@ -295,12 +298,13 @@ Edit `pipeline_config.json` to change defaults. The config supports a three-laye
   },
   "bgm": {
     "enabled": true,
-    "default_track": "neon_drop",
-    "default_volume": 0.6,
-    "bed_db": -12.0,
+    "default_track": "quiet_signal",
+    "default_volume": 0.8,
+    "bed_db": -2.0,
+    "track_trim": {"tension_riser": -5.0, "neon_drop": -5.0, "clear_skies": -2.0, "quiet_signal": 1.5},
     "duck": true,
-    "duck_threshold_db": -25.0,
-    "duck_ratio": 8.0,
+    "duck_threshold_db": -15.0,
+    "duck_ratio": 3.0,
     "duck_attack_ms": 5.0,
     "duck_release_ms": 250.0,
     "fade_out_seconds": 1.0,
@@ -560,6 +564,8 @@ python3 pipeline.py voice-test my-video --scene 4 --voice es-ES-AlvaroNeural  # 
 python3 pipeline.py transcript my-video --scene 4  # One scene's word timings (never Read voiceover_timings.json whole)
 python3 pipeline.py logs my-video --step 9 --scene 4  # Last 30 lines of a step log (never Read raw logs)
 python3 pipeline.py lint-script my-video           # Lint scenes.json voiceover_text for AI-isms (write->lint->fix loop, Phase 1)
+python3 pipeline.py scenes-from-script my-video    # Project SCRIPT.md -> scenes.json (idempotent, preserves render state)
+python3 pipeline.py scenes-from-script my-video --dry-run  # Parse + projected audio total, write nothing
 python3 pipeline.py preview my-video               # Smoke-render scene 1
 python3 pipeline.py preview-frame my-video 2 45    # Render a single still (scene 2, MainVideo frame 45) for visual QA
 python3 pipeline.py captions my-video              # Generate SRT + populate captions

@@ -269,6 +269,8 @@ def export_catalog_preview():
         "groove_light": "Upbeat kick + walking bass + bright pad — hopeful/playful content",
         "drone_dark": "Low evolving drone, no percussion — dark narration-forward bed",
         "neon_drop": "140 bpm electronic three-part bed — intro/drop once, part 3 loops forever",
+        "clear_skies": "94.5 bpm bright piano three-part bed — intro/lift once, part 3 loops forever",
+        "quiet_signal": "76 bpm techno three-part bed — intro/drop once, part 3 loops forever",
     }
     bgm_items = []
     for track, meta in sorted(sfx.BGM_TRACKS.items()):

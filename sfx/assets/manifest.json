@@ -2,6 +2,18 @@
   "version": 2,
   "files": [
     {
+      "file": "bgm/clear_skies.wav",
+      "sha256": "cf8fb864b42c6caf6aa7691b8cee7c5185d3d49bd9c7959726ac08faee21622b"
+    },
+    {
+      "file": "bgm/neon_drop.wav",
+      "sha256": "de3c9dbb86bb770416c735ad17936b7042fd9464a6a45422526ccdc1e3ab237c"
+    },
+    {
+      "file": "bgm/quiet_signal.wav",
+      "sha256": "fd8d6ff0550dbb4da18960e75795ef5b10f9fede6c354e595854e99dd28ecdd1"
+    },
+    {
       "file": "bubble_01.mp3",
       "sha256": "6d91bfb910e2ad2d3443042dd8af00ea41a6a7fe288aeb17fb1421109bf55d6c"
     },
@@ -24,10 +36,6 @@
     {
       "file": "siren_01.mp3",
       "sha256": "bcfd3b2d4cc02a3224a63bc650580ae63c49a93259020a848502f404e795668a"
-    },
-    {
-      "file": "bgm/neon_drop.wav",
-      "sha256": "de3c9dbb86bb770416c735ad17936b7042fd9464a6a45422526ccdc1e3ab237c"
     }
   ]
 }

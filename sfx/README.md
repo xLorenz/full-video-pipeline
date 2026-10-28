@@ -54,6 +54,8 @@ catalog and is **not loaded** in Phase 3 briefs.
 | `groove_light` | upbeat, playful, neutral | 116 bpm | mid | Upbeat kick + walking bass + bright pad — hopeful/playful content |
 | `drone_dark` | serious, tense, calm | — | none | Low evolving drone, no percussion — dark narration-forward bed |
 | `neon_drop` | serious, tense, upbeat | 140 bpm | high | Electronic three-part bed — intro/drop once, part 3 loops forever |
+| `clear_skies` | playful, upbeat, neutral | 94.5 bpm | mid | Bright piano three-part bed — intro/lift once, part 3 loops forever |
+| `quiet_signal` | upbeat, tense, serious | 76 bpm | high | Techno three-part bed — intro/drop once, part 3 loops forever |
 
 Per-scene override: `"bgm": { "track": "ambient_calm", "volume": 0.4 }`. `"bgm": null` inserts
 a silence span. Bed continuity is engine-owned: same (track, volume) flows seamlessly across
@@ -61,16 +63,20 @@ consecutive scenes; changes blend with an equal-power crossfade; the bed ducks u
 voiceover automatically. `--catalog` preview includes one-loop auditions of every bed at mix
 level.
 
-`neon_drop` is an **asset bed**: its pre-rendered head (intro + drop + one pass of part 3)
-plays once, then the final part-3 pass loops forever. An intervening bed or `null` pauses its
-playhead; a later re-entry resumes inside the loop instead of restarting the intro. The
-catalog preview auditions the loop region; the full transition is heard in the video mix.
+`quiet_signal` is the default **asset bed**: its pre-rendered head (intro + drop + one pass of
+part 3) plays once, then the final part-3 pass loops forever. `clear_skies` (bright piano) and
+`neon_drop` (140 bpm electronic) work the same way. An intervening bed or `null` pauses a bed's
+playhead; a later re-entry resumes inside the loop instead of restarting the intro. The catalog
+preview auditions the loop region; the full transition is heard in the video mix.
 
 ## Adding a BGM bed
 
 1. Render a lossless, loop-ready mono 44.1 kHz WAV and place it at `assets/bgm/<id>.wav`.
-   `sfx-render/bgm/neon-drop/` is the reference build (`neon-drop.js` + `render.mjs`);
-   it needs `npm i --no-save playwright-core` and a Chromium install.
+   `sfx-render/bgm/neon-drop/` and `sfx-render/bgm/clear-skies/` are the reference builds
+   (`<id>.js` + `render.mjs`): head rendered once, loop pass taken from the steady-state
+   tail, mono, peak −1 dBFS. They need `npm i --no-save playwright-core` plus a
+   Chromium/Chrome/Edge install (`CHROME_PATH` overrides detection). `clear-skies/` also
+   vendors its piano samples (`node fetch-samples.mjs`, once) so re-renders are offline.
 2. Register the bed in `scripts/sfx_catalog.py:BGM_TRACKS` with `asset`,
    `loop_start_seconds`, `loop_end_seconds`, `bpm`, `moods`, and `energy`; add the WAV's
    SHA-256 to `assets/manifest.json`; bump `CATALOG_VERSION`.

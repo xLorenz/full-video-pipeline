@@ -4,14 +4,15 @@ How to give the video sound that a) links to the visuals, b) never buries the vo
 c) never fights the tone. You cannot listen — so these rules + the machine checks replace
 your ears.
 
-## Engine note (catalog v7)
+## Engine note (catalog v8)
 36 sounds across two backends: 30 cue sounds render on the Tone.js/WebAudio
 engine (`backend: "tone"`, one batched `node` invocation, seeded per cue);
 6 ship as bundled CC0 samples (`backend: "sample"`, decoded via ffmpeg).
-The 7 BGM beds (`pulse_light`, `pulse_dark`, `ambient_calm`, `tension_riser`,
-`groove_light`, `drone_dark`, `neon_drop`)
-render from compact Python loops, except `neon_drop` — a pre-rendered asset bed
-with a head and a looping tail (`generate_sfx.py`). The first 22 recipes are 1:1
+The 9 BGM beds (`quiet_signal`, `clear_skies`, `pulse_light`, `pulse_dark`, `ambient_calm`,
+`tension_riser`, `groove_light`, `drone_dark`, `neon_drop`)
+render from compact Python loops, except `quiet_signal`, `clear_skies` and `neon_drop` —
+pre-rendered asset beds with a head and a looping tail (`generate_sfx.py`). The first 22
+recipes are 1:1
 ports of the v2 designs (success, warning, toggle, bounce, stamp are
 skill-informed originals). Design intent, cue grammar, params and the volume law
 are UNCHANGED. Rendering is deterministic: same cue, same seed, byte-identical
@@ -61,14 +62,18 @@ output.
   0.2 lands it ~17 dB under the voiceover mean.)
 
 ## BGM
-- Default `neon_drop` is the shipped bed: a 140 bpm electronic track whose intro + drop
-  play once, then part 3 loops forever. `pulse_light` is the safe, neutral alternative;
+- Default `quiet_signal` is the shipped bed: a 76 bpm techno track whose intro + drop play
+  once, then part 3 loops forever — driving and theatrical, for epic/energetic content.
+  `clear_skies` is the bright, playful piano bed (happy, a bit childlike) and `neon_drop`
+  the high-energy electronic one; all three use the same head-then-loop shape.
+  `pulse_light` is the safe, neutral alternative;
   `tension_riser`/`pulse_dark` only for tense/serious content. `ambient_calm` when the
   voiceover must dominate. `groove_light` for hopeful/playful stretches, `drone_dark`
   for a dark bed that stays out of the narration's way.
-- `neon_drop`'s looping tail keeps its place: a scene with another bed (or `null`) pauses
-  its playhead, and a later scene that returns to `neon_drop` resumes inside part 3 — it
-  never replays the intro. The same-track volume change stays phase-continuous.
+- Asset beds (`quiet_signal`, `clear_skies`, `neon_drop`) keep their loop place: a scene with
+  another bed (or `null`) pauses its playhead, and a later scene that returns to it resumes
+  inside part 3 — it never replays the intro. The same-track volume change stays
+  phase-continuous.
 - The bed ducks under the voiceover automatically (sidechain). `null` per scene = silence
   there; use it for hard-hitting beats. There is no voiceover to duck under in a
   silent scene, so the bed plays there at full `bed_db` — set its volume deliberately.
@@ -78,9 +83,11 @@ output.
   (`bgm.crossfade_seconds`); a `null` gap silences both sides without blending.
 - `tension_riser` peaks at its loop end by design — cap its per-scene volume at
   0.35 (0.3 typical) or its climax will ride over the voiceover. Other beds may use
-  up to 0.6-0.75. (The engine also applies a global `bgm.track_trim` of −5 dB to
-  `tension_riser` and `neon_drop`: both are dense and measure hotter than the pulse beds
-  at equal volume. Don't "compensate" by raising the cue volume.)
+  up to 0.6-0.75. (The engine also applies a global `bgm.track_trim` to
+  `tension_riser` (−5 dB) and `neon_drop` (−5 dB): both are dense and measure hotter than
+  the pulse beds at equal volume. `clear_skies` needs −2 dB and `quiet_signal` +1.5 dB —
+  both were measured against `neon_drop` at the same peak. Don't "compensate" by raising the
+  cue volume.)
 - The bed fades in at video start and out at video end automatically — never script fades.
 
 ## Anti-patterns (banned)
@@ -118,5 +125,5 @@ value is a validation error, not a warning.
 
 ## Volume law (for the curious — you never compute this)
 gain_db = full_scale_db + (volume − 1) × 10, all relative to the measured voiceover peak;
-beds sit at bed_db (−12 dB) + the same law. Post-mix asserts: true peak ≤ −1 dBFS, integrated
+beds sit at bed_db (−2 dB) + the same law. Post-mix asserts: true peak ≤ −1 dBFS, integrated
 ≤ voiceover + 1.5 LUFS.

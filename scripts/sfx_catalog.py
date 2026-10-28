@@ -29,7 +29,9 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 7   # v7: +neon_drop BGM asset bed (looping-tail arrangement)
+CATALOG_VERSION = 9   # v9: +quiet_signal BGM bed (76 bpm techno); clear_skies moods retuned
+                      # v8: +clear_skies BGM asset bed (piano, vendored Salamander samples)
+                      # v7: +neon_drop BGM asset bed (looping-tail arrangement)
                       # v6: +3 tone sounds (page_turn, sonar_ping, heartbeat)
                       # v5: all 27 cues moved to the tone engine, Python synth engine removed
                       # v4: +5 tone sounds (success, warning, toggle, bounce, stamp); v3: batch-1 -> tone engine
@@ -56,6 +58,18 @@ BGM_TRACKS = {
                         "asset": "bgm/neon_drop.wav",
                         "loop_start_seconds": 82.285714285714,
                         "loop_end_seconds": 109.714285714286},
+    "clear_skies":     {"bpm": 94.5, "moods": ("playful", "upbeat", "neutral"), "energy": "mid",
+                        "asset": "bgm/clear_skies.wav",
+                        # 94.5 bpm → one bar = exactly 112,000 samples @ 44.1 kHz, so the
+                        # head (32 bars) and the loop (16 bars) land on the sample grid.
+                        "loop_start_seconds": 81.26984126984127,
+                        "loop_end_seconds": 121.90476190476191},
+    "quiet_signal":    {"bpm": 76, "moods": ("upbeat", "tense", "serious"), "energy": "high",
+                        "asset": "bgm/quiet_signal.wav",
+                        # 76 bpm puts a bar at 139,263.16 samples, so the head (12 bars)
+                        # and loop (4 bars) are rounded to the nearest sample.
+                        "loop_start_seconds": 37.894739229025,
+                        "loop_end_seconds": 50.526326530612},
 }
 
 
