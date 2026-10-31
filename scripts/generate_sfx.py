@@ -13,6 +13,7 @@ import json
 import math
 import os
 import random
+import re
 import shutil
 import struct
 import subprocess
@@ -114,14 +115,19 @@ def place_cue(samples_total, cue_samples, start_abs, tail_fade_seconds, cue_fade
 
 
 def measure_voiceover(video_dir):
-    """Returns (vo_peak_db, vo_integrated_lufs) from voiceover_aligned.mp3.
+    """Returns (vo_peak_db, vo_integrated_lufs, vo_momentary_lufs).
 
-    vo_peak_db:  `volumedetect` max_volume (dBFS, negative).
-    vo_integrated_lufs: LAST `I:` value from the ebur128 filter (integrated loudness, negative).
-    Exits 1 if either cannot be parsed.
+    vo_peak_db:     `volumedetect` max_volume (dBFS, negative).
+    vo_integrated:  LAST `I:` value from the ebur128 filter (integrated loudness, negative).
+    vo_momentary:   the `M:` series (one value per 100 ms, LUFS) from the SAME
+                    ebur128 pass — the local narration level the SFX level law
+                    anchors against (a cue may never out-shout the narration
+                    playing under it).
+
+    Exits 1 when the loudness probe cannot be parsed.
     """
     mp3 = Path(video_dir) / "voiceover_aligned.mp3"
-    peak, integrated = None, None
+    peak, integrated, momentary = None, None, []
 
     r1 = subprocess.run(
         ["ffmpeg", "-i", str(mp3), "-filter:a", "volumedetect", "-f", "null", "-"],
@@ -137,14 +143,65 @@ def measure_voiceover(video_dir):
         capture_output=True, text=True,
     )
     text2 = r2.stdout + r2.stderr
-    ms = __import__("re").findall(r"^\s*I:\s*([-\d.]+)\s*LUFS", text2, __import__("re").MULTILINE)
+    _re = __import__("re")
+    ms = _re.findall(r"^\s*I:\s*([-\d.]+)\s*LUFS", text2, _re.MULTILINE)
     if ms:
         integrated = float(ms[-1])
+    # The per-frame ebur128 lines print the momentary value WITHOUT a LUFS
+    # suffix ("... M:-120.7 S:-120.7  I: -19.4 LUFS ..."), and the line starts
+    # with ffmpeg's "[Parsed_ebur128_0 @ ...]" prefix — so the series has to be
+    # read unanchored and without the suffix, and only from the per-frame
+    # block (the trailing summary can repeat a field).
+    frames = text2.split("Summary:")[0]
+    momentary = [max(-70.0, float(v)) for v in
+                 _re.findall(r"\bM:\s*(-?[\d.]+)", frames)]
 
     if peak is None or integrated is None:
         print("ERROR: could not measure voiceover loudness from voiceover_aligned.mp3")
         sys.exit(1)
-    return peak, integrated
+    return peak, integrated, momentary
+
+
+def measure_voice_presence_offset(video_dir, presence_low_hz=1000.0,
+                                  presence_high_hz=8000.0):
+    """How far the voiceover's PRESENCE band sits below its own broadband level.
+
+    A TTS voice puts most of its energy in the low mids (200-800 Hz), so a cue
+    only cuts through the narration when it carries energy up at 1-8 kHz. This
+    measures the voice's spectral balance with plain RMS on BOTH sides of the
+    same ruler, so the audibility guard can compare a cue against the
+    narration in the band where the two actually compete.
+
+    -> dB (negative) or None when it cannot be measured.
+    """
+    mp3 = Path(video_dir) / "voiceover_aligned.mp3"
+    if not mp3.exists():
+        return None
+
+    def _rms_db(filter_chain):
+        proc = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-nostats", "-i", str(mp3), "-af",
+             f"{filter_chain},astats=metadata=1:reset=0", "-f", "null", "-"],
+            capture_output=True, text=True)
+        vals = re.findall(r"RMS level dB:\s*(-?[\d.]+|-inf)", proc.stderr)
+        if not vals:
+            return None
+        last = vals[-1]
+        if last in ("-inf", "-infinity"):
+            return None
+        try:
+            return float(last)
+        except ValueError:
+            return None
+
+    broad = _rms_db("anull")
+    if broad is None:
+        return None
+    presence = _rms_db(
+        f"highpass=f={presence_low_hz},lowpass=f={presence_high_hz}")
+    if presence is None:
+        return None
+    return presence - broad
 
 
 def ensure_voiceover_aligned(video_dir, scenes, fps=None):
@@ -289,6 +346,554 @@ def _resample(x, speed):
         v = x[i0] if i0 >= len(x) - 1 else x[i0] + (x[i0 + 1] - x[i0]) * frac
         out.append(v)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Sample level law — render-time loudness matching against the measured VO
+# ---------------------------------------------------------------------------
+
+
+def energy_envelope(samples, sr, hop_seconds=0.1):
+    """Per-hop mean-square energy (linear) — the 10 Hz bed/loudness envelope."""
+    hop = max(1, int(round(hop_seconds * sr)))
+    out = []
+    n = len(samples)
+    for i in range(0, n, hop):
+        seg = samples[i:i + hop]
+        s = 0.0
+        for v in seg:
+            s += v * v
+        out.append(s / len(seg) if seg else 0.0)
+    return out
+
+
+def _energy_db(x):
+    return 10.0 * math.log10(x + 1e-20)
+
+
+def peak_dbfs(samples):
+    peak = 0.0
+    for v in samples:
+        a = -v if v < 0.0 else v
+        if a > peak:
+            peak = a
+    return 20.0 * math.log10(peak) if peak > 1e-9 else -120.0
+
+
+# ---------------------------------------------------------------------------
+# Band analysis — will the cue survive the speakers the audience has?
+# ---------------------------------------------------------------------------
+#
+# A loudness law that only looks at broadband energy is blind to WHERE a cue
+# lives. A boom whose energy is 99 % below 80 Hz measures "loud" next to the
+# music and the voice, and is inaudible on every laptop and phone speaker
+# (they roll off below ~150 Hz) — the mix report says the cue is fine and the
+# listener hears nothing. These helpers measure the cue's energy per band so
+# the law can say so out loud.
+
+
+def _section_cutoff(target_hz, order):
+    """Corner of each one-pole section so the CASCADE is -3 dB at target_hz.
+
+    Cascading N identical one-pole sections stacks their attenuation, so the
+    cascade's -3 dB point sits well below each section's own corner. Left
+    uncorrected, a 4-section highpass at 150 Hz would already be 9 dB down at
+    220 Hz — it would call a perfectly audible mid-bass cue subsonic.
+    """
+    factor = (10.0 ** (3.0 / (10.0 * order)) - 1.0) ** 0.5
+    return target_hz * factor
+
+
+def _one_pole_lp(samples, sr, cutoff_hz, order=4):
+    """Lowpass built from cascaded one-pole sections (~24 dB/oct)."""
+    a = 1.0 - math.exp(-2.0 * math.pi * cutoff_hz / sr)
+    y = samples
+    for _ in range(order):
+        out = []
+        z = 0.0
+        for x in y:
+            z += a * (x - z)
+            out.append(z)
+        y = out
+    return y
+
+
+def _one_pole_hp(samples, sr, cutoff_hz, order=4):
+    """Highpass built from cascaded one-pole sections (~24 dB/oct)."""
+    a = math.exp(-2.0 * math.pi * cutoff_hz / sr)
+    y = samples
+    for _ in range(order):
+        out = []
+        z = 0.0
+        prev_x = 0.0
+        for x in y:
+            z = a * (z + x - prev_x)
+            prev_x = x
+            out.append(z)
+        y = out
+    return y
+
+
+def band_filter(samples, sr, lo_hz, hi_hz, order=4):
+    """Bandpass a signal: highpass at lo_hz, then lowpass at hi_hz."""
+    nyq = sr / 2.0
+    hi = min(float(hi_hz), nyq * 0.98)
+    lo = max(0.0, min(float(lo_hz), nyq * 0.98))
+    y = samples
+    if lo > 0.0:
+        y = _one_pole_hp(y, sr, _section_cutoff(lo, order), order)
+    if hi < nyq * 0.98:
+        y = _one_pole_lp(y, sr, _section_cutoff(hi, order), order)
+    return y
+
+
+def band_rms_dbfs(samples, sr, lo_hz, hi_hz):
+    """RMS level of the signal restricted to a band (dBFS)."""
+    if not samples:
+        return -120.0
+    y = band_filter(samples, sr, lo_hz, hi_hz)
+    s = 0.0
+    for v in y:
+        s += v * v
+    rms = math.sqrt(s / len(y))
+    return 20.0 * math.log10(rms) if rms > 1e-9 else -120.0
+
+
+def band_loudest_dbfs(samples, sr, lo_hz, hi_hz, win=0.05, hop=0.01):
+    """Loudest short window inside a band (transient audibility, dBFS)."""
+    if not samples:
+        return -120.0
+    y = band_filter(samples, sr, lo_hz, hi_hz)
+    n = max(1, int(win * sr))
+    total = 0.0
+    best = -120.0
+    for i, v in enumerate(y):
+        total += v * v
+        if i >= n:
+            total -= y[i - n] * y[i - n]
+        if i >= n - 1:
+            rms = math.sqrt(max(total, 0.0) / n)
+            if rms > 1e-9:
+                db = 20.0 * math.log10(rms)
+                if db > best:
+                    best = db
+    return best
+
+
+def attack_offset(samples, sr):
+    """Time (s) of the sample's loudest point — where the listener hears the hit."""
+    best = 0.0
+    idx = 0
+    for i, v in enumerate(samples):
+        a = -v if v < 0.0 else v
+        if a > best:
+            best = a
+            idx = i
+    return idx / sr if sr else 0.0
+
+
+def loudest_window_db(samples, sr, window_seconds=0.4, hop_seconds=0.1):
+    """Loudest rolling-window RMS in dBFS — the sample's perceived level proxy.
+
+    Peak normalization equalizes peaks; this equalizes what you HEAR, so a dense
+    loop and a short transient land at the same level. O(n), deterministic.
+    """
+    env = energy_envelope(samples, sr, hop_seconds)
+    if not env:
+        return -120.0
+    k = max(1, int(round(window_seconds / hop_seconds)))
+    if len(env) <= k:
+        return _energy_db(sum(env) / len(env))
+    s = sum(env[:k])
+    best = s
+    for i in range(k, len(env)):
+        s += env[i] - env[i - k]
+        if s > best:
+            best = s
+    return _energy_db(best / k)
+
+
+def envelope_level_db(env, hop_seconds, t0, t1):
+    """Mean level (dB) of `env` over [t0, t1) seconds; -120 when empty."""
+    if not env:
+        return -120.0
+    i0 = max(0, int(t0 / hop_seconds))
+    i1 = min(len(env), int(math.ceil(t1 / hop_seconds)) + 1)
+    if i1 <= i0:
+        return -120.0
+    return _energy_db(sum(env[i0:i1]) / (i1 - i0))
+
+
+def envelope_loudest_db(env, hop_seconds, t0, t1, window_seconds=0.4):
+    """Loudest `window_seconds` mean level of `env` inside [t0, t1) seconds.
+
+    The floor must survive the loudest moment of the bed, not its average: a
+    5 s cue that starts over a quiet bar and ends over a loud one is buried by
+    the average but audible by the loudest part.
+    """
+    if not env:
+        return -120.0
+    k = max(1, int(round(window_seconds / hop_seconds)))
+    i0 = max(0, int(t0 / hop_seconds))
+    i1 = min(len(env), int(math.ceil(t1 / hop_seconds)) + 1)
+    if i1 <= i0:
+        return -120.0
+    span = i1 - i0
+    if span <= k:
+        return _energy_db(sum(env[i0:i1]) / span)
+    s = sum(env[i0:i0 + k])
+    best = _energy_db(s / k)
+    for i in range(i0 + k, i1):
+        s += env[i] - env[i - k]
+        best = max(best, _energy_db(s / k))
+    return best
+
+
+def voice_local_lufs(momentary, hop_seconds, t0, t1):
+    """Mean momentary VO loudness over [t0, t1); None when the series is empty."""
+    if not momentary:
+        return None
+    i0 = max(0, int(t0 / hop_seconds))
+    i1 = min(len(momentary), int(math.ceil(t1 / hop_seconds)) + 1)
+    if i1 <= i0:
+        return None
+    window = momentary[i0:i1]
+    return sum(window) / len(window)
+
+
+def _slice_cue(raw, params, sr):
+    """offset/duration/fade window over a decoded asset. -> (seg, trimmed) or (None, True)."""
+    off = float(params.get("offset") or 0.0)
+    dur = params.get("duration")
+    a = max(0, int(round(off * sr)))
+    if a >= len(raw):
+        return None, True
+    b = len(raw) if dur is None else min(len(raw), a + max(1, int(round(float(dur) * sr))))
+    # decode_to_floats returns a tuple and the asset may be cached: always work on
+    # a mutable copy so the fades below cannot touch (or fail on) the source.
+    seg = list(raw[a:b])
+    trimmed = a > 0 or dur is not None
+    if b < len(raw):                            # we cut into the material: land it
+        fade = params.get("fade")
+        fade_sec = 0.12 if fade is None else float(fade)
+        n = min(int(round(fade_sec * sr)), len(seg) // 2)
+        for i in range(n):
+            seg[len(seg) - n + i] *= (1.0 - i / n) ** 2
+    if a > 0:                                   # offset starts mid-waveform: click guard
+        n = min(int(round(0.005 * sr)), len(seg) // 2)
+        for i in range(n):
+            seg[i] *= (i / n) ** 2
+    return seg, trimmed
+
+
+def bed_duck_db(vo_local_db, bcfg):
+    """Fallback estimate of the gain reduction the stitch sidechain applies.
+
+    `assemble.py` ducks the BGM with `sidechaincompress` keyed by the voiceover,
+    so a cue competes with the *ducked* bed, not the rendered one. The compressor
+    detector is fast (5 ms attack) while `vo_local_db` is a 400 ms momentary
+    loudness, so the instantaneous key sits hotter than the measured window
+    (configurable via `duck_detect_offset_db`, empirically ~8 dB).
+
+    This is only the fallback: `ducked_bed_envelope()` runs the real filter and
+    measures the duck exactly, which is what the floor normally uses.
+    """
+    threshold = float(bcfg.get("duck_threshold_db", -25.0))
+    ratio = max(1.0, float(bcfg.get("duck_ratio", 8.0)))
+    detect = float(bcfg.get("duck_detect_offset_db", 8.0))
+    if vo_local_db is None or vo_local_db <= -69.0:
+        return 0.0
+    over = (float(vo_local_db) + detect) - threshold
+    if over <= 0.0:
+        return 0.0
+    duck = over * (1.0 - 1.0 / ratio)
+    return min(duck, float(bcfg.get("duck_max_db", 24.0)))
+
+
+def audio_envelope(path, sr, hop_seconds=0.1):
+    """10 Hz energy envelope of an audio file, measured without a float blow-up.
+
+    Pips f32le straight into an `array('f')` (4 bytes/sample) instead of the
+    Python-float tuple `decode_to_floats` returns — a 10-minute bed would cost
+    hundreds of megabytes as floats.
+    """
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(path), "-f", "f32le",
+             "-ac", "1", "-ar", str(sr), "-"],
+            capture_output=True, timeout=300)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0 or not result.stdout:
+        return None
+    buf = result.stdout
+    arr = array("f")
+    arr.frombytes(buf[: len(buf) - (len(buf) % 4)])
+    return energy_envelope(arr, sr, hop_seconds)
+
+
+def ducked_bed_envelope(video_dir, cfg, hop_seconds=0.1, sr=SR):
+    """Envelope of the bed AS IT WILL PLAY under the voiceover.
+
+    The stitch (`assemble.py`) sidechains the music off the narration, so the
+    level a cue actually competes with is the ducked bed, not the rendered one.
+    Rather than model the compressor, run the exact same filter chain on the
+    exact same files and measure the result — the floor then matches the mix.
+
+    Mirrors `assemble.py`'s sidechain parameters. Returns None when the bed or
+    the voiceover is missing, or the render fails (the caller then falls back
+    to the analytic estimate).
+    """
+    bcfg = cfg.get("bgm") or {}
+    bgm = Path(video_dir) / "bgm_aligned.mp3"
+    vo = Path(video_dir) / "voiceover_aligned.mp3"
+    if not bgm.exists() or not vo.exists():
+        return None
+    b = (f"threshold={bcfg.get('duck_threshold_db', -25.0)}dB"
+         f":ratio={bcfg.get('duck_ratio', 8.0)}"
+         f":attack={bcfg.get('duck_attack_ms', 5.0)}"
+         f":release={bcfg.get('duck_release_ms', 250.0)}")
+    fc = (f"[1:a]asplit=2[vo][sc];[vo]anullsink;"
+          f"[0:a][sc]sidechaincompress={b}[bgmd]")
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(bgm), "-i", str(vo),
+             "-filter_complex", fc, "-map", "[bgmd]",
+             "-f", "f32le", "-ac", "1", "-ar", str(sr), "-"],
+            capture_output=True, timeout=300)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0 or not result.stdout:
+        return None
+    buf = result.stdout
+    arr = array("f")
+    arr.frombytes(buf[: len(buf) - (len(buf) % 4)])
+    return energy_envelope(arr, sr, hop_seconds)
+
+
+def prepare_sample(sound, cue, raw, sr, vo_anchor, bed_env, cfg, start_abs,
+                   bed_env_ducked=None, vo_presence_offset_db=None, vo_env=None):
+    """Level ONE sample cue against the measured voiceover (and the bed).
+
+    Returns (samples, plan). The law, in order:
+
+      nominal  = vo_I + accent_offset + (volume-0.5)*10 + trim_db
+      floor    = max(ducked_bed + over_bed, vo_I - max_below_vo)        [soft]
+      ceiling  = min(sample_peak_ceiling, vo_peak - vo_headroom)         [HARD]
+
+    The soft floor lifts inaudible cues above the music, but only when the cue
+    inherits its default volume — an explicit `volume` is authorial intent and is
+    honoured (with a warning). The peak ceiling is applied LAST and can never be
+    overruled: no cue is ever louder than the narration at its peak.
+
+    `bed_env_ducked` is the bed envelope AFTER the stitch-time sidechain; when
+    it is available the floor measures against the music that really plays.
+    """
+    params = cue.get("params") or {}
+    volume = cue.get("volume")
+    v = float(volume) if volume is not None else float(sound.default_volume)
+    scfg = cfg.get("sfx", {})
+    lcfg = scfg.get("level") or {}
+    flags = []
+    peak = peak_dbfs(raw)
+
+    if (not lcfg.get("enabled", True)
+            or (sound.level or {}).get("mode") == "peak"
+            or vo_anchor is None):
+        seg = _normalize(raw, 0.9)
+        gain = cue_gain_db(volume if volume is not None else sound.default_volume,
+                           scfg.get("full_scale_db", -10.0))
+        loud = loudest_window_db(raw, sr)
+        plan = {"mode": "peak", "gain_db": round(gain, 2),
+                "sample_peak_dbfs": round(peak, 2),
+                "sample_loudest_dbfs": round(loud, 2),
+                "target_dbfs": None, "achieved_dbfs": round(loud + gain, 2),
+                "floor_dbfs": None, "ceiling_dbfs": None,
+                "flags": flags}
+        return apply_gain_db(seg, gain), plan
+
+    vo_peak, vo_I, vo_mom = vo_anchor
+    win = float(lcfg.get("window_seconds", 0.4))
+    hop = float(lcfg.get("hop_seconds", 0.1))
+    burst_win = float(lcfg.get("burst_window_seconds", 0.1))
+    loud = loudest_window_db(raw, sr, win, hop)
+    trim_db = float((sound.level or {}).get("trim_db") or 0.0) + float(params.get("gain_db") or 0.0)
+    nominal = vo_I + float(lcfg.get("accent_offset_db", -14.0)) + (v - 0.5) * 10.0 + trim_db
+
+    local = voice_local_lufs(vo_mom, hop, start_abs, start_abs + win)
+    bed = None
+    bed_comp = None
+    bed_at_attack = None
+    duck = 0.0
+    mask_required = -120.0
+    floor = float(vo_I) - float(lcfg.get("max_below_vo_db", 24.0))
+    if bed_env:
+        # The bed level that matters is the loudest moment the cue overlaps —
+        # the cue is only as safe as its worst second.
+        span_end = start_abs + max(len(raw) / sr, win)
+        bed = envelope_loudest_db(bed_env, hop, start_abs, span_end, win)
+        extra_duck = 0.0
+        if bed_env_ducked:
+            # Measured: the bed as the stitch will actually play it.
+            bed_comp = envelope_loudest_db(bed_env_ducked, hop, start_abs,
+                                           span_end, win)
+            comp_env = bed_env_ducked
+            duck = max(0.0, bed - bed_comp)
+        else:
+            # Fallback: estimate the sidechain's gain reduction analytically.
+            duck = bed_duck_db(local, cfg.get("bgm") or {})
+            extra_duck = duck
+            bed_comp = bed - duck
+            comp_env = bed_env
+        # THE MASK TEST: the cue must clear the music under it, moment by
+        # moment. The two sides are paired the way the ear pairs them: the
+        # cue's own level at an instant (10 ms) against the bed's SUSTAINED
+        # level there (400 ms). A click is judged by its transient against the
+        # music it lands on; a riser by its body against the music under it.
+        # Comparing 400 ms averages on both sides buries every transient (a
+        # click's peak sits 15-28 dB above its own 400 ms average); comparing
+        # the bed's momentary PEAK instead lets a quiet sustained sound slip
+        # under a single hi-hat it never had to fight.
+        attack_abs = start_abs + attack_offset(raw, sr)
+        bed_at_attack = envelope_loudest_db(comp_env, hop,
+                                            attack_abs - hop / 2.0,
+                                            attack_abs + hop / 2.0, burst_win)
+        fine_hop = float(lcfg.get("mask_hop_seconds", 0.01))
+        mask_db = float(lcfg.get("mask_window_db", 12.0))
+        over_bed = float(lcfg.get("over_bed_db", 3.0))
+        fine_env = energy_envelope(raw, sr, fine_hop)
+        if fine_env:
+            thresh = max(fine_env) * (10.0 ** (-mask_db / 10.0))
+            for i, e in enumerate(fine_env):
+                if e < thresh:
+                    continue                    # the cue's own decay: not an event
+                t_i = start_abs + i * fine_hop
+                bed_db = (envelope_level_db(comp_env, hop, t_i - win / 2.0,
+                                            t_i + win / 2.0) - extra_duck)
+                cue_db = _energy_db(e)
+                if bed_db > bed_at_attack:
+                    bed_at_attack = bed_db
+                required = bed_db + over_bed - cue_db
+                if required > mask_required:
+                    mask_required = required
+        if mask_required > -119.0:
+            floor = max(floor, loud + mask_required)
+
+    max_dev = float(lcfg.get("max_deviation_db", 10.0))
+    bed_drop_needed = 0.0
+    if volume is None:
+        # The mask promise outranks the accent corridor: a cue that cannot
+        # clear the music is lifted until it can. `max_deviation_db` is the
+        # point where that lift becomes unusual — past it the engine says so
+        # (and how far the bed has to come down instead). The hard bounds are
+        # still the gain clamp and the peak ceiling.
+        target = max(nominal, floor)
+        if target > nominal + max_dev + 1.0:
+            flags.append("floor_capped")
+            bed_drop_needed = round(target - (nominal + max_dev), 2)
+    else:
+        target = nominal
+        if target < floor:
+            flags.append("below_floor_explicit_volume")
+            bed_drop_needed = round(floor - nominal, 2)
+
+    ceiling = min(float(lcfg.get("sample_peak_ceiling_db", -1.0)),
+                  float(vo_peak) - float(lcfg.get("vo_headroom_db", 3.0)))
+    gain = target - loud
+    lo, hi = lcfg.get("gain_clamp_db", [-18.0, 9.0])
+    if gain > float(hi):
+        gain = float(hi)
+        flags.append("gain_ceiling_clamp")
+    if gain < float(lo):
+        gain = float(lo)
+        flags.append("gain_floor_clamp")
+    if peak + gain > ceiling:
+        gain = ceiling - peak
+        flags.append("peak_clamped")
+
+    local = voice_local_lufs(vo_mom, hop, start_abs, start_abs + win)
+    # `masks_voice` only means something where the narration is actually
+    # speaking. The ebur128 momentary series is a 400 ms window that lags the
+    # audio, so it reads "silence" while a word is still ringing and "speech"
+    # long after the voice stopped; the VO's own fast envelope is the truth.
+    # A cue that lands in a gap between sentences is masking nothing.
+    if vo_env:
+        vo_at_cue = envelope_loudest_db(vo_env, hop, start_abs,
+                                         start_abs + burst_win, burst_win)
+        speaking = (vo_at_cue is not None
+                    and vo_at_cue > vo_I - float(lcfg.get("speech_present_db", 20.0)))
+    else:
+        vo_at_cue = local
+        speaking = local is not None and local > -69.0
+    if speaking and vo_at_cue is not None:
+        if loud + gain > vo_at_cue - float(lcfg.get("masking_db", 8.0)):
+            flags.append("masks_voice")
+    if volume is None and floor > nominal and peak + (floor - loud) > ceiling:
+        flags.append("corridor_conflict")
+
+    # AUDIBILITY GUARD: broadband loudness says nothing about whether the cue
+    # survives the speakers the audience actually has. A cue whose energy lives
+    # below ~150 Hz is inaudible on laptop and phone speakers however loud the
+    # mix report says it is, and a cue with no presence-band energy is masked
+    # by the narration wherever it lands. Both are invisible to the dB law.
+    aud_cfg = lcfg.get("audibility") or {}
+    aud_info = None
+    if aud_cfg.get("enabled", True) and raw:
+        speaker_hz = float(aud_cfg.get("speaker_hz", 150.0))
+        p_lo = float(aud_cfg.get("presence_low_hz", 1000.0))
+        p_hi = float(aud_cfg.get("presence_high_hz", 8000.0))
+        # What a laptop/phone speaker actually receives: the cue's loudest
+        # window with everything below the speaker band removed.
+        spk_db = loudest_window_db(band_filter(raw, sr, speaker_hz, sr / 2.0),
+                                   sr, win, hop)
+        pres_peak = band_loudest_dbfs(raw, sr, p_lo, p_hi)
+        subsonic_drop = loud - spk_db
+        aud_info = {"subsonic_drop_db": round(subsonic_drop, 2),
+                    "presence_peak_dbfs": round(pres_peak + gain, 2),
+                    "voice_presence_dbfs": None}
+        if subsonic_drop > float(aud_cfg.get("subsonic_drop_db", 6.0)):
+            flags.append("subsonic_asset")
+        if (vo_presence_offset_db is not None and local is not None
+                and local > -69.0):
+            vo_pres = local + float(vo_presence_offset_db)
+            aud_info["voice_presence_dbfs"] = round(vo_pres, 2)
+            if (pres_peak + gain > -60.0
+                    and pres_peak + gain
+                    < vo_pres - float(aud_cfg.get("mask_margin_db", 8.0))):
+                flags.append("masked_by_voice")
+
+    plan = {"mode": "auto", "gain_db": round(gain, 2),
+            "sample_peak_dbfs": round(peak, 2),
+            "sample_loudest_dbfs": round(loud, 2),
+            "target_dbfs": round(target, 2),
+            "achieved_dbfs": round(loud + gain, 2),
+            "floor_dbfs": round(floor, 2),
+            "ceiling_dbfs": round(ceiling, 2),
+            "bed_dbfs": None if bed is None else round(bed, 2),
+            "bed_ducked_dbfs": None if bed_comp is None else round(bed_comp, 2),
+            "bed_at_attack_dbfs": (None if bed_at_attack is None
+                                   else round(bed_at_attack, 2)),
+            "mask_gain_db": (None if mask_required <= -119.0
+                             else round(mask_required, 2)),
+            "bed_drop_needed_db": bed_drop_needed,
+            "bed_duck_db": round(duck, 1),
+            "audibility": aud_info,
+            "flags": flags}
+    return apply_gain_db(raw, gain), plan
+
+
+def normalize_for_preview(raw, sr, sound, target_dbfs=-20.0, peak_ceiling_dbfs=-1.0):
+    """Catalog-audition level: all samples at one loudness, offset by default_volume.
+
+    A catalog preview has no voiceover to anchor against, so the reference is
+    fixed. Tone sounds keep their design levels (unchanged in the mix).
+    """
+    loud = loudest_window_db(raw, sr)
+    gain = (target_dbfs - loud) + (float(sound.default_volume) - 0.5) * 10.0
+    peak = peak_dbfs(raw)
+    if peak + gain > peak_ceiling_dbfs:
+        gain = peak_ceiling_dbfs - peak
+    return apply_gain_db(raw, gain)
 
 
 # ---------------------------------------------------------------------------
@@ -617,15 +1222,36 @@ def decode_to_floats(path):
     return struct.unpack(f"<{n}f", data[: n * 4])
 
 
-def render_sfx_track(resolved_cues, cfg, sr, samples_total):
-    """-> array('f') master buffer or None when no cues."""
+SAMPLE_ASSET_CACHE = {}
+_SAMPLE_ASSET_BYTES = {"n": 0}
+
+
+def load_sample_asset(rel, sr, cache_mb=64):
+    """Decode + cache a sample asset once per run (bounded — big packs stream)."""
+    key = (rel, sr)
+    cached = SAMPLE_ASSET_CACHE.get(key)
+    if cached is not None:
+        return cached
+    samples = decode_to_floats(sfx.ASSETS_DIR / rel)
+    size = len(samples) * 4
+    if _SAMPLE_ASSET_BYTES["n"] + size <= int(cache_mb) * 1024 * 1024:
+        SAMPLE_ASSET_CACHE[key] = samples
+        _SAMPLE_ASSET_BYTES["n"] += size
+    return samples
+
+
+def render_sfx_track(resolved_cues, cfg, sr, samples_total, vo_anchor=None, bed_env=None,
+                     bed_env_ducked=None, vo_presence_offset_db=None, vo_env=None):
+    """-> (array('f') master, [level plans]) or (None, []) when no cues."""
     if not resolved_cues:
-        return None
+        return None, []
     master = array("f", [0.0]) * samples_total
     defs = sfx.load_sound_defs()                      # hoist: load the catalog once, not per cue
     scfg = cfg.get("sfx", {})
     tail_fade = scfg.get("tail_fade_seconds", 0.5)
     full_scale_db = scfg.get("full_scale_db", -10.0)
+    cache_mb = (scfg.get("level") or {}).get("decode_cache_mb", 64)
+    plans = []
 
     # Batch-render tone-backend cues in a single node invocation.
     tone_jobs = []
@@ -649,21 +1275,53 @@ def render_sfx_track(resolved_cues, cfg, sr, samples_total):
         params = sfx.param_defaults(sound)
         if cue.get("params"):
             params.update(cue["params"])
-        rng = random.Random(per_cue_seed(cue["sound"], params, cue["start_abs"]))
         if sound.backend == "tone":
             raw = tone_rendered[f"{scene_id}_{i}"]
-            if "pitch" in params:
-                raw = _resample(raw, float(params["pitch"]))
-        else:
-            raw = _normalize(decode_to_floats(sfx.ASSETS_DIR / sound.asset), 0.9)
-        placed = place_cue(samples_total, raw, cue["start_abs"], tail_fade, cue.get("fade_out"))
+            pitch = params.get("pitch")
+            if pitch is not None and abs(float(pitch) - 1.0) > 1e-6:
+                raw = _resample(raw, float(pitch))
+            placed = place_cue(samples_total, raw, cue["start_abs"], tail_fade,
+                               cue.get("fade_out"))
+            if placed is None:
+                print(f"  WARN: scene {scene_id} cue {i}: starts at/after video end — dropped (inaudible)")
+                continue
+            start, seg = placed
+            seg = apply_gain_db(seg, cue_gain_db(cue["volume"], full_scale_db))
+            mix_add(master, start, seg)
+            plans.append({"scene": scene_id, "cue_index": i, "sound": sound.sound,
+                          "asset": None, "mode": "tone",
+                          "start_abs": round(cue["start_abs"], 3),
+                          "volume": cue.get("volume"),
+                          "gain_db": round(cue_gain_db(cue["volume"], full_scale_db), 2),
+                          "flags": []})
+            continue
+
+        raw = load_sample_asset(sound.asset, sr, cache_mb)
+        seg, _trimmed = _slice_cue(raw, params, sr)
+        if seg is None:
+            print(f"  WARN: scene {scene_id} cue {i}: offset {params.get('offset')}s is past "
+                  f"the end of {sound.asset} — dropped")
+            continue
+        pitch = params.get("pitch")
+        if pitch is not None and abs(float(pitch) - 1.0) > 1e-6:
+            seg = _resample(seg, float(pitch))
+        seg, plan = prepare_sample(sound, cue, seg, sr, vo_anchor, bed_env, cfg,
+                                   cue["start_abs"], bed_env_ducked=bed_env_ducked,
+                                   vo_presence_offset_db=vo_presence_offset_db,
+                                   vo_env=vo_env)
+        plan.update({"scene": scene_id, "cue_index": i, "sound": sound.sound,
+                     "asset": sound.asset, "start_abs": round(cue["start_abs"], 3),
+                     "duration_seconds": round(len(seg) / sr, 3),
+                     "volume": cue.get("volume")})
+        placed = place_cue(samples_total, seg, cue["start_abs"], tail_fade,
+                           cue.get("fade_out"))
         if placed is None:
             print(f"  WARN: scene {scene_id} cue {i}: starts at/after video end — dropped (inaudible)")
             continue
         start, seg = placed
-        seg = apply_gain_db(seg, cue_gain_db(cue["volume"], full_scale_db))
         mix_add(master, start, seg)
-    return master
+        plans.append(plan)
+    return master, plans
 
 
 def render_bgm_track(scenes, offsets, total_sec, cfg, sr, fps=None):
@@ -818,14 +1476,23 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
     scfg = cfg.get("sfx", {})
     defs = sfx.load_sound_defs()
     tone_recipes = {}
+    sample_assets = {}
+    sample_levels = {}
     for cue in resolved_cues_for_scene:
         sound = defs[cue["sound"]]
         if sound.backend == "tone":
             rel = f"sfx/sounds/{sound.sound}/recipe.mjs"
             tone_recipes[rel] = _sha256_file(Path(__file__).resolve().parent.parent / rel)
+        elif sound.asset:
+            sample_assets[sound.asset] = _sha256_file(sfx.ASSETS_DIR / sound.asset)
+            sample_levels[sound.sound] = sound.level or {}
     return pl.hash_sfx({
         "catalog_version": sfx.CATALOG_VERSION,
         "fps": fps,                                    # timeline basis (frame-exact)
+        # The level law is anchored to the measured voiceover: a re-voiced scene
+        # must invalidate the mix, or cues keep gains computed for the old VO.
+        "voiceover_hash": scene.get("voiceover_hash"),
+        "level_config": scfg.get("level") or {},
         "sfx_config": {"sample_rate": SR, "full_scale_db": scfg.get("full_scale_db", -10.0),
                         "tail_fade_seconds": scfg.get("tail_fade_seconds", 0.5)},
         "bgm_config": {"enabled": bcfg.get("enabled", True),
@@ -835,12 +1502,25 @@ def build_sfx_hash(scene, all_scenes, resolved_cues_for_scene, cfg, offsets, tot
                        "track_trim": bcfg.get("track_trim", {}),
                        "fade_out_seconds": bcfg.get("fade_out_seconds", 1.0),
                        "fade_in_seconds": bcfg.get("fade_in_seconds", 0.5),
-                       "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5)},
+                       "crossfade_seconds": bcfg.get("crossfade_seconds", 0.5),
+                       # The sidechain decides how loud the bed really is under a
+                       # cue, so the mix depends on it: re-mix when it changes.
+                       "duck_threshold_db": bcfg.get("duck_threshold_db", -25.0),
+                       "duck_ratio": bcfg.get("duck_ratio", 8.0),
+                       "duck_attack_ms": bcfg.get("duck_attack_ms", 5.0),
+                       "duck_release_ms": bcfg.get("duck_release_ms", 250.0),
+                       # Fallback only (the measured duck is used when available).
+                       "duck_detect_offset_db": bcfg.get("duck_detect_offset_db", 8.0),
+                       # The bed is levelled against the measured voiceover, so
+                       # this distance is part of the mix.
+                       "vo_offset_db": bcfg.get("vo_offset_db", 12.0)},
         "durations": {str(x["id"]): round(scene_duration(x, fps), 4) for x in all_scenes},
         "total_seconds": round(total_sec, 4),
         "scene_bgm": scene.get("bgm"),                 # raw override (None / {..} / absent->None)
         "cues": resolved_cues_for_scene,               # scene-relative, sorted by (when, sound)
         "tone_recipes": tone_recipes,                  # recipe .mjs sha256s (tone backend only)
+        "sample_assets": sample_assets,                # sample file sha256s (sample backend only)
+        "sample_levels": sample_levels,                # level.mode/trim_db per used sample
         "bgm_assets": used_bgm_assets(all_scenes, cfg),  # pre-rendered bed files actually used
     })
 
@@ -897,6 +1577,34 @@ def encode_mp3(wav, out):
 # ---------------------------------------------------------------------------
 # main (§4.14)
 # ---------------------------------------------------------------------------
+
+
+def write_level_report(video_dir, vo_peak, vo_I, plans, cfg, bed_info=None):
+    """Persist per-cue level decisions so the mix is auditable without listening."""
+    lcfg = (cfg.get("sfx", {}).get("level") or {})
+    flags = {}
+    for p in plans:
+        for f in p.get("flags") or []:
+            flags[f] = flags.get(f, 0) + 1
+    payload = {
+        "voiceover": {"peak_dbfs": round(vo_peak, 2),
+                      "integrated_lufs": round(vo_I, 2)},
+        "law": {k: lcfg.get(k) for k in (
+            "enabled", "accent_offset_db", "max_below_vo_db", "over_bed_db",
+            "masking_db", "vo_headroom_db", "sample_peak_ceiling_db",
+            "gain_clamp_db", "max_deviation_db", "window_seconds",
+            "hop_seconds", "mask_hop_seconds", "mask_window_db",
+            "burst_window_seconds")},
+        "audibility": lcfg.get("audibility") or {},
+        "bed": bed_info or {},
+        "cues": plans,
+        "flags": flags,
+    }
+    path = Path(video_dir) / "sfx_levels.json"
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    pl.atomic_replace(tmp, path)
+    return path, flags
 
 
 def main():
@@ -1029,13 +1737,100 @@ def main():
 
     # measure the voiceover anchor
     ensure_voiceover_aligned(video_dir, scenes, FPS)
-    vo_peak_db, vo_I = measure_voiceover(video_dir)
+    vo_peak_db, vo_I, vo_mom = measure_voiceover(video_dir)
+    vo_anchor = (vo_peak_db, vo_I, vo_mom)
+    lcfg = cfg.get("sfx", {}).get("level") or {}
+    hop = float(lcfg.get("hop_seconds", 0.1))
+    win = float(lcfg.get("window_seconds", 0.4))
+
+    # The audibility guard compares a cue against the narration in the band
+    # where they compete (the voice's presence band), so it needs the voice's
+    # own spectral balance once per mix.
+    aud_cfg = lcfg.get("audibility") or {}
+    vo_presence_offset_db = None
+    if aud_cfg.get("enabled", True):
+        vo_presence_offset_db = measure_voice_presence_offset(
+            video_dir,
+            presence_low_hz=float(aud_cfg.get("presence_low_hz", 1000.0)),
+            presence_high_hz=float(aud_cfg.get("presence_high_hz", 8000.0)))
+        if vo_presence_offset_db is not None:
+            print(f"  Voiceover presence band: "
+                  f"{vo_presence_offset_db:.1f} dB below its broadband level")
+
+    # The VO's fast energy envelope: the level law needs to know whether the
+    # narration is actually speaking where a cue lands (a cue in a pause is
+    # masking nothing, however loud it is).
+    vo_env = audio_envelope(video_dir / "voiceover_aligned.mp3", SR,
+                             hop_seconds=float(lcfg.get("hop_seconds", 0.1)))
 
     tmp_dir = video_dir / ".sfx_tmp"
     tmp_dir.mkdir(exist_ok=True)
+    plans = []
+    bed_env = None
+    bed_env_ducked = None
+    bed_info = {}
     try:
+        # BGM FIRST: the SFX level law uses the bed's local level as its audible
+        # floor ("never under the music"). Only the 10 Hz envelope survives, so
+        # the bed master is released before the SFX buffer is allocated.
+        bmaster = render_bgm_track(scenes, offsets, total_sec, cfg, SR, fps=FPS)
+        if bmaster is None:
+            stale = video_dir / "bgm_aligned.mp3"
+            if stale.exists():
+                stale.unlink()
+                print("  Removed stale bgm_aligned.mp3 (bed inactive)")
+        else:
+            # Level the bed against the MEASURED voiceover. The mix promises
+            # (SFX above the music, music under the voice) only hold if the
+            # music sits far enough below the narration — a bed authored at a
+            # fixed level lands wherever the TTS happened to land. `vo_offset_db`
+            # is the distance: the bed's loudest moment stays that many dB
+            # below the voiceover's integrated loudness. Set it to 0 to keep the
+            # bed exactly as authored.
+            vo_off = (cfg.get("bgm") or {}).get("vo_offset_db", 12.0)
+            bed_loud = loudest_window_db(bmaster, SR, win, hop)
+            bed_info = {"vo_offset_db": float(vo_off) if vo_off else None,
+                        "loudest_dbfs": round(bed_loud, 2),
+                        "leveled_db": 0.0}
+            if vo_anchor and vo_off:
+                target = vo_I - float(vo_off)
+                correction = target - bed_loud
+                bed_info["target_dbfs"] = round(target, 2)
+                if abs(correction) > 0.1:
+                    bmaster = apply_gain_db(bmaster, correction)
+                    bed_info["leveled_db"] = round(correction, 2)
+                    print(f"  Bed leveled {correction:+.1f} dB -> {target:.1f} dBFS "
+                          f"(VO {vo_I:.1f} LUFS, {vo_off:.0f} dB below)")
+            wav = tmp_dir / "bgm.wav"
+            write_wav(wav, bmaster, SR)
+            out = video_dir / "bgm_aligned.mp3"
+            if not encode_mp3(wav, out):
+                print("ERROR: failed to encode bgm_aligned.mp3")
+                sys.exit(1)
+            print(f"  Created bgm_aligned.mp3 ({total_sec:.1f} s)")
+            if resolved:
+                # Measure the bed from the ENCODED file — the same bytes the
+                # stitch sidechains — and measure its ducked twin, so the floor
+                # competes with the music that really plays under the cue.
+                bed_env = audio_envelope(out, SR, hop)
+                bed_env_ducked = ducked_bed_envelope(video_dir, cfg, hop, SR)
+                if bed_env_ducked:
+                    ducks = [_energy_db(d) - _energy_db(w)
+                             for d, w in zip(bed_env, bed_env_ducked)
+                             if _energy_db(d) > -60.0]
+                    if ducks:
+                        ducks.sort()
+                        print(f"  Bed duck measured: {ducks[-1]:.1f} dB max, "
+                              f"{ducks[len(ducks) // 2]:.1f} dB median "
+                              f"under the voiceover")
+        bmaster = None
+
         # SFX track
-        master = render_sfx_track(resolved, cfg, SR, samples_total)
+        master, plans = render_sfx_track(resolved, cfg, SR, samples_total,
+                                         vo_anchor=vo_anchor, bed_env=bed_env,
+                                         bed_env_ducked=bed_env_ducked,
+                                         vo_presence_offset_db=vo_presence_offset_db,
+                                         vo_env=vo_env)
         if master is None:
             stale = video_dir / "sfx_aligned.mp3"
             if stale.exists():
@@ -1049,24 +1844,48 @@ def main():
                 print("ERROR: failed to encode sfx_aligned.mp3")
                 sys.exit(1)
             print(f"  Created sfx_aligned.mp3 ({len(resolved)} cues, {total_sec:.1f} s)")
-
-        # BGM track
-        bmaster = render_bgm_track(scenes, offsets, total_sec, cfg, SR, fps=FPS)
-        if bmaster is None:
-            stale = video_dir / "bgm_aligned.mp3"
-            if stale.exists():
-                stale.unlink()
-                print("  Removed stale bgm_aligned.mp3 (bed inactive)")
-        else:
-            wav = tmp_dir / "bgm.wav"
-            write_wav(wav, bmaster, SR)
-            out = video_dir / "bgm_aligned.mp3"
-            if not encode_mp3(wav, out):
-                print("ERROR: failed to encode bgm_aligned.mp3")
-                sys.exit(1)
-            print(f"  Created bgm_aligned.mp3 ({total_sec:.1f} s)")
+        master = None
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    if plans:
+        if bed_env:
+            for p in plans:
+                t = float(p.get("start_abs") or 0.0)
+                span_end = t + max(float(p.get("duration_seconds") or 0.0), win)
+                bed_dry = round(envelope_loudest_db(bed_env, hop, t, span_end, win), 2)
+                p["bed_dbfs"] = bed_dry
+                if bed_env_ducked:
+                    p["bed_ducked_dbfs"] = round(
+                        envelope_loudest_db(bed_env_ducked, hop, t, span_end, win), 2)
+                elif p.get("mode") == "auto":
+                    p["bed_ducked_dbfs"] = round(
+                        bed_dry - float(p.get("bed_duck_db") or 0.0), 2)
+        report_path, flags = write_level_report(video_dir, vo_peak_db, vo_I, plans,
+                                                 cfg, bed_info=bed_info)
+        loudest = max(plans, key=lambda p: float(p.get("achieved_dbfs") or -120))
+        print(f"  Level law: {len(plans)} cues matched to VO {vo_I:.1f} LUFS "
+              f"(loudest '{loudest['sound']}' at "
+              f"{float(loudest.get('achieved_dbfs') or -120):.1f} dBFS)")
+        if flags:
+            print(f"  Level flags: {', '.join(f'{k}={v}' for k, v in sorted(flags.items()))}")
+        speaker_hz = float((lcfg.get("audibility") or {}).get("speaker_hz", 150.0))
+        for p in plans:
+            pflags = p.get("flags") or []
+            aud = p.get("audibility") or {}
+            if "subsonic_asset" in pflags:
+                print(f"  AUDIBILITY: '{p.get('sound')}' loses "
+                      f"{float(aud.get('subsonic_drop_db') or 0):.0f} dB of its loudest "
+                      f"moment below {speaker_hz:.0f} Hz — inaudible on laptop and "
+                      f"phone speakers. Use a mid-forward asset, or place it in a "
+                      f"pause and accept it for headphone listeners.")
+            if "masked_by_voice" in pflags:
+                gap = (float(aud.get("voice_presence_dbfs") or 0)
+                       - float(aud.get("presence_peak_dbfs") or 0))
+                print(f"  AUDIBILITY: '{p.get('sound')}' sits {gap:.0f} dB under the "
+                      f"narration in the presence band — it will be masked. Move it "
+                      f"into a pause between sentences.")
+        print(f"  Level report: {report_path.name}")
 
     # persist hashes
     for s in scenes:

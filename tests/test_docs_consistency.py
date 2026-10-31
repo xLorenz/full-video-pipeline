@@ -54,12 +54,27 @@ def test_bgm_null_means_silence_in_docs():
 
 
 def test_sfx_engine_note_counts():
+    """The playbook's counts must match the catalog, not a stale snapshot."""
+    import sys
+    sys.path.insert(0, str(REPO / "scripts"))
+    import sfx_catalog as sfx
+
+    defs = sfx.load_sound_defs()
+    tone = [d for d in defs.values() if d.backend == "tone"]
+    samples = [d for d in defs.values() if d.backend == "sample"]
     design = _read(SKILL / "references" / "sfx-design.md")
-    assert "36 sounds" in design
-    assert "30" in design and "6" in design
-    assert "pulse_light" in design and "tension_riser" in design
-    assert "9 BGM beds" in design and "neon_drop" in design and "clear_skies" in design
-    assert "quiet_signal" in design
+
+    assert f"{len(defs)} sounds" in design
+    assert f"{len(tone)} cue sounds" in design
+    assert f"{len(samples)} ship as sample files" in design
+    assert f"{len(sfx.BGM_TRACKS)} BGM beds" in design
+    for bed in ("pulse_light", "tension_riser", "neon_drop", "clear_skies", "quiet_signal"):
+        assert bed in design
+    # the generated catalog has to agree with the registry it is generated from
+    catalog = _read(REPO / "sfx" / "CATALOG.md")
+    assert f"**{len(defs)} entries** ({len(tone)} synthesized, {len(samples)} samples)" \
+        in catalog
+    assert f"catalog v{sfx.CATALOG_VERSION}" in catalog
 
 
 def test_readme_config_matches_defaults():
