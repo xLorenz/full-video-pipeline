@@ -1,0 +1,34 @@
+{
+  "sound": "mc_crit",
+  "aliases": [
+    "mc-critical-hit",
+    "crit-hit",
+    "critical-strike"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/mc_crit.mp3",
+  "source": "video games/minecraft critical hit.mp3",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "tense"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 0.66,
+  "params": {},
+  "description": "Minecraft critical-hit thwack with a bright ping \u2014 a hit landing extra hard, a crit bonus landing.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.656,
+      "integrated_lufs": -19.9,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -15.9
+    }
+  }
+}

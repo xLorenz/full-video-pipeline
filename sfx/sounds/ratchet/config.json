@@ -1,0 +1,33 @@
+{
+  "sound": "ratchet",
+  "aliases": [
+    "ratchet-click",
+    "wrench-click",
+    "notch-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/ratchet.mp3",
+  "source": "mechanical sfx/ratchet.mp3",
+  "tags": [
+    "accent",
+    "impact"
+  ],
+  "moods": [
+    "neutral",
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Tight metallic ratchet notch, one firm click \u2014 settings locking in, dial stepping, tool tightening.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.326,
+      "true_peak_dbfs": -5.2,
+      "loudest_400ms_dbfs": -30.5
+    }
+  }
+}

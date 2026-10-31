@@ -1,0 +1,34 @@
+{
+  "sound": "gears",
+  "aliases": [
+    "gear-grind",
+    "machinery",
+    "cogs-turning"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/gears.mp3",
+  "source": "mechanical sfx/gears.wav",
+  "tags": [
+    "accent",
+    "organic"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 2.1,
+  "params": {},
+  "description": "Gritty interlocking gear grind, metallic and low \u2014 machinery starting, systems grinding into motion.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.102,
+      "integrated_lufs": -36.9,
+      "true_peak_dbfs": -5.2,
+      "loudest_400ms_dbfs": -37.7
+    }
+  }
+}

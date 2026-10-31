@@ -29,7 +29,10 @@ ASSETS_DIR = SFX_DIR / "assets"
 MANIFEST_PATH = ASSETS_DIR / "manifest.json"
 SFX_SCHEMA_PATH = REPO_ROOT / "schemas" / "sfx.schema.json"
 
-CATALOG_VERSION = 9   # v9: +quiet_signal BGM bed (76 bpm techno); clear_skies moods retuned
+CATALOG_VERSION = 11  # v11: +55 imported pack samples (mechanical / video games / wooshes-hits)
+                      # v10: samples loudness-matched against the measured voiceover;
+                      #      per-cue sample params (duration/fade/offset/gain_db/pitch)
+                      # v9: +quiet_signal BGM bed (76 bpm techno); clear_skies moods retuned
                       # v8: +clear_skies BGM asset bed (piano, vendored Salamander samples)
                       # v7: +neon_drop BGM asset bed (looping-tail arrangement)
                       # v6: +3 tone sounds (page_turn, sonar_ping, heartbeat)
@@ -96,6 +99,30 @@ class SoundDef:
     params: dict = field(default_factory=dict)   # {param_name: ParamDef}
     description: str = ""
     path: Path | None = None     # sounds/<id>/
+    level: dict = field(default_factory=dict)    # sample only: mode/trim_db/measured
+
+
+# Sample-backed sounds get these params for free — no per-config boilerplate, and
+# hand-written configs inherit them. They shape ONE cue of an asset without a
+# re-import (trim/level/pitch), while the asset itself stays pristine.
+SAMPLE_PARAMS = {
+    "duration": ParamDef(
+        type="number", minimum=0.05, maximum=30.0, default=None,
+        description="Trim this cue to N seconds (tail fade of `fade` seconds inside "
+                    "the window). Omit to play the whole asset."),
+    "fade": ParamDef(
+        type="number", minimum=0.0, maximum=2.0, default=0.12,
+        description="Tail fade length in seconds when `duration` (or `offset`) trims the cue."),
+    "offset": ParamDef(
+        type="number", minimum=0.0, maximum=30.0, default=0.0,
+        description="Skip N seconds into the asset before playing (pick a later hit)."),
+    "gain_db": ParamDef(
+        type="number", minimum=-24.0, maximum=6.0, default=0.0,
+        description="Manual per-cue level nudge applied after automatic loudness matching."),
+    "pitch": ParamDef(
+        type="number", minimum=0.5, maximum=2.0, default=1.0,
+        description="Playback speed/pitch factor (1.0 = original)."),
+}
 
 
 def _load_manifest() -> dict:
@@ -142,6 +169,8 @@ def validate_catalog() -> list[str]:
         return [f"{SOUNDS_DIR}: missing catalog directory"]
 
     import tone_render as _tone
+    seen_ids = {}        # id -> config rel path (duplicate ids otherwise silently overwrite)
+    seen_aliases = {}    # alias -> canonical id
     for cfg_path in sorted(SOUNDS_DIR.glob("*/config.json")):
         rel = str(cfg_path.relative_to(REPO_ROOT)).replace("\\", "/")
         try:
@@ -154,6 +183,17 @@ def validate_catalog() -> list[str]:
         except jsonschema.ValidationError as e:
             errors.append(f"{rel}: schema error — {e.message}")
             continue
+        sid = cfg.get("sound")
+        if sid in seen_ids:
+            errors.append(f"{rel}: duplicate sound id '{sid}' (already defined by {seen_ids[sid]})")
+        else:
+            seen_ids[sid] = rel
+        for alias in cfg.get("aliases") or []:
+            if alias in seen_ids or alias in seen_aliases:
+                other = seen_ids.get(alias) or seen_aliases.get(alias)
+                errors.append(f"{rel}: alias '{alias}' collides with '{other}'")
+            else:
+                seen_aliases[alias] = sid
         if cfg.get("backend") == "tone":
             recipe = cfg.get("recipe")
             if not recipe:
@@ -203,11 +243,18 @@ def load_sound_defs() -> dict[str, SoundDef]:
         if not sound:
             print(f"WARN: {cfg_path.name}: missing 'sound' id", file=sys.stderr)
             continue
-        params = {name: _param_def_from_config(p) for name, p in (cfg.get("params") or {}).items()}
+        backend = cfg.get("backend", "tone")
+        if backend == "sample":
+            params = dict(SAMPLE_PARAMS)
+        else:
+            params = {}
+        params.update({name: _param_def_from_config(p)
+                       for name, p in (cfg.get("params") or {}).items()})
+        level = cfg.get("level") if isinstance(cfg.get("level"), dict) else {}
         defs[sound] = SoundDef(
             sound=sound,
             aliases=tuple(cfg.get("aliases") or ()),
-            backend=cfg.get("backend", "tone"),
+            backend=backend,
             recipe=cfg.get("recipe"),
             asset=cfg.get("asset"),
             tags=tuple(cfg.get("tags") or ()),
@@ -217,6 +264,7 @@ def load_sound_defs() -> dict[str, SoundDef]:
             params=params,
             description=cfg.get("description", ""),
             path=cfg_path.parent,
+            level=level,
         )
     return defs
 
@@ -309,10 +357,104 @@ def catalog_version() -> int:
     return CATALOG_VERSION
 
 
+# ---------------------------------------------------------------------------
+# CATALOG.md — generated, never hand-edited (an importer can add 55 rows)
+# ---------------------------------------------------------------------------
+
+CATALOG_MD_PATH = SFX_DIR / "CATALOG.md"
+TAG_ORDER = ("transition", "impact", "emphasis", "riser", "ui", "glitch",
+             "organic", "ambient", "accent")
+
+
+def _primary_tag(d):
+    known = [t for t in TAG_ORDER if t in d.tags]
+    return known[0] if known else (d.tags[0] if d.tags else "zzz")
+
+
+def _table_rows(defs):
+    rows = []
+    for d in sorted(defs, key=lambda x: (TAG_ORDER.index(_primary_tag(x))
+                                         if _primary_tag(x) in TAG_ORDER else 99,
+                                         x.sound)):
+        moods = ", ".join(d.moods)
+        tags = ", ".join(d.tags)
+        line = d.description.strip().replace("|", "\\|")
+        rows.append(f"| `{d.sound}` | {moods} | {tags} | {line} |")
+    return rows
+
+
+def catalog_markdown() -> str:
+    """Whole CATALOG.md, derived from the configs (deterministic, sorted)."""
+    defs = load_sound_defs()
+    tone = [d for d in defs.values() if d.backend == "tone"]
+    samp = [d for d in defs.values() if d.backend == "sample"]
+    beds = len(BGM_TRACKS)
+    out = [
+        "# SFX Catalog",
+        "",
+        "Every sound in `sfx/sounds/` — "
+        f"**{len(defs)} entries** ({len(tone)} synthesized, {len(samp)} samples).",
+        "Generated: `python scripts/sfx_catalog.py --write-catalog-md` "
+        "(never hand-edit). Pick by tag + mood, then read the sound's `sfx.md`.",
+        "",
+        f"**Engine note (catalog v{CATALOG_VERSION}):** `backend: \"tone\"` renders on the",
+        "Tone.js/WebAudio engine (`sfx/sounds/<id>/recipe.mjs`, batched into one `node`",
+        "invocation, seeded per cue, byte-identical per cue). `backend: \"sample\"` plays a",
+        "bundled MP3 (decoded via ffmpeg, SHA-256 pinned in `assets/manifest.json`).",
+        f"Both are mixed under the {beds} BGM beds at stitch time. Sample levels are matched",
+        "to the measured voiceover at mix time, so `default_volume` sets relative prominence,",
+        "never an absolute dB value (law in [`SCHEMA.md`](./SCHEMA.md)).",
+        "",
+        "## Synthesized (`tone`)",
+        "",
+        "| Sound | Moods | Tags | One-line |",
+        "|---|---|---|---|",
+    ]
+    out += _table_rows(tone)
+    out += [
+        "",
+        "## Samples (`sample`)",
+        "",
+        "| Sound | Moods | Tags | One-line |",
+        "|---|---|---|---|",
+    ]
+    out += _table_rows(samp)
+    out += ["", "## By tag", ""]
+    by_tag = {}
+    for d in sorted(defs.values(), key=lambda x: x.sound):
+        for t in d.tags:
+            by_tag.setdefault(t, []).append(d.sound)
+    for tag in list(TAG_ORDER) + sorted(set(by_tag) - set(TAG_ORDER)):
+        names = by_tag.get(tag)
+        if not names:
+            continue
+        out.append(f"- `{tag}` ({len(names)}) — " + ", ".join(f"`{n}`" for n in names))
+    aliases = sorted((a, d.sound) for d in defs.values() for a in d.aliases)
+    out += ["", "## Aliases", "", "| Alias | Sound |", "|---|---|"]
+    out += [f"| `{a}` | `{s}` |" for a, s in aliases]
+    out += [""]
+    return "\n".join(out)
+
+
+def write_catalog_md() -> Path:
+    tmp = CATALOG_MD_PATH.with_name(CATALOG_MD_PATH.name + ".tmp")
+    tmp.write_text(catalog_markdown(), encoding="utf-8")
+    tmp.replace(CATALOG_MD_PATH)
+    return CATALOG_MD_PATH
+
+
 if __name__ == "__main__":
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Validate the sfx/ catalog")
+    ap.add_argument("--write-catalog-md", action="store_true",
+                    help="Regenerate sfx/CATALOG.md from the sound configs")
+    args = ap.parse_args()
     errs = validate_catalog()
     if errs:
         for e in errs:
             print("ERROR:", e, file=sys.stderr)
         sys.exit(1)
+    if args.write_catalog_md:
+        print(f"wrote {write_catalog_md()}")
     print(f"catalog OK: {len(load_sound_defs())} sounds, v{CATALOG_VERSION}")

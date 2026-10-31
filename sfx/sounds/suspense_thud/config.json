@@ -1,0 +1,33 @@
+{
+  "sound": "suspense_thud",
+  "aliases": [
+    "dread-thud",
+    "low-thud",
+    "ominous-pulse"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/suspense_thud.mp3",
+  "source": "wooshes, risers, and hits/suspense thud.wav",
+  "tags": [
+    "impact",
+    "ambient"
+  ],
+  "moods": [
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 3.32,
+  "params": {},
+  "description": "Heavy muffled thud with a long dark tail \u2014 a bad-news beat, a pause for dread, a heavy landing.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 3.319,
+      "integrated_lufs": -17.3,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -6.3
+    }
+  }
+}

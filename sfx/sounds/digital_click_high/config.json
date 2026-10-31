@@ -1,0 +1,33 @@
+{
+  "sound": "digital_click_high",
+  "aliases": [
+    "high-ui-click",
+    "bright-tick",
+    "hi-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/digital_click_high.mp3",
+  "source": "mechanical sfx/high digital click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "playful",
+    "calm"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Tiny bright digital tick with glassy top end \u2014 cursor moving, selection snapping, fast UI actions.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.267,
+      "true_peak_dbfs": -2.3,
+      "loudest_400ms_dbfs": -18.4
+    }
+  }
+}

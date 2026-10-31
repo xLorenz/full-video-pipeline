@@ -30,6 +30,226 @@
       "sha256": "47eea189f2056d5c2dc7f5cddd3317357e31473f496baaf0be9e200bec6e5ed6"
     },
     {
+      "file": "pack/games/creeper_explode.mp3",
+      "sha256": "12977f2272807a8216413326a891794e9985cf6c3e8868dffdf82d3c77116a17"
+    },
+    {
+      "file": "pack/games/dog_bark.mp3",
+      "sha256": "9a50e8a5b7a9505c6e26743403369bcd373d88b92f4c7269ed03e184a30e0bc8"
+    },
+    {
+      "file": "pack/games/eshop_ding.mp3",
+      "sha256": "4ebe514274020f729805e74b78b79646d276b40d2c494752dacd75d9292f39b8"
+    },
+    {
+      "file": "pack/games/game_click.mp3",
+      "sha256": "f3deba2bc202abafdcd57d10ff26acec46f3261d78669c8cb4090d3f90f258a4"
+    },
+    {
+      "file": "pack/games/game_pop.mp3",
+      "sha256": "5ec19f09ee86e57895136a30d2743a285bab4f35cbda10a60ec23b650e8fd184"
+    },
+    {
+      "file": "pack/games/mc_crit.mp3",
+      "sha256": "742e2da213c22bc53e388b7965baad929c2a7a6c488ba0c8274803854d0eb9d5"
+    },
+    {
+      "file": "pack/games/mc_eat.mp3",
+      "sha256": "bbb027c886b31d02a19acc1f5eac2d889674f89816327643926d42337173f10c"
+    },
+    {
+      "file": "pack/games/mc_hit.mp3",
+      "sha256": "144b20eed51bd37f2aaf02d2eed376cb240d40b1c00cf5221a1d12bee7dd5158"
+    },
+    {
+      "file": "pack/games/mc_level_up.mp3",
+      "sha256": "a0c4f2e75b0c16de15e06d2df987313fef9614426237b43de2f334ac21479b78"
+    },
+    {
+      "file": "pack/games/mc_oof.mp3",
+      "sha256": "68b2b82177e42e4b17b77edcd7cba8cfbb56d1a079ca3dd8d6dd248fa6fdcfad"
+    },
+    {
+      "file": "pack/games/minecraft_chest.mp3",
+      "sha256": "8fe071dc1a5636866a35f716503c2f86cb8a876bf88e0da73ee9f7cbc5266bdc"
+    },
+    {
+      "file": "pack/games/minecraft_click.mp3",
+      "sha256": "f5cd22a38ee6ce285884c14a4ff0e30ab166f518978a097917181e90b024ed10"
+    },
+    {
+      "file": "pack/games/open_home.mp3",
+      "sha256": "9965014187917369e14ec591cb99d012df68a4197fede80c63a1038f8ac96142"
+    },
+    {
+      "file": "pack/games/pokemon_ding.mp3",
+      "sha256": "101bb18ed233f5288f7da07716eec7f216e4cb576a09aefdf410e080f6395a27"
+    },
+    {
+      "file": "pack/games/sheep_bleat.mp3",
+      "sha256": "2045e12976191b969ad2f83e078401b4f6eda5fab51963e7ec53adf6a3abc971"
+    },
+    {
+      "file": "pack/mechanical/cash_register.mp3",
+      "sha256": "4666ce26a3455eb348c760cb1a3414c33332a262c33efa9b4175a80d5919ab87"
+    },
+    {
+      "file": "pack/mechanical/charge_up.mp3",
+      "sha256": "78a64cf6dcdc42cb95a82141301c77a19d20a5cc55ff865247b7f4d1fc11c3cd"
+    },
+    {
+      "file": "pack/mechanical/cinematic_boom.mp3",
+      "sha256": "779ba8078b4a834802cdbedc4e7eff715978bd3312292439c92ae9f18d161f1f"
+    },
+    {
+      "file": "pack/mechanical/clock_tick.mp3",
+      "sha256": "6489c979d06bf0a084bfb20fe022b3642adf48e67c29b72d8ba5a72c3db2e895"
+    },
+    {
+      "file": "pack/mechanical/device_click.mp3",
+      "sha256": "d3ef37ae27ce98f229f8d3e504195f6a9ff87680b04a696db5d873a8bd1a0fb9"
+    },
+    {
+      "file": "pack/mechanical/digital_click.mp3",
+      "sha256": "caeb8a9dc59c7ee2886feab7506d3be2eee7670e66e592c81ea4f4da78d6d179"
+    },
+    {
+      "file": "pack/mechanical/digital_click_high.mp3",
+      "sha256": "d2ce33def4a7fe5f33a93c8357613d289332a6e71924f6c67cdf322f99c86b75"
+    },
+    {
+      "file": "pack/mechanical/digital_click_low.mp3",
+      "sha256": "efe90828efc446d6def9c1f82a70932468a3658c674ce503591fe46b91156208"
+    },
+    {
+      "file": "pack/mechanical/flash.mp3",
+      "sha256": "f79b527ed6037f5b2dba80e26b22398a4b50fb241613b7c896bb0f4a42171022"
+    },
+    {
+      "file": "pack/mechanical/gears.mp3",
+      "sha256": "2f5ff13c1e312a014692623133412bbd8413fd6f404fdf677c0023d7f97ec76e"
+    },
+    {
+      "file": "pack/mechanical/glitch_loop.mp3",
+      "sha256": "486d3ab6ea4e19be76f0c970f1ecdf9d7dcf28fd8ef7537ebddf157982a7e235"
+    },
+    {
+      "file": "pack/mechanical/mouse_click.mp3",
+      "sha256": "8f72203d9a55fea25c6f299ed73c61a7113f9e9b6070f29feba8c94e4f42d507"
+    },
+    {
+      "file": "pack/mechanical/pay_ding.mp3",
+      "sha256": "b5c9a1922d0b7bec69bf9a888bc44958cef073c82ff0c7c0327f03cb6aae7df3"
+    },
+    {
+      "file": "pack/mechanical/phone_typing.mp3",
+      "sha256": "4e67bfd99748281941ff2b50d294369de69fd7281c72281e18a264e2d970b5f3"
+    },
+    {
+      "file": "pack/mechanical/pop_up.mp3",
+      "sha256": "996a7602881d69c44a26ae386771e9929de46a0bd225de7358e6b96ef158c92e"
+    },
+    {
+      "file": "pack/mechanical/radio_beep.mp3",
+      "sha256": "c5d2be7b939b5e8778c56e7b7404c87fe969c999f72f5bc50b6f290dcd248927"
+    },
+    {
+      "file": "pack/mechanical/ratchet.mp3",
+      "sha256": "98b1240e988b5dae483e143ddc43c62a70a2dbefc528f2501c6acd88347f5c13"
+    },
+    {
+      "file": "pack/mechanical/slo_motion.mp3",
+      "sha256": "064100198b7e6ccc58b8f66befc75d2dd9b38a4e8c5ce295f147ea63b6742527"
+    },
+    {
+      "file": "pack/mechanical/stutter.mp3",
+      "sha256": "3d41fe5fbbcd3f14d4c9cae8f3635699d9074ee6183556f4445b0be3d0ecb5b4"
+    },
+    {
+      "file": "pack/mechanical/typing.mp3",
+      "sha256": "b78ba65b7f80737d2fc3d6f66b21ece5ec915209d0f3089650b9cf06eb69345e"
+    },
+    {
+      "file": "pack/mechanical/ui_pop.mp3",
+      "sha256": "c881305f0192601f6947efc480e89f7493fc668b770ab9fc31644d4924f5aa21"
+    },
+    {
+      "file": "pack/woosh/airy_woosh.mp3",
+      "sha256": "ee8e34ffd02aea454a87c2e013ba82ddce026a6dfdd887cb8458a328cbdc788e"
+    },
+    {
+      "file": "pack/woosh/dark_riser.mp3",
+      "sha256": "e552a26a5e12bff54f18acfb310e0a9159416936a886aa31f89d19b8f4e2d7f6"
+    },
+    {
+      "file": "pack/woosh/deep_bass.mp3",
+      "sha256": "efd6a986f454e2b15859ebd5835fdd974a02bf2d26a79bcd8a18eb70b40bbbb2"
+    },
+    {
+      "file": "pack/woosh/deep_woosh.mp3",
+      "sha256": "beef391e8bfcf49fb933757f231f8a3c4bfe4fb428aabeb897c7e3ec66d64bf8"
+    },
+    {
+      "file": "pack/woosh/energy_burst.mp3",
+      "sha256": "7c380758bb3ffd768bc8f154107c2443faa834ea8251fa1f7ee6a15ae57b79f9"
+    },
+    {
+      "file": "pack/woosh/ethereal_riser.mp3",
+      "sha256": "dccfa4fc61e72c5088321c8310230e89453288be1110284cb13d3beca61c684e"
+    },
+    {
+      "file": "pack/woosh/impact_transition.mp3",
+      "sha256": "b9e707cb0e1bcb8aa866ca23250cd8d6cce88b5d5c8e33490f53b44f61fb1f32"
+    },
+    {
+      "file": "pack/woosh/metallic_hit.mp3",
+      "sha256": "c4d362fdf8703d63ee21ecabdb6a591153b498b5d7397f2e1882f1a14a29a102"
+    },
+    {
+      "file": "pack/woosh/metallic_riser.mp3",
+      "sha256": "292bc5847c26f518e0ddf0d59d71b0dfaa091da5a6ddd96789b46c5b0312d25e"
+    },
+    {
+      "file": "pack/woosh/mind_riser.mp3",
+      "sha256": "a8111e746e895493e3b539cdc3dd2b57901e7a7269dbf3757c4c51a0e03dea74"
+    },
+    {
+      "file": "pack/woosh/orchestra_hit.mp3",
+      "sha256": "42f1971ea1dd1720a6a8c2f88be2e8802b5dd2b2ba5ab15eab6494f2815f784a"
+    },
+    {
+      "file": "pack/woosh/reality_riser.mp3",
+      "sha256": "230e6ab4724b5d577307a117a14bc2763ffb51b1f013109615e79bf621737bcb"
+    },
+    {
+      "file": "pack/woosh/riser_reverb.mp3",
+      "sha256": "37505a3925830db2bafbe84a996b881fcacfee0dadd9094d1b618f77ed55b626"
+    },
+    {
+      "file": "pack/woosh/sci_fi_woosh.mp3",
+      "sha256": "fcf57059bbece317f9c7db34aa397ad263c64cc0797ce2375d6afb08f6b68837"
+    },
+    {
+      "file": "pack/woosh/short_woosh.mp3",
+      "sha256": "a912a0f88040b576024ba3c2b8497b8add144470ad5755541d53cc2cbca34a92"
+    },
+    {
+      "file": "pack/woosh/suspense_thud.mp3",
+      "sha256": "c9716146c1d2b50558935635e8aa55975c0b4d154cd4ee996af3f6803d4bda78"
+    },
+    {
+      "file": "pack/woosh/sword_sling.mp3",
+      "sha256": "655d297d7e2302e228c6d80e5c13fa89594eaf5e0dae8e4b205763f0299c5b10"
+    },
+    {
+      "file": "pack/woosh/unique_woosh.mp3",
+      "sha256": "99a0616aad85a7f0eda87b4baa09b3161e6b8e52fdac8768e25067bd0c89756f"
+    },
+    {
+      "file": "pack/woosh/wind_woosh.mp3",
+      "sha256": "8543c569742c1198d123a4619e39b72c2ba6996affb6d6421eef76b592c08b70"
+    },
+    {
       "file": "paper_01.mp3",
       "sha256": "cd3a6d7b7d63b698669ab5d0bba2669f8f13e76a9959bbbc7043f0885082e4ea"
     },

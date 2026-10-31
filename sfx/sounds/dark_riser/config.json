@@ -1,0 +1,32 @@
+{
+  "sound": "dark_riser",
+  "aliases": [
+    "ominous-build",
+    "dark-build"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/dark_riser.mp3",
+  "source": "wooshes, risers, and hits/dark riser.wav",
+  "tags": [
+    "riser",
+    "transition"
+  ],
+  "moods": [
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 3.42,
+  "params": {},
+  "description": "Low ominous build that swells in pitch and volume \u2014 approaching threat, reveal of a problem, pre-drop tension.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 3.415,
+      "integrated_lufs": -18.8,
+      "true_peak_dbfs": -1.6,
+      "loudest_400ms_dbfs": -11.4
+    }
+  }
+}

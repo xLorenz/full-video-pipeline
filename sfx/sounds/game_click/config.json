@@ -1,0 +1,34 @@
+{
+  "sound": "game_click",
+  "aliases": [
+    "menu-select-click",
+    "game-ui-select",
+    "console-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/game_click.mp3",
+  "source": "video games/game click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "neutral",
+    "upbeat"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 0.69,
+  "params": {},
+  "description": "Chunky console menu select click with a bright ping \u2014 picking an option in a game menu or app.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.692,
+      "integrated_lufs": -23.5,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -24.6
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "sound": "ethereal_riser",
+  "aliases": [
+    "dream-riser",
+    "airy-build",
+    "shimmer-riser"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/ethereal_riser.mp3",
+  "source": "wooshes, risers, and hits/ethereal riser.mp3",
+  "tags": [
+    "riser",
+    "ambient"
+  ],
+  "moods": [
+    "calm",
+    "neutral",
+    "serious"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Shimmering airy swell with a soft choir-like top \u2014 an uplifting build into a hopeful or wondrous reveal.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 5.422,
+      "integrated_lufs": -15.9,
+      "true_peak_dbfs": -1.8,
+      "loudest_400ms_dbfs": -12.7
+    }
+  }
+}

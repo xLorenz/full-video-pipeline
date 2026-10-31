@@ -1,0 +1,34 @@
+{
+  "sound": "unique_woosh",
+  "aliases": [
+    "odd-whoosh",
+    "textured-swoosh",
+    "flanged-whoosh"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/unique_woosh.mp3",
+  "source": "wooshes, risers, and hits/unique woosh.wav",
+  "tags": [
+    "transition",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "playful",
+    "humorous"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.44,
+  "params": {},
+  "description": "Flanged, slightly warped whoosh with a curious texture \u2014 a playful transition with a bit of character.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.436,
+      "integrated_lufs": -23.9,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -9.8
+    }
+  }
+}

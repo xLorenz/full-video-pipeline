@@ -1,0 +1,35 @@
+{
+  "sound": "cinematic_boom",
+  "aliases": [
+    "trailer-boom",
+    "low-boom",
+    "bass-drop-boom"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/cinematic_boom.mp3",
+  "source": "mechanical sfx/cinematic boom.mp3",
+  "tags": [
+    "impact",
+    "transition",
+    "emphasis"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Deep sub-heavy cinematic boom with long tail \u2014 title cards, hard cuts, trailer-style reveals.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 5.0,
+      "integrated_lufs": -15.8,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -6.8
+    }
+  }
+}

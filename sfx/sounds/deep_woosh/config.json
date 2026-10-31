@@ -1,0 +1,34 @@
+{
+  "sound": "deep_woosh",
+  "aliases": [
+    "low-whoosh",
+    "heavy-swoosh",
+    "cinematic-whoosh"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/deep_woosh.mp3",
+  "source": "wooshes, risers, and hits/deep woosh.mp3",
+  "tags": [
+    "transition",
+    "impact"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 3.2,
+  "params": {},
+  "description": "Long low cinematic whoosh with a dark tail \u2014 a heavy camera move, big scene change.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 3.2,
+      "integrated_lufs": -16.4,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -7.9
+    }
+  }
+}

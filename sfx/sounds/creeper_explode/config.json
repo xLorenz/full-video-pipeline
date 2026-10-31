@@ -1,0 +1,34 @@
+{
+  "sound": "creeper_explode",
+  "aliases": [
+    "creeper-explosion",
+    "minecraft-explosion",
+    "creeper-boom"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/creeper_explode.mp3",
+  "source": "video games/creeper expode.mp3",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "humorous",
+    "playful",
+    "tense"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 3.16,
+  "params": {},
+  "description": "Minecraft creeper hiss into a chunky blocky explosion \u2014 an 'uh oh' beat, plan blowing up, sudden chaos.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 3.158,
+      "integrated_lufs": -18.8,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -13.1
+    }
+  }
+}

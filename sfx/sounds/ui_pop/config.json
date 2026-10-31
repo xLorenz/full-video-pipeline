@@ -1,0 +1,34 @@
+{
+  "sound": "ui_pop",
+  "aliases": [
+    "soft-pop",
+    "upward-pop",
+    "ui-blip"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/ui_pop.mp3",
+  "source": "mechanical sfx/ui pop.mp3",
+  "tags": [
+    "ui",
+    "emphasis"
+  ],
+  "moods": [
+    "playful",
+    "neutral",
+    "upbeat"
+  ],
+  "default_volume": 0.45,
+  "max_tail_seconds": 1.32,
+  "params": {},
+  "description": "Soft rising bloop-pop with a friendly tail \u2014 small success toasts, chips appearing, gentle confirmations.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.32,
+      "integrated_lufs": -29.0,
+      "true_peak_dbfs": -10.7,
+      "loudest_400ms_dbfs": -28.6
+    }
+  }
+}

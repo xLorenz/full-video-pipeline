@@ -1,0 +1,32 @@
+{
+  "sound": "mc_oof",
+  "aliases": [
+    "mc-oof",
+    "oof-sound",
+    "hurt-grunt"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/mc_oof.mp3",
+  "source": "video games/minecraft oof.mp3",
+  "tags": [
+    "impact",
+    "accent"
+  ],
+  "moods": [
+    "humorous",
+    "playful"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "The Minecraft 'oof' hurt grunt \u2014 someone takes damage or a plan fails comically.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.366,
+      "true_peak_dbfs": -3.7,
+      "loudest_400ms_dbfs": -18.6
+    }
+  }
+}

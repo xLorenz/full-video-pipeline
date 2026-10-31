@@ -1,0 +1,34 @@
+{
+  "sound": "short_woosh",
+  "aliases": [
+    "quick-whoosh",
+    "swoosh-fast",
+    "swipe-short"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/short_woosh.mp3",
+  "source": "wooshes, risers, and hits/short woosh.wav",
+  "tags": [
+    "transition",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "calm",
+    "playful"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 2.26,
+  "params": {},
+  "description": "Quick tight whoosh with a clean taper \u2014 a fast object swipe, smaller transition, text flipping in.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.257,
+      "integrated_lufs": -21.7,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -13.9
+    }
+  }
+}

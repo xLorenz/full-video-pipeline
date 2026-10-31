@@ -1,0 +1,34 @@
+{
+  "sound": "metallic_riser",
+  "aliases": [
+    "steel-riser",
+    "machine-riser",
+    "metal-build"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/metallic_riser.mp3",
+  "source": "wooshes, risers, and hits/metallic riser.mp3",
+  "tags": [
+    "riser",
+    "transition"
+  ],
+  "moods": [
+    "tense",
+    "serious",
+    "neutral"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 1.97,
+  "params": {},
+  "description": "Scraping metallic rise that tightens into a peak \u2014 machinery accelerating, tech building to a reveal.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.973,
+      "integrated_lufs": -19.9,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -17.0
+    }
+  }
+}

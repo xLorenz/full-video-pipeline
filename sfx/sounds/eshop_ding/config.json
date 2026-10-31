@@ -1,0 +1,34 @@
+{
+  "sound": "eshop_ding",
+  "aliases": [
+    "nintendo-ding",
+    "shop-ding",
+    "store-purchase-ding"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/eshop_ding.mp3",
+  "source": "video games/eshop ding.mp3",
+  "tags": [
+    "ui",
+    "emphasis"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "neutral"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 1.64,
+  "params": {},
+  "description": "Chirpy Nintendo eShop style purchase chime \u2014 buying something in a game or app, store confirmation.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.635,
+      "integrated_lufs": -18.9,
+      "true_peak_dbfs": -5.9,
+      "loudest_400ms_dbfs": -15.7
+    }
+  }
+}

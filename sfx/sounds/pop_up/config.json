@@ -1,0 +1,32 @@
+{
+  "sound": "pop_up",
+  "aliases": [
+    "notification-pop",
+    "ui-popup"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/pop_up.mp3",
+  "source": "mechanical sfx/pop up.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "neutral",
+    "upbeat"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Round plastic pop as something appears \u2014 notification bounces in, tooltip opens, card pops up.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.367,
+      "true_peak_dbfs": -1.5,
+      "loudest_400ms_dbfs": -22.6
+    }
+  }
+}

@@ -1,0 +1,1656 @@
+{
+  "entries": [
+    {
+      "source": "mechanical sfx/apple pay ding.mp3",
+      "id": "pay_ding",
+      "family": "mechanical",
+      "aliases": [
+        "apple-pay",
+        "payment-ding",
+        "transaction-chime"
+      ],
+      "tags": [
+        "ui",
+        "emphasis"
+      ],
+      "moods": [
+        "calm",
+        "neutral",
+        "playful"
+      ],
+      "default_volume": 0.5,
+      "description": "Bright two-note Apple Pay confirm chime — checkout success, payment accepted, 'transaction complete' beats.",
+      "use": [
+        "payment success animation on screen",
+        "small positive confirmation",
+        "wallet or card tap in a UI mockup"
+      ],
+      "avoid": [
+        "as a big milestone — it is a polite chime, not a fanfare",
+        "layering with other success dings"
+      ]
+    },
+    {
+      "source": "mechanical sfx/cash register.wav",
+      "id": "cash_register",
+      "family": "mechanical",
+      "aliases": [
+        "till",
+        "register-ka-ching",
+        "checkout-ding"
+      ],
+      "tags": [
+        "emphasis",
+        "accent"
+      ],
+      "moods": [
+        "upbeat",
+        "playful",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Classic ka-ching till with drawer clack — revenue, sale closed, money-on-screen reveals.",
+      "use": [
+        "sales or revenue number lands",
+        "price tag or cart total appears",
+        "retro commerce punchline"
+      ],
+      "avoid": [
+        "serious finance analysis — reads as novelty",
+        "repeating per item in a long list"
+      ]
+    },
+    {
+      "source": "mechanical sfx/charge.mp4",
+      "id": "charge_up",
+      "family": "mechanical",
+      "aliases": [
+        "power-up-charge",
+        "energy-charge",
+        "charging"
+      ],
+      "tags": [
+        "riser",
+        "emphasis"
+      ],
+      "moods": [
+        "tense",
+        "upbeat",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Rising electronic whine that builds and peaks — a meter filling, battery charging, power building before a reveal.",
+      "use": [
+        "progress bar charging to full",
+        "ability or device powering on",
+        "pre-reveal build before a cut"
+      ],
+      "avoid": [
+        "under calm narration with no buildup payoff",
+        "as a loop — it is a one-shot build"
+      ]
+    },
+    {
+      "source": "mechanical sfx/cinematic boom.mp3",
+      "id": "cinematic_boom",
+      "family": "mechanical",
+      "aliases": [
+        "trailer-boom",
+        "low-boom",
+        "bass-drop-boom"
+      ],
+      "tags": [
+        "impact",
+        "transition",
+        "emphasis"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Deep sub-heavy cinematic boom with long tail — title cards, hard cuts, trailer-style reveals.",
+      "use": [
+        "chapter title smashes in",
+        "hard cut to a new section",
+        "reveal of a big claim"
+      ],
+      "avoid": [
+        "under intimate or quiet storytelling",
+        "stacking two booms within a second"
+      ],
+      "max_seconds": 5.0,
+      "fade_out": 0.35
+    },
+    {
+      "source": "mechanical sfx/click.mp3",
+      "id": "device_click",
+      "family": "mechanical",
+      "aliases": [
+        "hardware-click",
+        "button-press",
+        "toggle-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm"
+      ],
+      "default_volume": 0.5,
+      "description": "Soft plastic hardware click with slight body — pressing a physical button, switch or remote on screen.",
+      "use": [
+        "toggle flips in a product demo",
+        "physical button press",
+        "remote or switch actuates"
+      ],
+      "avoid": [
+        "punchy comedic emphasis — it is quiet and dry",
+        "rhythmic repetition that turns into ticking"
+      ]
+    },
+    {
+      "source": "mechanical sfx/clock ticking.mp3",
+      "id": "clock_tick",
+      "family": "mechanical",
+      "aliases": [
+        "ticking-clock",
+        "clock-loop"
+      ],
+      "tags": [
+        "ambient",
+        "accent"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.28,
+      "description": "Steady mechanical clock tick loop — a countdown, deadline or waiting beat under narration.",
+      "use": [
+        "deadline countdown on screen",
+        "suspenseful waiting beat",
+        "time-lapse or 'years pass' montage"
+      ],
+      "avoid": [
+        "long stretches under dialogue — becomes hypnotic and distracting",
+        "light comedic scenes where it feels ominous"
+      ]
+    },
+    {
+      "source": "mechanical sfx/flash.mp4",
+      "id": "flash",
+      "family": "mechanical",
+      "aliases": [
+        "camera-flash",
+        "photo-snap",
+        "shutter-flash"
+      ],
+      "tags": [
+        "accent",
+        "emphasis"
+      ],
+      "moods": [
+        "upbeat",
+        "playful",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Camera flash pop with sharp shutter snap — photo captured, screenshot taken, freeze-frame moment.",
+      "use": [
+        "freeze-frame or photo-snap transition",
+        "screenshot captured on screen",
+        "before/after reveal stinger"
+      ],
+      "avoid": [
+        "as a heavy impact — it is bright and small",
+        "pairing with a flashy white transition on every beat"
+      ]
+    },
+    {
+      "source": "mechanical sfx/gears.wav",
+      "id": "gears",
+      "family": "mechanical",
+      "aliases": [
+        "gear-grind",
+        "machinery",
+        "cogs-turning"
+      ],
+      "tags": [
+        "accent",
+        "organic"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.45,
+      "description": "Gritty interlocking gear grind, metallic and low — machinery starting, systems grinding into motion.",
+      "use": [
+        "engine or machine spools up",
+        "process diagram starts moving",
+        "'the system kicks in' beat"
+      ],
+      "avoid": [
+        "delicate or premium product shots",
+        "under soft-spoken narration where grit clashes"
+      ]
+    },
+    {
+      "source": "mechanical sfx/glitch.mp3",
+      "id": "glitch_loop",
+      "family": "mechanical",
+      "aliases": [
+        "digital-glitch",
+        "corruption-loop",
+        "datamosh"
+      ],
+      "tags": [
+        "glitch",
+        "ambient"
+      ],
+      "moods": [
+        "glitch",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.3,
+      "description": "Stuttering digital corruption bed with bitcrushed snaps — screen tearing, broken data, system failure visuals.",
+      "use": [
+        "text or image corrupts on screen",
+        "error state or crash visual",
+        "reality-glitch transition beat"
+      ],
+      "avoid": [
+        "clean corporate explainers — reads as malfunction",
+        "under voiceover without ducking the mids"
+      ]
+    },
+    {
+      "source": "mechanical sfx/high digital click.mp3",
+      "id": "digital_click_high",
+      "family": "mechanical",
+      "aliases": [
+        "high-ui-click",
+        "bright-tick",
+        "hi-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "playful",
+        "calm"
+      ],
+      "default_volume": 0.45,
+      "description": "Tiny bright digital tick with glassy top end — cursor moving, selection snapping, fast UI actions.",
+      "use": [
+        "element selects in a mockup",
+        "list item highlights",
+        "rapid menu navigation"
+      ],
+      "avoid": [
+        "for heavy or final confirmations",
+        "dense repetition on every on-screen element"
+      ]
+    },
+    {
+      "source": "mechanical sfx/low digital click.mp3",
+      "id": "digital_click_low",
+      "family": "mechanical",
+      "aliases": [
+        "low-ui-click",
+        "dark-tick",
+        "lo-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "serious",
+        "calm"
+      ],
+      "default_volume": 0.5,
+      "description": "Muted low digital click, soft and round — committing an action, confirm button, deeper UI step.",
+      "use": [
+        "confirm or submit pressed",
+        "deeper menu level opens",
+        "toggle off / dismiss"
+      ],
+      "avoid": [
+        "as the only rhythm in a fast montage — too soft to lead",
+        "bright playful scenes where it feels dull"
+      ]
+    },
+    {
+      "source": "mechanical sfx/mouse click.mp3",
+      "id": "mouse_click",
+      "family": "mechanical",
+      "aliases": [
+        "computer-click",
+        "mouse-press",
+        "desktop-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm"
+      ],
+      "default_volume": 0.48,
+      "description": "Dry mouse-button click, thin and short — someone clicking through an app, browser or spreadsheet.",
+      "use": [
+        "cursor clicks a link in a screen recording",
+        "app navigation on desktop",
+        "task-by-task software demo"
+      ],
+      "avoid": [
+        "as an impact or emphasis hit",
+        "uncountable repetition without rhythm"
+      ]
+    },
+    {
+      "source": "mechanical sfx/phone typing.mp3",
+      "id": "phone_typing",
+      "family": "mechanical",
+      "aliases": [
+        "mobile-typing",
+        "touchscreen-typing",
+        "texting"
+      ],
+      "tags": [
+        "organic",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm",
+        "playful"
+      ],
+      "default_volume": 0.33,
+      "description": "Soft touchscreen tap-typing bed — someone texting on a phone, search bar filling, message composing.",
+      "use": [
+        "text message being typed on screen",
+        "search query entered on mobile",
+        "chat conversation unfolds"
+      ],
+      "avoid": [
+        "under dense narration — continuous taps compete",
+        "as a one-shot accent"
+      ]
+    },
+    {
+      "source": "mechanical sfx/pop up.mp3",
+      "id": "pop_up",
+      "family": "mechanical",
+      "aliases": [
+        "notification-pop",
+        "ui-popup"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "neutral",
+        "upbeat"
+      ],
+      "default_volume": 0.42,
+      "description": "Round plastic pop as something appears — notification bounces in, tooltip opens, card pops up.",
+      "use": [
+        "notification banner appears",
+        "tooltip or modal opens",
+        "comment or chat bubble lands"
+      ],
+      "avoid": [
+        "serious data reveals — reads cartoonish",
+        "every single element entrance, becomes noisy"
+      ]
+    },
+    {
+      "source": "mechanical sfx/radio beep.mp4",
+      "id": "radio_beep",
+      "family": "mechanical",
+      "aliases": [
+        "comms-beep",
+        "signal-beep",
+        "radio-chirp"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Short clipped radio beep, dry and square — comms opening, alert acknowledged, walkie-talkie cue.",
+      "use": [
+        "radio or comms handoff in a story",
+        "alert acknowledged on a dashboard",
+        "record/transmission start marker"
+      ],
+      "avoid": [
+        "warm friendly confirmations — it is clinical",
+        "layering with other beeps into a siren feel"
+      ]
+    },
+    {
+      "source": "mechanical sfx/ratchet.mp3",
+      "id": "ratchet",
+      "family": "mechanical",
+      "aliases": [
+        "ratchet-click",
+        "wrench-click",
+        "notch-click"
+      ],
+      "tags": [
+        "accent",
+        "impact"
+      ],
+      "moods": [
+        "neutral",
+        "tense",
+        "serious"
+      ],
+      "default_volume": 0.5,
+      "description": "Tight metallic ratchet notch, one firm click — settings locking in, dial stepping, tool tightening.",
+      "use": [
+        "setting steps up a notch",
+        "dial or slider snaps to value",
+        "hardware being tightened or armed"
+      ],
+      "avoid": [
+        "soft organic scenes",
+        "fast repeats — it is a single decisive notch"
+      ]
+    },
+    {
+      "source": "mechanical sfx/short digital click.mp3",
+      "id": "digital_click",
+      "family": "mechanical",
+      "aliases": [
+        "ui-click",
+        "soft-click",
+        "digital-tick"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm",
+        "playful"
+      ],
+      "default_volume": 0.45,
+      "description": "Clean mid-pitch digital click, quick and unobtrusive — the default click for buttons and tab switches.",
+      "use": [
+        "tab switch in a UI mockup",
+        "button press in an app demo",
+        "generic click-to-next beat"
+      ],
+      "avoid": [
+        "as an impact or reveal",
+        "stacking with other clicks on the same frame"
+      ]
+    },
+    {
+      "source": "mechanical sfx/slo-motion.mp4",
+      "id": "slo_motion",
+      "family": "mechanical",
+      "aliases": [
+        "slow-mo",
+        "time-warp",
+        "slowdown-whoosh"
+      ],
+      "tags": [
+        "transition",
+        "accent"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Pitch-dropping time-stretch swirl — speed ramps down into slow motion, or footage drops into a dramatic beat.",
+      "use": [
+        "speed ramp into slow motion",
+        "moment stretches before impact",
+        "detail reveal in dramatic slow-mo"
+      ],
+      "avoid": [
+        "as a normal transition — it demands a speed change",
+        "comedic timing where the drop feels wrong"
+      ]
+    },
+    {
+      "source": "mechanical sfx/stutter.mp3",
+      "id": "stutter",
+      "family": "mechanical",
+      "aliases": [
+        "stutter-glitch",
+        "repeat-stutter",
+        "buffer-stutter"
+      ],
+      "tags": [
+        "glitch",
+        "accent"
+      ],
+      "moods": [
+        "glitch",
+        "humorous",
+        "tense"
+      ],
+      "default_volume": 0.4,
+      "description": "Rapid stuttered repeat with digital grit — audio or video caught buffering, a beat getting stuck.",
+      "use": [
+        "clip freezes and stutters",
+        "text repeats for comic emphasis",
+        "system buffering or lagging"
+      ],
+      "avoid": [
+        "polished corporate tone",
+        "more than once per video — the joke wears out"
+      ]
+    },
+    {
+      "source": "mechanical sfx/typing keyboard.mp3",
+      "id": "typing",
+      "family": "mechanical",
+      "aliases": [
+        "keyboard-typing",
+        "keystrokes",
+        "code-typing"
+      ],
+      "tags": [
+        "organic",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm",
+        "serious"
+      ],
+      "default_volume": 0.35,
+      "description": "Mechanical keyboard clatter bed, steady keystrokes — coding, writing, search terms entered on a desktop.",
+      "use": [
+        "code or prompt typed on screen",
+        "document being written",
+        "search bar fills with text"
+      ],
+      "avoid": [
+        "under heavy narration — continuous clatter masks words",
+        "short accents where you want one crisp key"
+      ]
+    },
+    {
+      "source": "mechanical sfx/ui pop.mp3",
+      "id": "ui_pop",
+      "family": "mechanical",
+      "aliases": [
+        "soft-pop",
+        "upward-pop",
+        "ui-blip"
+      ],
+      "tags": [
+        "ui",
+        "emphasis"
+      ],
+      "moods": [
+        "playful",
+        "neutral",
+        "upbeat"
+      ],
+      "default_volume": 0.45,
+      "description": "Soft rising bloop-pop with a friendly tail — small success toasts, chips appearing, gentle confirmations.",
+      "use": [
+        "success toast slides in",
+        "feature tag appears",
+        "subtle positive UI feedback"
+      ],
+      "avoid": [
+        "major milestones — it is a small nudge",
+        "layering with pay_ding or pop_up on one beat"
+      ]
+    },
+    {
+      "source": "video games/creeper expode.mp3",
+      "id": "creeper_explode",
+      "family": "games",
+      "aliases": [
+        "creeper-explosion",
+        "minecraft-explosion",
+        "creeper-boom"
+      ],
+      "tags": [
+        "impact",
+        "emphasis"
+      ],
+      "moods": [
+        "humorous",
+        "playful",
+        "tense"
+      ],
+      "default_volume": 0.4,
+      "description": "Minecraft creeper hiss into a chunky blocky explosion — an 'uh oh' beat, plan blowing up, sudden chaos.",
+      "use": [
+        "plan or project spectacularly fails",
+        "sudden comic chaos beat",
+        "gaming-reference punchline"
+      ],
+      "avoid": [
+        "serious corporate narration — reads as game-UI content and breaks tone",
+        "meme overuse — once per video maximum, ideally less"
+      ]
+    },
+    {
+      "source": "video games/eshop ding.mp3",
+      "id": "eshop_ding",
+      "family": "games",
+      "aliases": [
+        "nintendo-ding",
+        "shop-ding",
+        "store-purchase-ding"
+      ],
+      "tags": [
+        "ui",
+        "emphasis"
+      ],
+      "moods": [
+        "playful",
+        "upbeat",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Chirpy Nintendo eShop style purchase chime — buying something in a game or app, store confirmation.",
+      "use": [
+        "in-game or app purchase completes",
+        "store items unlocked",
+        "cute positive confirmation beat"
+      ],
+      "avoid": [
+        "serious financial or B2B content",
+        "as a big impact — it is a light jingle"
+      ]
+    },
+    {
+      "source": "video games/game click.mp3",
+      "id": "game_click",
+      "family": "games",
+      "aliases": [
+        "menu-select-click",
+        "game-ui-select",
+        "console-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "neutral",
+        "upbeat"
+      ],
+      "default_volume": 0.45,
+      "description": "Chunky console menu select click with a bright ping — picking an option in a game menu or app.",
+      "use": [
+        "menu option selected in a game",
+        "character or level picked",
+        "selection confirms on a stylized UI"
+      ],
+      "avoid": [
+        "serious enterprise software demos",
+        "dense repetition in a fast menu run"
+      ]
+    },
+    {
+      "source": "video games/game pop.mp3",
+      "id": "game_pop",
+      "family": "games",
+      "aliases": [
+        "coin-pop",
+        "tiny-game-pop",
+        "blip-pop"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "humorous",
+        "neutral"
+      ],
+      "default_volume": 0.45,
+      "description": "Ultra-short bubbly pop blip — a counter increments, a coin or point collected on screen.",
+      "use": [
+        "score or coin counter increments",
+        "small item collected",
+        "fast comic beat between cuts"
+      ],
+      "avoid": [
+        "as a full sound moment — it is 90ms long",
+        "sole punctuation for a big reveal"
+      ]
+    },
+    {
+      "source": "video games/minecraft button click.mp3",
+      "id": "minecraft_click",
+      "family": "games",
+      "aliases": [
+        "mc-button-click",
+        "blocky-click",
+        "minecraft-ui-click"
+      ],
+      "tags": [
+        "ui",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "neutral",
+        "humorous"
+      ],
+      "default_volume": 0.55,
+      "description": "Wooden Minecraft UI button clunk — a menu option pressed in blocky game-style graphics.",
+      "use": [
+        "option selected in a Minecraft-style menu",
+        "blocky UI button pressed",
+        "retro game menu navigation"
+      ],
+      "avoid": [
+        "serious corporate narration — reads as gaming content and clashes",
+        "layering with other game clicks"
+      ]
+    },
+    {
+      "source": "video games/minecraft chest open.mp3",
+      "id": "minecraft_chest",
+      "family": "games",
+      "aliases": [
+        "mc-chest-open",
+        "loot-chest",
+        "chest-reveal"
+      ],
+      "tags": [
+        "ui",
+        "emphasis",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "upbeat",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Minecraft chest creak and open with loot sparkle — a container of goodies revealed, reward unlocked.",
+      "use": [
+        "reward or bonus reveal",
+        "'here's what's inside' moment",
+        "unlocked package or inventory opens"
+      ],
+      "avoid": [
+        "serious corporate narration — unmistakably gaming content",
+        "before a genuinely dramatic reveal"
+      ],
+      "max_seconds": 2.4,
+      "fade_out": 0.2
+    },
+    {
+      "source": "video games/minecraft critical hit.mp3",
+      "id": "mc_crit",
+      "family": "games",
+      "aliases": [
+        "mc-critical-hit",
+        "crit-hit",
+        "critical-strike"
+      ],
+      "tags": [
+        "impact",
+        "emphasis"
+      ],
+      "moods": [
+        "playful",
+        "upbeat",
+        "tense"
+      ],
+      "default_volume": 0.4,
+      "description": "Minecraft critical-hit thwack with a bright ping — a hit landing extra hard, a crit bonus landing.",
+      "use": [
+        "attack lands critically in gameplay footage",
+        "bonus damage or big multiplier hit",
+        "punchy emphasis on a take-down"
+      ],
+      "avoid": [
+        "serious corporate narration — reads as game-UI/gaming content",
+        "as a generic impact in non-game footage"
+      ]
+    },
+    {
+      "source": "video games/minecraft eat.mp3",
+      "id": "mc_eat",
+      "family": "games",
+      "aliases": [
+        "mc-eat",
+        "eating-crunch",
+        "food-chomp"
+      ],
+      "tags": [
+        "organic",
+        "accent"
+      ],
+      "moods": [
+        "humorous",
+        "playful",
+        "neutral"
+      ],
+      "default_volume": 0.38,
+      "description": "Minecraft eating crunch, chompy and cartoonish — someone eats or drinks on screen, food gags.",
+      "use": [
+        "character eats or drinks",
+        "food or snack content beat",
+        "comic 'consuming' gag"
+      ],
+      "avoid": [
+        "serious corporate narration — reads as game-UI/gaming content",
+        "food advertising where it sounds crude"
+      ]
+    },
+    {
+      "source": "video games/minecraft level up.mp3",
+      "id": "mc_level_up",
+      "family": "games",
+      "aliases": [
+        "mc-level-up",
+        "levelup-jingle",
+        "xp-level-up"
+      ],
+      "tags": [
+        "emphasis",
+        "ui"
+      ],
+      "moods": [
+        "upbeat",
+        "playful",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Minecraft XP level-up chime burst — a rank gained, subscription tier unlocked, progress milestone hit.",
+      "use": [
+        "level or rank increases",
+        "milestone or tier reached",
+        "progress bar completes with reward"
+      ],
+      "avoid": [
+        "serious corporate narration — reads as game-UI/gaming content",
+        "as a sad or neutral outcome"
+      ]
+    },
+    {
+      "source": "video games/minecraft oof.mp3",
+      "id": "mc_oof",
+      "family": "games",
+      "aliases": [
+        "mc-oof",
+        "oof-sound",
+        "hurt-grunt"
+      ],
+      "tags": [
+        "impact",
+        "accent"
+      ],
+      "moods": [
+        "humorous",
+        "playful"
+      ],
+      "default_volume": 0.4,
+      "description": "The Minecraft 'oof' hurt grunt — someone takes damage or a plan fails comically.",
+      "use": [
+        "character takes a hit in gameplay",
+        "comic failure or mistake beat",
+        "self-deprecating joke punctuation"
+      ],
+      "avoid": [
+        "serious corporate narration — pure game-UI/meme content, a tone error",
+        "meme overuse — instantly dates the edit if repeated"
+      ]
+    },
+    {
+      "source": "video games/minecrfat dog bark.mp3",
+      "id": "dog_bark",
+      "family": "games",
+      "aliases": [
+        "mc-dog-bark",
+        "minecraft-dog",
+        "wolf-bark"
+      ],
+      "tags": [
+        "organic",
+        "accent"
+      ],
+      "moods": [
+        "humorous",
+        "playful"
+      ],
+      "default_volume": 0.4,
+      "description": "Single chunky Minecraft-style dog bark, blocky and clipped — a dog in gameplay, attention-grabbing pet beat.",
+      "use": [
+        "dog appears or reacts in gameplay",
+        "pet content beat",
+        "sudden comic interruption"
+      ],
+      "avoid": [
+        "meme overuse — a known Minecraft-meme bark, repeated it gets loud and tired",
+        "serious or emotional narration where it undercuts weight"
+      ]
+    },
+    {
+      "source": "video games/minecrfat hit.mp3",
+      "id": "mc_hit",
+      "family": "games",
+      "aliases": [
+        "mc-hit",
+        "minecraft-damage",
+        "blocky-hit"
+      ],
+      "tags": [
+        "impact",
+        "accent"
+      ],
+      "moods": [
+        "playful",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Dull Minecraft-style damage thud, dry and blocky — a hit connecting, damage dealing in gameplay.",
+      "use": [
+        "attack connects in game footage",
+        "damage or penalty dealt",
+        "rhythm of repeated combat hits"
+      ],
+      "avoid": [
+        "generic non-game impact — sounds conspicuously like a game",
+        "serious corporate narration where game tone clashes"
+      ]
+    },
+    {
+      "source": "video games/minecrfat sheep.mp3",
+      "id": "sheep_bleat",
+      "family": "games",
+      "aliases": [
+        "mc-sheep",
+        "sheep-baa",
+        "blocky-bleat"
+      ],
+      "tags": [
+        "organic",
+        "accent"
+      ],
+      "moods": [
+        "humorous",
+        "playful"
+      ],
+      "default_volume": 0.42,
+      "description": "Warbly Minecraft-style sheep baa — a farm animal in gameplay, a silly animal-noise beat.",
+      "use": [
+        "sheep or farm animal on screen",
+        "silly animal gag",
+        "lighthearted gameplay moment"
+      ],
+      "avoid": [
+        "serious narrator tone — the warble reads comic",
+        "alongside other animal/character noises at once"
+      ]
+    },
+    {
+      "source": "video games/open home.mp3",
+      "id": "open_home",
+      "family": "games",
+      "aliases": [
+        "home-open",
+        "app-open-whoosh",
+        "menu-open"
+      ],
+      "tags": [
+        "ui",
+        "transition"
+      ],
+      "moods": [
+        "playful",
+        "neutral",
+        "calm"
+      ],
+      "default_volume": 0.4,
+      "description": "Soft rising app-open swell — a phone screen opens, home menu slides in, app launches.",
+      "use": [
+        "phone home screen appears",
+        "app launches in a demo",
+        "menu screen slides in"
+      ],
+      "avoid": [
+        "big trailer transitions — it is gentle",
+        "as an impact hit"
+      ]
+    },
+    {
+      "source": "video games/pokemon ding.mp3",
+      "id": "pokemon_ding",
+      "family": "games",
+      "aliases": [
+        "pokemon-heal-ding",
+        "pixel-ding",
+        "8bit-ding"
+      ],
+      "tags": [
+        "ui",
+        "emphasis"
+      ],
+      "moods": [
+        "playful",
+        "upbeat",
+        "neutral"
+      ],
+      "default_volume": 0.45,
+      "description": "Retro chiptune two-note ding — stat restored, correct answer, item obtained in a pokemon-style beat.",
+      "use": [
+        "HP or stat fully restored",
+        "correct answer revealed",
+        "collectible obtained"
+      ],
+      "avoid": [
+        "modern premium product demos — reads chiptune-nostalgic",
+        "serious tone overall"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/airy woosh.wav",
+      "id": "airy_woosh",
+      "family": "woosh",
+      "aliases": [
+        "breeze-whoosh",
+        "light-whoosh",
+        "air-swipe"
+      ],
+      "tags": [
+        "transition",
+        "organic"
+      ],
+      "moods": [
+        "calm",
+        "neutral",
+        "serious"
+      ],
+      "default_volume": 0.4,
+      "description": "Breathy airy whoosh with soft highs — a light swipe between scenes, a title drifting in.",
+      "use": [
+        "scene or slide swipe",
+        "text floats onto screen",
+        "soft object pass across frame"
+      ],
+      "avoid": [
+        "heavy action transitions — it has no weight",
+        "on every cut, becomes a nervous tic"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/dark riser.wav",
+      "id": "dark_riser",
+      "family": "woosh",
+      "aliases": [
+        "ominous-build",
+        "dark-build"
+      ],
+      "tags": [
+        "riser",
+        "transition"
+      ],
+      "moods": [
+        "tense",
+        "serious"
+      ],
+      "default_volume": 0.42,
+      "description": "Low ominous build that swells in pitch and volume — approaching threat, reveal of a problem, pre-drop tension.",
+      "use": [
+        "problem or threat introduced",
+        "build to a reveal or drop",
+        "tension rises before a stat lands"
+      ],
+      "avoid": [
+        "light or upbeat segments — it darkens everything",
+        "running past the cut with no payoff"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/deep bass.mp4",
+      "id": "deep_bass",
+      "family": "woosh",
+      "aliases": [
+        "sub-drop",
+        "bass-hit",
+        "low-end-hit"
+      ],
+      "tags": [
+        "impact",
+        "emphasis"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Short sub-bass punch with weight, little high end — a claim landing hard, a logo or stat thumping in.",
+      "use": [
+        "big stat or number lands",
+        "logo or brand mark appears",
+        "ground-shaking emphasis under a line"
+      ],
+      "avoid": [
+        "on laptop speakers it may vanish — pair with a click",
+        "consecutive uses with no gap"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/deep woosh.mp3",
+      "id": "deep_woosh",
+      "family": "woosh",
+      "aliases": [
+        "low-whoosh",
+        "heavy-swoosh",
+        "cinematic-whoosh"
+      ],
+      "tags": [
+        "transition",
+        "impact"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.4,
+      "description": "Long low cinematic whoosh with a dark tail — a heavy camera move, big scene change.",
+      "use": [
+        "weighty scene transition",
+        "camera whips past a large subject",
+        "dramatic zoom or push-in"
+      ],
+      "avoid": [
+        "fast snappy cuts — it takes seconds to resolve",
+        "under quiet dialogue without ducking"
+      ],
+      "max_seconds": 3.2,
+      "fade_out": 0.25
+    },
+    {
+      "source": "wooshes, risers, and hits/energy burst.mp3",
+      "id": "energy_burst",
+      "family": "woosh",
+      "aliases": [
+        "power-burst",
+        "blast-hit",
+        "shock-burst"
+      ],
+      "tags": [
+        "impact",
+        "emphasis"
+      ],
+      "moods": [
+        "upbeat",
+        "tense",
+        "playful"
+      ],
+      "default_volume": 0.4,
+      "description": "Explosive energy burst with a bright crack and fast decay — a power-up, a sudden blast of motion or light.",
+      "use": [
+        "energy or ability fires",
+        "explosive reveal of a value",
+        "hard-hitting action stinger"
+      ],
+      "avoid": [
+        "calm explainers — it is aggressive",
+        "repeated bursts back to back, becomes fatiguing"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/ethereal riser.mp3",
+      "id": "ethereal_riser",
+      "family": "woosh",
+      "aliases": [
+        "dream-riser",
+        "airy-build",
+        "shimmer-riser"
+      ],
+      "tags": [
+        "riser",
+        "ambient"
+      ],
+      "moods": [
+        "calm",
+        "neutral",
+        "serious"
+      ],
+      "default_volume": 0.42,
+      "description": "Shimmering airy swell with a soft choir-like top — an uplifting build into a hopeful or wondrous reveal.",
+      "use": [
+        "hopeful build before a reveal",
+        "wonder or discovery moment",
+        "slow transition into a brighter section"
+      ],
+      "avoid": [
+        "tension or threat beats — it lifts rather than darkens",
+        "short cuts where the swell has no room"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/impact transition.mp3",
+      "id": "impact_transition",
+      "family": "woosh",
+      "aliases": [
+        "transition-hit",
+        "slam-transition",
+        "section-slam"
+      ],
+      "tags": [
+        "transition",
+        "impact"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Hit-and-whoosh combo that slams then sweeps forward — a hard section change with forward momentum.",
+      "use": [
+        "chapter or section change",
+        "hard cut into a new topic",
+        "montage beat shift"
+      ],
+      "avoid": [
+        "soft or reflective transitions",
+        "using it on every cut — it shouts"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/metallic hit.mp4",
+      "id": "metallic_hit",
+      "family": "woosh",
+      "aliases": [
+        "metal-clang",
+        "steel-hit",
+        "metal-strike"
+      ],
+      "tags": [
+        "impact",
+        "accent"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Ringing metallic clang with a long shimmer — metal striking metal, an industrial or mechanical impact.",
+      "use": [
+        "metal object struck or dropped",
+        "industrial or factory imagery",
+        "harsh 'that hurt' accent"
+      ],
+      "avoid": [
+        "warm human-centered storytelling",
+        "pairing with soft UI sounds in one beat"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/metallic riser.mp3",
+      "id": "metallic_riser",
+      "family": "woosh",
+      "aliases": [
+        "steel-riser",
+        "machine-riser",
+        "metal-build"
+      ],
+      "tags": [
+        "riser",
+        "transition"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Scraping metallic rise that tightens into a peak — machinery accelerating, tech building to a reveal.",
+      "use": [
+        "machinery or engine spooling up",
+        "tech or robotics reveal build",
+        "rising pressure before a switch"
+      ],
+      "avoid": [
+        "gentle or human-warm content",
+        "extending past the reveal with no cut"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/mind riser.mp3",
+      "id": "mind_riser",
+      "family": "woosh",
+      "aliases": [
+        "psych-riser",
+        "thought-riser",
+        "cognitive-build"
+      ],
+      "tags": [
+        "riser",
+        "accent"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Warping pitch-bend rise with an eerie sway — a realization forming, a mind racing, a twist approaching.",
+      "use": [
+        "realization or twist dawns",
+        "thought or idea forming on screen",
+        "psych-out bass drop beat"
+      ],
+      "avoid": [
+        "straightforward factual segments — it implies weirdness",
+        "comedic tone where the eeriness clashes"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/orchestra hit.mp3",
+      "id": "orchestra_hit",
+      "family": "woosh",
+      "aliases": [
+        "orchestral-stab",
+        "epic-hit",
+        "brass-hit"
+      ],
+      "tags": [
+        "impact",
+        "emphasis"
+      ],
+      "moods": [
+        "serious",
+        "tense",
+        "playful"
+      ],
+      "default_volume": 0.42,
+      "description": "Brass-and-strings orchestral stab with reverb — a dramatic punchline, epic reveal, mock-cinematic moment.",
+      "use": [
+        "epic reveal or dramatic declaration",
+        "mock-cinematic joke punctuation",
+        "title card punch"
+      ],
+      "avoid": [
+        "quick technical explainers — it is deliberately grand",
+        "stacking with other epic hits"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/reality riser.mp3",
+      "id": "reality_riser",
+      "family": "woosh",
+      "aliases": [
+        "long-riser",
+        "epic-long-build",
+        "suspense-build"
+      ],
+      "tags": [
+        "riser",
+        "ambient",
+        "transition"
+      ],
+      "moods": [
+        "tense",
+        "serious"
+      ],
+      "default_volume": 0.4,
+      "description": "Long escalating drone that climbs to a wall of noise — a long suspense build into a hard reveal.",
+      "use": [
+        "long build across a montage into a payoff",
+        "sustained suspense under a story beat",
+        "escalation into a climax"
+      ],
+      "avoid": [
+        "short 1-2s transitions — use a short riser",
+        "under important dialogue for the full 14s"
+      ],
+      "max_seconds": 9.0,
+      "fade_out": 0.4
+    },
+    {
+      "source": "wooshes, risers, and hits/riser reverb.mp3",
+      "id": "riser_reverb",
+      "family": "woosh",
+      "aliases": [
+        "reverb-build",
+        "swell-riser",
+        "big-build"
+      ],
+      "tags": [
+        "riser",
+        "transition"
+      ],
+      "moods": [
+        "tense",
+        "serious",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Reverb-drenched swell that widens and lifts — a spacious build into a scene change or emotional peak.",
+      "use": [
+        "build into an emotional or dramatic cut",
+        "slow zoom into a landscape",
+        "transition into a big set piece"
+      ],
+      "avoid": [
+        "dialogue-dense passages — the tail washes over speech",
+        "sections that need a clean hard cut"
+      ],
+      "max_seconds": 4.0,
+      "fade_out": 0.3
+    },
+    {
+      "source": "wooshes, risers, and hits/short woosh.wav",
+      "id": "short_woosh",
+      "family": "woosh",
+      "aliases": [
+        "quick-whoosh",
+        "swoosh-fast",
+        "swipe-short"
+      ],
+      "tags": [
+        "transition",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "calm",
+        "playful"
+      ],
+      "default_volume": 0.42,
+      "description": "Quick tight whoosh with a clean taper — a fast object swipe, smaller transition, text flipping in.",
+      "use": [
+        "text or card flips in",
+        "fast element swipe",
+        "quick cut between related shots"
+      ],
+      "avoid": [
+        "big heavy transitions — too small",
+        "on every single cut, becomes mechanical"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/soft sci-fi woosh.wav",
+      "id": "sci_fi_woosh",
+      "family": "woosh",
+      "aliases": [
+        "sci-fi-swoosh",
+        "future-whoosh",
+        "tech-swoosh"
+      ],
+      "tags": [
+        "transition",
+        "ui"
+      ],
+      "moods": [
+        "neutral",
+        "serious",
+        "calm"
+      ],
+      "default_volume": 0.4,
+      "description": "Smooth synth whoosh with a futuristic shimmer — a tech interface swiping, futuristic UI panels moving.",
+      "use": [
+        "futuristic UI panel slides",
+        "sci-fi or tech product transition",
+        "digital element zips across"
+      ],
+      "avoid": [
+        "warm organic storytelling",
+        "stacking with glitch_loop on the same beat"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/suspense thud.wav",
+      "id": "suspense_thud",
+      "family": "woosh",
+      "aliases": [
+        "dread-thud",
+        "low-thud",
+        "ominous-pulse"
+      ],
+      "tags": [
+        "impact",
+        "ambient"
+      ],
+      "moods": [
+        "tense",
+        "serious"
+      ],
+      "default_volume": 0.4,
+      "description": "Heavy muffled thud with a long dark tail — a bad-news beat, a pause for dread, a heavy landing.",
+      "use": [
+        "bad news or threat lands",
+        "dramatic pause under a slow reveal",
+        "heavy landing or failure"
+      ],
+      "avoid": [
+        "uplifting or playful content — it is pure dread",
+        "short upbeat cuts where the tail lingers wrong"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/sword sling.mp3",
+      "id": "sword_sling",
+      "family": "woosh",
+      "aliases": [
+        "sword-whoosh",
+        "blade-swish",
+        "weapon-swish"
+      ],
+      "tags": [
+        "accent",
+        "impact"
+      ],
+      "moods": [
+        "tense",
+        "playful",
+        "neutral"
+      ],
+      "default_volume": 0.42,
+      "description": "Metallic blade swish through air — a sword drawn or swung, a slashing action beat.",
+      "use": [
+        "blade drawn or swung on screen",
+        "slash or cutting action",
+        "fantasy or historical action beat"
+      ],
+      "avoid": [
+        "corporate or software content — sword reads fantasy",
+        "as a normal transition with no blade"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/unique woosh.wav",
+      "id": "unique_woosh",
+      "family": "woosh",
+      "aliases": [
+        "odd-whoosh",
+        "textured-swoosh",
+        "flanged-whoosh"
+      ],
+      "tags": [
+        "transition",
+        "accent"
+      ],
+      "moods": [
+        "neutral",
+        "playful",
+        "humorous"
+      ],
+      "default_volume": 0.4,
+      "description": "Flanged, slightly warped whoosh with a curious texture — a playful transition with a bit of character.",
+      "use": [
+        "stylized scene change",
+        "graphic element warps across",
+        "quirky brand-voice transition"
+      ],
+      "avoid": [
+        "serious documentary tone",
+        "repeating it — the odd texture draws attention"
+      ]
+    },
+    {
+      "source": "wooshes, risers, and hits/wind gust woosh.wav",
+      "id": "wind_woosh",
+      "family": "woosh",
+      "aliases": [
+        "gust-whoosh",
+        "wind-swoosh",
+        "breeze-transition"
+      ],
+      "tags": [
+        "transition",
+        "organic"
+      ],
+      "moods": [
+        "calm",
+        "neutral",
+        "serious"
+      ],
+      "default_volume": 0.32,
+      "description": "Long gusting wind swell that rises and fades — airy scene transitions, outdoor drift, passage of time.",
+      "use": [
+        "airy transition between locations",
+        "outdoor or aerial establishing drift",
+        "time passing in the open air"
+      ],
+      "avoid": [
+        "indoor tech or office scenes",
+        "under whispered narration where it masks breath"
+      ]
+    }
+  ]
+}

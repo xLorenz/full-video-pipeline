@@ -1,0 +1,34 @@
+{
+  "sound": "sci_fi_woosh",
+  "aliases": [
+    "sci-fi-swoosh",
+    "future-whoosh",
+    "tech-swoosh"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/sci_fi_woosh.mp3",
+  "source": "wooshes, risers, and hits/soft sci-fi woosh.wav",
+  "tags": [
+    "transition",
+    "ui"
+  ],
+  "moods": [
+    "neutral",
+    "serious",
+    "calm"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.43,
+  "params": {},
+  "description": "Smooth synth whoosh with a futuristic shimmer \u2014 a tech interface swiping, futuristic UI panels moving.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.429,
+      "integrated_lufs": -18.8,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -13.4
+    }
+  }
+}

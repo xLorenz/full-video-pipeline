@@ -1,0 +1,34 @@
+{
+  "sound": "mc_eat",
+  "aliases": [
+    "mc-eat",
+    "eating-crunch",
+    "food-chomp"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/mc_eat.mp3",
+  "source": "video games/minecraft eat.mp3",
+  "tags": [
+    "organic",
+    "accent"
+  ],
+  "moods": [
+    "humorous",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.38,
+  "max_tail_seconds": 1.6,
+  "params": {},
+  "description": "Minecraft eating crunch, chompy and cartoonish \u2014 someone eats or drinks on screen, food gags.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.602,
+      "integrated_lufs": -21.4,
+      "true_peak_dbfs": -3.7,
+      "loudest_400ms_dbfs": -20.8
+    }
+  }
+}

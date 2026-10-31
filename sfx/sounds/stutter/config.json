@@ -1,0 +1,34 @@
+{
+  "sound": "stutter",
+  "aliases": [
+    "stutter-glitch",
+    "repeat-stutter",
+    "buffer-stutter"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/stutter.mp3",
+  "source": "mechanical sfx/stutter.mp3",
+  "tags": [
+    "glitch",
+    "accent"
+  ],
+  "moods": [
+    "glitch",
+    "humorous",
+    "tense"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.07,
+  "params": {},
+  "description": "Rapid stuttered repeat with digital grit \u2014 audio or video caught buffering, a beat getting stuck.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.071,
+      "integrated_lufs": -21.2,
+      "true_peak_dbfs": -1.2,
+      "loudest_400ms_dbfs": -22.2
+    }
+  }
+}

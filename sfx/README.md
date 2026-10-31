@@ -1,19 +1,25 @@
 # SFX & BGM Catalog
 
-The pipeline's **local sound catalog**: every sound is procedurally synthesized or a bundled
-CC0 sample — no network, no purchases, no attribution needed. One engine + bundled samples:
+The pipeline's **local sound catalog**: every sound is procedurally synthesized, a bundled
+CC0 sample, or an imported pack one-shot — no network, no purchases. One engine, two backends:
 
 - `backend: "tone"` — **Tone.js/WebAudio recipes** (`sfx/sounds/<id>/recipe.mjs`), rendered
   offline by the `sfx-render` npm workspace (`node sfx-render/render.js`), bridged from Python
-   via `scripts/tone_render.py`. All 30 cue sounds run on this engine; the first 22 are 1:1
-   ports of the v2 Python recipes, the last five (success, warning, toggle, bounce, stamp) are
-   skill-informed originals, plus three newer originals (page_turn, sonar_ping, heartbeat).
+  via `scripts/tone_render.py`. 30 cue sounds run on this engine: the first 22 are 1:1 ports of
+  the v2 Python recipes, then `success`, `warning`, `toggle`, `bounce`, `stamp` (skill-informed
+  originals) and `page_turn`, `sonar_ping`, `heartbeat`.
    Rendering is **deterministic**: same cue → byte-identical output
   (`sfx_hash` includes each tone recipe's sha256, so recipe edits re-render automatically).
-- `backend: "sample"` — bundled CC0 assets (rain not needed — `rain` is procedural).
+- `backend: "sample"` — 55 imported one-shots under `sfx/assets/pack/` (mechanical, video
+  games, wooshes/risers/hits) plus 6 bundled CC0 samples (`rain` itself is procedural). Any
+  container works at import (`.mp3`/`.wav`/`.mp4`); everything ships as mono 44.1 kHz MP3.
 
 Narration can never be drowned out because the engine measures the voiceover's real loudness
-and applies a fixed dB gain law (see [`SCHEMA.md`](./SCHEMA.md)).
+and level-matches every cue against it (law in [`SCHEMA.md`](./SCHEMA.md)); every mix writes
+`sfx_levels.json` with the per-cue gain decisions.
+
+`CATALOG.md` is generated from the configs — run `python3 scripts/sfx_catalog.py
+--write-catalog-md` after editing any sound definition.
 
 ## How scenes reference sounds
 
@@ -37,11 +43,37 @@ This is **not a meme library**: comic/exclamation sounds are intentionally absen
 `remotion-best-practices` submodule's `rules/sfx.md` (meme sounds) is superseded by this
 catalog and is **not loaded** in Phase 3 briefs.
 
-## The 0..1 volume knob
+## The volume knob
 
-- `volume: 1.0` sits at ~10 dB below the loudest measured voiceover peak.
-- `volume: 0.5` → −15 dB, `volume: 0.0` → −20 dB (exact law in [`SCHEMA.md`](./SCHEMA.md)).
+Two laws, one promise: a cue is audible and never out-shouts the narration.
+
+- **Samples** are loudness-matched at mix time: the engine measures the voiceover's integrated
+  loudness and its local level under each cue, then places the sample's loudest 400 ms at
+  `voiceover + accent_offset −12 dB`. A cue is then lifted until it clears the music under it
+  (the *ducked* bed, measured with the stitch's own sidechain), and hard-capped 6 dB under the
+  voiceover peak. `volume` sets relative prominence (`0.5` = nominal, each 0.1 ≈ 1 dB).
+- **Tone sounds** keep their designed absolute level, scaled by `volume`
+  (`gain = −10 + (volume − 1) × 10`, relative to the measured voiceover peak).
+- The **bed is levelled against the voiceover** (`bgm.vo_offset_db`, 12 dB): the music's loudest
+  moment stays that far below the narration, so accents have room to sit above the music *and*
+  below the voice. Set it to `0` to keep the bed exactly as authored.
 - The engine clamps and asserts post-mix loudness — you cannot accidentally drown the narration.
+
+Per-cue sample shaping without re-importing: `params.duration` (trim to N s, tail fades over
+`params.fade`), `params.offset` (skip into a long file), `params.gain_db`, `params.pitch`.
+
+## Pack layout
+
+Imported media lives under `sfx/assets/pack/<family>/<id>.mp3` — one folder per source pack
+family, one file per catalog id, all mono 44.1 kHz. Re-import or audit with:
+
+```bash
+python3 scripts/import_sfx_pack.py <pack_dir> --plan sfx/import/sfx-pack-plan.json --check
+python3 scripts/import_sfx_pack.py <pack_dir> --plan sfx/import/sfx-pack-plan.json --dry-run
+```
+
+`--check` reports `ok` / `missing` / `stale` per entry; `--force` re-encodes. The plan file is
+the source of truth for ids, tags, moods, default volumes and trim lengths.
 
 ## BGM beds
 
@@ -90,6 +122,20 @@ The head before `loop_start_seconds` plays once; `[loop_start, loop_end)` tiles 
 
 ## Adding a sound
 
+**Imported media (the fast path).** Add an entry to `sfx/import/sfx-pack-plan.json`
+(`source`, `id`, `family`, `aliases`, `tags`, `moods`, `default_volume`, `description`,
+`use`, `avoid`, optional `max_seconds`/`fade_out`) and run the importer:
+
+```bash
+python3 scripts/import_sfx_pack.py <pack_dir> --plan sfx/import/sfx-pack-plan.json --only <id>
+```
+
+It transcodes (mono 44.1 kHz MP3), strips leading silence, trims with a fade, peak-limits to
+−1 dBFS, measures the result, writes `config.json` + `sfx.md`, updates `manifest.json` and
+regenerates `CATALOG.md`. Never hand-edit `assets/manifest.json` hashes.
+
+**Synthesized from scratch.**
+
 1. Create `sounds/<id>/config.json` + `sounds/<id>/sfx.md` (mirror an existing pair).
 2. Engine: `"backend": "tone"` needs `sounds/<id>/recipe.mjs` exporting `duration` and
    `export default async (Tone, { rng, params, duration, destination, sr }) => {}`. Determinism
@@ -98,12 +144,13 @@ The head before `loop_start_seconds` plays once; `[loop_start, loop_end)` tiles 
    `bufferSource`, `onepoleLP/HP`, `onepoleLPSweep`, `sineSweep`, `envAttack/Decay`, `fadeOut`)
    — never `Tone.Noise` (process-level cache breaks per-job RNG) and never long
    `setValueCurveAtTime` curves (tone schedules one ramp event per curve point).
-3. Validate the catalog: `python3 scripts/validate.py <any-video-dir> --validate-sfx`
-   (tone recipes get `node --check`).
-4. Bump `CATALOG_VERSION` in `scripts/sfx_catalog.py`; regenerate the dial-in preview:
-   `python3 scripts/export_sfx_preview.py --catalog`.
-4. When porting from a human-supplied reference, use the analysis-assisted flow first
+3. When porting from a human-supplied reference, use the analysis-assisted flow first
    (§2.10 of the implementation plan; `node skills/ui-sound-design/tools/analyze-sound.mjs`).
+
+**Both paths:** validate the catalog (`python3 scripts/validate.py <any-video-dir>
+--validate-sfx`; tone recipes get `node --check`), bump `CATALOG_VERSION` in
+`scripts/sfx_catalog.py` if the mix of *existing* sounds changed, then regenerate the dial-in
+preview: `python3 scripts/export_sfx_preview.py --catalog`.
 
 > Attribution: procedural parameters for the click/pop/sweep/bell/error sound families are
 > seeded from the MIT-licensed `ui-sound-design` skill in this repo (`skills/ui-sound-design`).

@@ -1,0 +1,34 @@
+{
+  "sound": "reality_riser",
+  "aliases": [
+    "long-riser",
+    "epic-long-build",
+    "suspense-build"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/reality_riser.mp3",
+  "source": "wooshes, risers, and hits/reality riser.mp3",
+  "tags": [
+    "riser",
+    "ambient",
+    "transition"
+  ],
+  "moods": [
+    "tense",
+    "serious"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Long escalating drone that climbs to a wall of noise \u2014 a long suspense build into a hard reveal.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 9.0,
+      "integrated_lufs": -14.2,
+      "true_peak_dbfs": -1.2,
+      "loudest_400ms_dbfs": -8.5
+    }
+  }
+}

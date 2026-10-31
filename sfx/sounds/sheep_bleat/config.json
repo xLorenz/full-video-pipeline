@@ -1,0 +1,33 @@
+{
+  "sound": "sheep_bleat",
+  "aliases": [
+    "mc-sheep",
+    "sheep-baa",
+    "blocky-bleat"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/sheep_bleat.mp3",
+  "source": "video games/minecrfat sheep.mp3",
+  "tags": [
+    "organic",
+    "accent"
+  ],
+  "moods": [
+    "humorous",
+    "playful"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 0.91,
+  "params": {},
+  "description": "Warbly Minecraft-style sheep baa \u2014 a farm animal in gameplay, a silly animal-noise beat.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.914,
+      "integrated_lufs": -25.5,
+      "true_peak_dbfs": -11.7,
+      "loudest_400ms_dbfs": -26.5
+    }
+  }
+}

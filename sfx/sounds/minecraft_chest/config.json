@@ -1,0 +1,35 @@
+{
+  "sound": "minecraft_chest",
+  "aliases": [
+    "mc-chest-open",
+    "loot-chest",
+    "chest-reveal"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/minecraft_chest.mp3",
+  "source": "video games/minecraft chest open.mp3",
+  "tags": [
+    "ui",
+    "emphasis",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "upbeat",
+    "neutral"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 2.4,
+  "params": {},
+  "description": "Minecraft chest creak and open with loot sparkle \u2014 a container of goodies revealed, reward unlocked.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.4,
+      "integrated_lufs": -24.1,
+      "true_peak_dbfs": -5.1,
+      "loudest_400ms_dbfs": -21.6
+    }
+  }
+}

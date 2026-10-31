@@ -1,0 +1,33 @@
+{
+  "sound": "dog_bark",
+  "aliases": [
+    "mc-dog-bark",
+    "minecraft-dog",
+    "wolf-bark"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/dog_bark.mp3",
+  "source": "video games/minecrfat dog bark.mp3",
+  "tags": [
+    "organic",
+    "accent"
+  ],
+  "moods": [
+    "humorous",
+    "playful"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 0.53,
+  "params": {},
+  "description": "Single chunky Minecraft-style dog bark, blocky and clipped \u2014 a dog in gameplay, attention-grabbing pet beat.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.534,
+      "integrated_lufs": -18.9,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -17.0
+    }
+  }
+}

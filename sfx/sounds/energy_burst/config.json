@@ -1,0 +1,34 @@
+{
+  "sound": "energy_burst",
+  "aliases": [
+    "power-burst",
+    "blast-hit",
+    "shock-burst"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/energy_burst.mp3",
+  "source": "wooshes, risers, and hits/energy burst.mp3",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "upbeat",
+    "tense",
+    "playful"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 2.85,
+  "params": {},
+  "description": "Explosive energy burst with a bright crack and fast decay \u2014 a power-up, a sudden blast of motion or light.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.847,
+      "integrated_lufs": -16.3,
+      "true_peak_dbfs": -1.2,
+      "loudest_400ms_dbfs": -7.4
+    }
+  }
+}

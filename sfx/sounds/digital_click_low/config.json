@@ -1,0 +1,33 @@
+{
+  "sound": "digital_click_low",
+  "aliases": [
+    "low-ui-click",
+    "dark-tick",
+    "lo-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/digital_click_low.mp3",
+  "source": "mechanical sfx/low digital click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "serious",
+    "calm"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Muted low digital click, soft and round \u2014 committing an action, confirm button, deeper UI step.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.253,
+      "true_peak_dbfs": -2.9,
+      "loudest_400ms_dbfs": -29.3
+    }
+  }
+}

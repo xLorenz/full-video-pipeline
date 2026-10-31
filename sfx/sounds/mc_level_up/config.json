@@ -1,0 +1,34 @@
+{
+  "sound": "mc_level_up",
+  "aliases": [
+    "mc-level-up",
+    "levelup-jingle",
+    "xp-level-up"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/mc_level_up.mp3",
+  "source": "video games/minecraft level up.mp3",
+  "tags": [
+    "emphasis",
+    "ui"
+  ],
+  "moods": [
+    "upbeat",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 3.75,
+  "params": {},
+  "description": "Minecraft XP level-up chime burst \u2014 a rank gained, subscription tier unlocked, progress milestone hit.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 3.75,
+      "integrated_lufs": -15.7,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -16.4
+    }
+  }
+}

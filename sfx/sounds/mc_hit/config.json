@@ -1,0 +1,34 @@
+{
+  "sound": "mc_hit",
+  "aliases": [
+    "mc-hit",
+    "minecraft-damage",
+    "blocky-hit"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/mc_hit.mp3",
+  "source": "video games/minecrfat hit.mp3",
+  "tags": [
+    "impact",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "tense",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 0.96,
+  "params": {},
+  "description": "Dull Minecraft-style damage thud, dry and blocky \u2014 a hit connecting, damage dealing in gameplay.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.96,
+      "integrated_lufs": -20.6,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -23.0
+    }
+  }
+}

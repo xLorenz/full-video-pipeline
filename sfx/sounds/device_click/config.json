@@ -1,0 +1,33 @@
+{
+  "sound": "device_click",
+  "aliases": [
+    "hardware-click",
+    "button-press",
+    "toggle-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/device_click.mp3",
+  "source": "mechanical sfx/click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "calm"
+  ],
+  "default_volume": 0.5,
+  "max_tail_seconds": 0.78,
+  "params": {},
+  "description": "Soft plastic hardware click with slight body \u2014 pressing a physical button, switch or remote on screen.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.783,
+      "integrated_lufs": -32.3,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -35.2
+    }
+  }
+}

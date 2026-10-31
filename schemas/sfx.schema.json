@@ -26,7 +26,41 @@
     },
     "asset": {
       "type": "string",
-      "description": "sample backend: filename inside sfx/assets/ (must exist and match manifest.json SHA-256)."
+      "description": "sample backend: path inside sfx/assets/ (subdirectories allowed, e.g. 'pack/games/coin.mp3'; must exist and match manifest.json SHA-256)."
+    },
+    "source": {
+      "type": "string",
+      "description": "Provenance of an imported asset: original pack path or URL. Informational only."
+    },
+    "level": {
+      "type": "object",
+      "description": "Sample-backend loudness metadata. Omit for the engine's default automatic law ('auto').",
+      "properties": {
+        "mode": {
+          "enum": ["auto", "peak"],
+          "default": "auto",
+          "description": "auto = render-time loudness matching against the measured voiceover; peak = legacy 0.9 peak normalization."
+        },
+        "trim_db": {
+          "type": "number",
+          "minimum": -24.0,
+          "maximum": 12.0,
+          "default": 0.0,
+          "description": "Per-sound offset applied after loudness matching (positive = deliberately hotter)."
+        },
+        "measured": {
+          "type": "object",
+          "description": "Informational analysis written by scripts/import_sfx_pack.py (never used for gain math).",
+          "properties": {
+            "duration_seconds": { "type": "number" },
+            "integrated_lufs": { "type": "number" },
+            "true_peak_dbfs": { "type": "number" },
+            "loudest_400ms_dbfs": { "type": "number" },
+            "leading_silence_seconds": { "type": "number" },
+            "trailing_silence_seconds": { "type": "number" }
+          }
+        }
+      }
     },
     "tags": {
       "type": "array",

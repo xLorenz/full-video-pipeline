@@ -1,8 +1,7 @@
 {
   "sound": "scan",
   "aliases": [
-    "scan-sweep",
-    "sonar"
+    "scan-sweep"
   ],
   "backend": "tone",
   "recipe": "scan",

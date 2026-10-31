@@ -1,0 +1,34 @@
+{
+  "sound": "airy_woosh",
+  "aliases": [
+    "breeze-whoosh",
+    "light-whoosh",
+    "air-swipe"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/airy_woosh.mp3",
+  "source": "wooshes, risers, and hits/airy woosh.wav",
+  "tags": [
+    "transition",
+    "organic"
+  ],
+  "moods": [
+    "calm",
+    "neutral",
+    "serious"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 1.8,
+  "params": {},
+  "description": "Breathy airy whoosh with soft highs \u2014 a light swipe between scenes, a title drifting in.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 1.804,
+      "integrated_lufs": -14.7,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -10.5
+    }
+  }
+}

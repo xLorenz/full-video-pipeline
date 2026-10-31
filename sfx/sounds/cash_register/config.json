@@ -1,0 +1,34 @@
+{
+  "sound": "cash_register",
+  "aliases": [
+    "till",
+    "register-ka-ching",
+    "checkout-ding"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/cash_register.mp3",
+  "source": "mechanical sfx/cash register.wav",
+  "tags": [
+    "emphasis",
+    "accent"
+  ],
+  "moods": [
+    "upbeat",
+    "playful",
+    "neutral"
+  ],
+  "default_volume": 0.4,
+  "max_tail_seconds": 2.71,
+  "params": {},
+  "description": "Classic ka-ching till with drawer clack \u2014 revenue, sale closed, money-on-screen reveals.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.711,
+      "integrated_lufs": -19.1,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -17.6
+    }
+  }
+}

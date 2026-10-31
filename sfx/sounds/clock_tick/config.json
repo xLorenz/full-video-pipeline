@@ -1,0 +1,33 @@
+{
+  "sound": "clock_tick",
+  "aliases": [
+    "ticking-clock",
+    "clock-loop"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/clock_tick.mp3",
+  "source": "mechanical sfx/clock ticking.mp3",
+  "tags": [
+    "ambient",
+    "accent"
+  ],
+  "moods": [
+    "tense",
+    "serious",
+    "neutral"
+  ],
+  "default_volume": 0.28,
+  "max_tail_seconds": 4.0,
+  "params": {},
+  "description": "Steady mechanical clock tick loop \u2014 a countdown, deadline or waiting beat under narration.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 8.0,
+      "integrated_lufs": -23.8,
+      "true_peak_dbfs": -1.3,
+      "loudest_400ms_dbfs": -25.7
+    }
+  }
+}

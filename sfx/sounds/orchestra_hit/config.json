@@ -1,0 +1,34 @@
+{
+  "sound": "orchestra_hit",
+  "aliases": [
+    "orchestral-stab",
+    "epic-hit",
+    "brass-hit"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/orchestra_hit.mp3",
+  "source": "wooshes, risers, and hits/orchestra hit.mp3",
+  "tags": [
+    "impact",
+    "emphasis"
+  ],
+  "moods": [
+    "serious",
+    "tense",
+    "playful"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 2.04,
+  "params": {},
+  "description": "Brass-and-strings orchestral stab with reverb \u2014 a dramatic punchline, epic reveal, mock-cinematic moment.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.038,
+      "integrated_lufs": -17.9,
+      "true_peak_dbfs": -1.2,
+      "loudest_400ms_dbfs": -12.7
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "sound": "mind_riser",
+  "aliases": [
+    "psych-riser",
+    "thought-riser",
+    "cognitive-build"
+  ],
+  "backend": "sample",
+  "asset": "pack/woosh/mind_riser.mp3",
+  "source": "wooshes, risers, and hits/mind riser.mp3",
+  "tags": [
+    "riser",
+    "accent"
+  ],
+  "moods": [
+    "tense",
+    "serious",
+    "neutral"
+  ],
+  "default_volume": 0.42,
+  "max_tail_seconds": 2.35,
+  "params": {},
+  "description": "Warping pitch-bend rise with an eerie sway \u2014 a realization forming, a mind racing, a twist approaching.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 2.351,
+      "integrated_lufs": -25.0,
+      "true_peak_dbfs": -8.6,
+      "loudest_400ms_dbfs": -18.4
+    }
+  }
+}

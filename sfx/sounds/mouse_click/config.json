@@ -1,0 +1,32 @@
+{
+  "sound": "mouse_click",
+  "aliases": [
+    "computer-click",
+    "mouse-press",
+    "desktop-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/mechanical/mouse_click.mp3",
+  "source": "mechanical sfx/mouse click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "neutral",
+    "calm"
+  ],
+  "default_volume": 0.48,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Dry mouse-button click, thin and short \u2014 someone clicking through an app, browser or spreadsheet.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.217,
+      "true_peak_dbfs": -1.7,
+      "loudest_400ms_dbfs": -29.7
+    }
+  }
+}

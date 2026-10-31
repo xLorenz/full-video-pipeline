@@ -223,10 +223,13 @@ def export_catalog_preview():
         params = sfx.param_defaults(sound)
         if sound.backend == "tone":
             raw = tone_rendered[f"tone-{sound.sound}"]
+            raw = g.apply_gain_db(raw, g.cue_gain_db(sound.default_volume,
+                                                     cfg_sfx["full_scale_db"]))
         else:
-            raw = g._normalize(g.decode_to_floats(sfx.ASSETS_DIR / sound.asset), 0.9)
-        db = g.cue_gain_db(sound.default_volume, cfg_sfx["full_scale_db"])
-        raw = g.apply_gain_db(raw, db)
+            # No voiceover exists in a catalog preview, so every sample is
+            # loudness-matched to one fixed reference instead of peak-normalized.
+            raw = g.normalize_for_preview(
+                g.decode_to_floats(sfx.ASSETS_DIR / sound.asset), sr, sound)
         # Isolated tmp dir — crash-safe, no repo dotfile litter, no cross-run collision.
         with _tf.TemporaryDirectory(prefix=f"sfxprev-{sound.sound}-") as _td:
             wav = Path(_td) / f"{sound.sound}.wav"

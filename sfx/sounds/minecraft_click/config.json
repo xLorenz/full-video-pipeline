@@ -1,0 +1,33 @@
+{
+  "sound": "minecraft_click",
+  "aliases": [
+    "mc-button-click",
+    "blocky-click",
+    "minecraft-ui-click"
+  ],
+  "backend": "sample",
+  "asset": "pack/games/minecraft_click.mp3",
+  "source": "video games/minecraft button click.mp3",
+  "tags": [
+    "ui",
+    "accent"
+  ],
+  "moods": [
+    "playful",
+    "neutral",
+    "humorous"
+  ],
+  "default_volume": 0.55,
+  "max_tail_seconds": 0.5,
+  "params": {},
+  "description": "Wooden Minecraft UI button clunk \u2014 a menu option pressed in blocky game-style graphics.",
+  "level": {
+    "mode": "auto",
+    "trim_db": 0.0,
+    "measured": {
+      "duration_seconds": 0.319,
+      "true_peak_dbfs": -11.8,
+      "loudest_400ms_dbfs": -38.8
+    }
+  }
+}
