@@ -59,10 +59,72 @@ def validate_file(data_path: Path, schema_path: Path) -> list:
             for err in errors]
 
 
+_RESEARCH_MIN_CHARS = 400
+_RESEARCH_URL_RE = re.compile(r"https?://[^\s)\]>\"']+")
+
+
+def _md_section_body(text: str, heading: str):
+    """Return the body of a '## <heading>' section, or None if absent."""
+    m = re.search(rf"^##[ \t]+{re.escape(heading)}[ \t]*$", text,
+                  re.MULTILINE | re.IGNORECASE)
+    if not m:
+        return None
+    rest = text[m.end():]
+    nxt = re.search(r"^##[ \t]+", rest, re.MULTILINE)
+    return (rest[:nxt.start()] if nxt else rest).strip()
+
+
+def check_research_md(video_dir: Path) -> list:
+    """Step-2 content gate for RESEARCH.md.
+
+    RESEARCH.md is the script writer's ONLY permitted factual source, so an
+    empty stub must not be able to satisfy Step 2 (existence alone would make
+    the gate theatre). Requires the heading contract documented in
+    ``skills/full-video-pipeline/references/phase-1-research-script.md``.
+
+    Enforced at Step 2 only — once scripting has consumed the file, re-running
+    later steps (or `lint-script`) must not fail on projects that predate it.
+    """
+    errors = []
+    path = video_dir / "RESEARCH.md"
+    if not path.exists():
+        errors.append("RESEARCH.md not found — Step 2 must condense research into "
+                      "videos/<title>/RESEARCH.md before scripting")
+        return errors
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if len(text.strip()) < _RESEARCH_MIN_CHARS:
+        errors.append(f"RESEARCH.md is too thin ({len(text.strip())} chars, "
+                      f"need {_RESEARCH_MIN_CHARS}) — condense the actual research")
+
+    for heading in ("Key Claims", "Numbers", "Sources"):
+        if _md_section_body(text, heading) is None:
+            errors.append(f"RESEARCH.md: missing '## {heading}' section")
+
+    numbers = _md_section_body(text, "Numbers")
+    if numbers is not None and not numbers.strip():
+        errors.append("RESEARCH.md: '## Numbers' is empty — list hard numbers, "
+                      "or write 'none' explicitly")
+
+    sources = _md_section_body(text, "Sources")
+    if sources is not None:
+        urls = {u.rstrip(".,;)") for u in _RESEARCH_URL_RE.findall(sources)}
+        if len(urls) < 3:
+            errors.append(f"RESEARCH.md: '## Sources' lists {len(urls)} distinct "
+                          f"URL(s) — need at least 3")
+
+    return errors
+
+
 def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
     """Step-specific checks beyond JSON schema. Returns list of error strings."""
     errors = []
     scenes = data.get("scenes", [])
+
+    # Step 2 is the research gate: scripting reads only RESEARCH.md, so it must
+    # be substantial before Step 3 is allowed to start.
+    if step == 2:
+        errors.extend(check_research_md(video_dir))
 
     # Scene ids must be unique ints — schema uniqueItems cannot express this.
     if scenes:
@@ -129,6 +191,11 @@ def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
                 errors.append(f"Scene {s['id']}: missing or invalid actual_duration_seconds for step {step}")
         errors.extend(check_transcript(video_dir, data))
 
+    cleaned_by_retention = False
+    if step >= 10:
+        retention = pl.load_config(video_dir=video_dir).get("retention", {})
+        cleaned_by_retention = retention.get("clean_scene_mp4s_after_stitch", False)
+
     if step >= 9:
         for s in scenes:
             if s.get("render_status") != "rendered":
@@ -136,7 +203,7 @@ def check_step_requirements(video_dir: Path, data: dict, step: int) -> list:
             scene_file = s.get("scene_file")
             if scene_file:
                 fpath = video_dir / scene_file
-                if not fpath.exists():
+                if not fpath.exists() and not cleaned_by_retention:
                     errors.append(f"Scene {s['id']}: scene_file {scene_file} not found on disk for step {step}")
 
     if step >= 10:

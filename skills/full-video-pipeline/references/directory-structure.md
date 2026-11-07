@@ -2,7 +2,9 @@
 
 ```
 videos/{video-title}/
-├── SCRIPT.md                  # Phase 1: full retention-optimized script
+├── RESEARCH.md                # Phase 1 (Step 2): condensed research — claims, numbers, sources
+│                                # the script writer's ONLY factual input (no web access)
+├── SCRIPT.md                  # Phase 1 (Step 3): full retention-optimized script
 ├── VOICEOVER.md               # Phase 2: parseable voiceover text per scene
 ├── TRANSCRIPT.md                # Phase 2 (Step 6, always auto-built): word-level voiceover
 │                                # timings per scene — open at Step 8 for A/V sync
@@ -11,7 +13,9 @@ videos/{video-title}/
 ├── TITLE.md                   # Phase 4: 5 YouTube title variants
 ├── DESCRIPTION.md             # Phase 4: hook + short description + chapters + sources
 ├── TAGS.md                    # Phase 4: keyword-led tags (main metadata focus)
-├── scenes.json                # Structured scene data (durations, status, files, hashes, visual_notes)
+├── scenes.json                # Structured scene data (durations, status, files, hashes,
+│                                # visual_notes) — GENERATED from SCRIPT.md by
+│                                # `pipeline.py scenes-from-script`, never hand-written
 ├── pipeline_state.json        # Pipeline progress (per-step attempts + last_error) — orchestrator-owned, read via `pipeline.py status`
 ├── voiceover_aligned.mp3      # Concatenated voiceover (created by assemble.py)
 ├── sfx_aligned.mp3            # Sound-effects track (created at Step 10 when cues exist)

@@ -55,11 +55,12 @@ AUTOMATED_STEPS = {
 
 CREATIVE_STEPS = set(STEP_KEYS) - AUTOMATED_STEPS
 
-# Steps whose EXPECTED_ARTIFACTS is [] — they produce in-context decisions/notes,
-# not files. `complete` for these runs only the schema gate, no artifact check.
-# `continue` and `_print_creative_brief` use this to print instruction text instead
-# of an artifact list.
-UNVALIDATED_CREATIVE_STEPS = {"1_topic_selection", "2_research"}
+# Steps whose EXPECTED_ARTIFACTS is [] — they produce an in-context decision,
+# not a file. Only Step 1 (topic selection) qualifies: Step 2 writes RESEARCH.md
+# and Step 3 writes SCRIPT.md. `complete` for these runs only the schema gate, no
+# artifact check. `continue` and `_print_creative_brief` use this to print
+# instruction text instead of an artifact list.
+UNVALIDATED_CREATIVE_STEPS = {"1_topic_selection"}
 
 # Canonical phase mapping — single source of truth.
 # Used by emit_trailer, _print_creative_brief, cmd_run, and SKILL.md anchors.
@@ -279,7 +280,7 @@ def render_step_command(template, video_dir, scene_id=None, cfg=None):
 
 EXPECTED_ARTIFACTS: dict = {
     "1_topic_selection": [],
-    "2_research": [],
+    "2_research": ["RESEARCH.md"],
     "3_script_writing": ["SCRIPT.md"],
     "4_voiceover_writing": ["VOICEOVER.md"],
     "5_voiceover_generation": [],

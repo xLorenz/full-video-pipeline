@@ -154,13 +154,22 @@ video via `videos/<title>/pipeline_config.json`.
 
 | Phase | Steps | You produce | Auto-runs after `complete` | Details |
 |-------|-------|-------------|-----------------------------|---------|
-| Phase 1: Research & Script | 1-3 | `SCRIPT.md`, `scenes.json` | (none — Step 4 is creative) | `references/phase-1-research-script.md` |
+| Phase 1: Research & Script | 1-3 | `RESEARCH.md`, `SCRIPT.md`, `scenes.json` | (none — Step 4 is creative) | `references/phase-1-research-script.md` |
 | Phase 2: Voiceover | 4-6 | `VOICEOVER.md` | Steps 5, 6 | `references/phase-2-voiceover.md` |
 | Phase 3: Visuals & Render | 7-10 | `STYLES.md`, Remotion project (PLAN.md, Root.tsx, MainVideo.tsx, Thumbnail.tsx stub, lib/*, scenes/SceneXX.tsx) | Steps 9, 10 | `references/phase-3-visuals-render.md` |
 | Phase 4: Metadata & Thumbnail | 11-13 | `TITLE.md`, `DESCRIPTION.md`, `TAGS.md`, `Thumbnail.tsx` | Step 13 | `references/phase-4-metadata-thumbnail.md` |
 
-> Steps 1 and 2 produce in-context decisions/notes (no files). `complete` for
-> those steps only runs the schema gate and advances state.
+> Step 1 produces an in-context decision (no file). Step 2 must condense the
+> research into `RESEARCH.md` — `complete` gates it on the `## Key Claims`,
+> `## Numbers` and `## Sources` sections. The script writer reads `RESEARCH.md`
+> only (no web access), writes `SCRIPT.md`, and `scenes-from-script` projects it
+> into `scenes.json`; never hand-write `scenes.json`.
+>
+> Step 3 can be delegated to the `script-writer` subagent
+> (`.opencode/agents/script-writer.md`), which is scoped to exactly that: read
+> `RESEARCH.md`, write `SCRIPT.md`, report research gaps instead of inventing
+> facts. The orchestrator still runs `scenes-from-script`, `lint-script` and
+> `complete`.
 
 ## Audio Path (IMPORTANT — overrides Remotion skill rules)
 

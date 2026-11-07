@@ -11,6 +11,7 @@ Usage:
     ./pipeline.py validate <title> [--step N]  Standalone schema validation
     ./pipeline.py voice-test <title> [--scene N]  Synth 1 line, measure chars/sec, project script total
     ./pipeline.py lint-script <title>    Lint scenes.json voiceover_text for AI-isms
+    ./pipeline.py scenes-from-script <title> [--dry-run] [--force]  Project SCRIPT.md -> scenes.json
     ./pipeline.py preview <title>        Smoke-render scene 1 (low-res)
     ./pipeline.py preview-frame <title> <scene> <frame>  Single still for visual QA
     ./pipeline.py captions <title>       Generate SRT + populate caption cues
@@ -598,7 +599,7 @@ def _print_creative_brief(step_num, step_key, title):
     print(f"\n=== Phase {phase}: {phase_name} — Step {step_num}: {step_name} ===")
 
     if step_key in pl.UNVALIDATED_CREATIVE_STEPS:
-        # Steps 1 & 2 produce in-context decisions/notes, not files
+        # Step 1 only: an in-context topic decision, not a file
         print("  This step produces a decision/notes in your own context (no file required).")
     else:
         if arts:
@@ -1233,7 +1234,7 @@ def cmd_continue(args):
         files_exist = all((vdir / a).exists() for a in arts) if arts else False
 
         if step_key in pl.UNVALIDATED_CREATIVE_STEPS:
-            # Steps 1, 2: in-context decisions, no files
+            # Step 1 only: in-context decision, no file
             _print_creative_brief(step_num, step_key, title)
         elif step_state.get("status") == "complete":
             # Step already complete — find_next_step shouldn't have picked it; safety net.
@@ -1710,6 +1711,270 @@ def cmd_doctor(args):
     else:
         print("  One or more checks failed. See recommendations above.")
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# scenes-from-script — deterministic SCRIPT.md -> scenes.json projection
+# ---------------------------------------------------------------------------
+#
+# SCRIPT.md is the single source of truth for the spoken words: Step 4 extracts
+# the same `**Voiceover:**` lines into VOICEOVER.md, Step 5 speaks them, and the
+# strict lint at Step 3 validates them. Deriving scenes.json from the same file
+# removes the whole class of drift where the two artifacts disagree.
+#
+# The converter is a projection, not a writer: orchestrator-owned per-scene
+# fields (render status/hash, measured durations, beats, sfx, bgm) are carried
+# over by scene id so re-running it after a script edit never resets state.
+
+_SCRIPT_SCENE_RE = re.compile(
+    r"^##[ \t]+Scene[ \t]+(\d+)[ \t]*:[ \t]*(.+?)[ \t]*"
+    r"\([ \t]*~?[ \t]*(\d+(?:\.\d+)?)[ \t]*s[ \t]*\)[ \t]*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_SCRIPT_H2_RE = re.compile(r"^##[ \t]+", re.MULTILINE)
+_SCRIPT_FIELD_RE = re.compile(
+    r"^\*\*[ \t]*(Script|Voiceover|Transition)[ \t]*:[ \t]*\*\*[ \t]*(.*)$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_SILENT_MARKERS = {"(silent)", "[silent]", "silent", "—", "–", "-", "none", "n/a"}
+_DEFAULT_SCENE_SECONDS = 10.0
+
+# Fields owned by the orchestrator/automated steps. A re-projection preserves
+# them so editing SCRIPT.md never silently discards measured work.
+_PROJECT_PRESERVE_KEYS = (
+    "actual_duration_seconds", "actual_duration_frames",
+    "render_status", "render_hash", "render_shared", "render_attempts",
+    "last_render_error",
+    "voiceover_file", "voiceover_hash",
+    "visual_notes", "beats", "sfx", "bgm",
+)
+# Subset that becomes stale the moment the spoken text changes.
+_PROJECT_AUDIO_KEYS = (
+    "actual_duration_seconds", "actual_duration_frames",
+    "voiceover_file", "voiceover_hash",
+)
+
+
+def parse_script_md(text):
+    """Parse SCRIPT.md into scene dicts.
+
+    Returns ``(scenes, errors, warnings)``. ``errors`` are format violations the
+    caller must fix (a broken projection is worse than none); ``warnings`` are
+    recoverable conveniences such as a missing ``(~Ns)`` heading suffix.
+    """
+    errors = []
+    warnings = []
+    scenes = []
+    seen = set()
+
+    heads = list(_SCRIPT_SCENE_RE.finditer(text))
+    for i, m in enumerate(heads):
+        sid = int(m.group(1))
+        title = (m.group(2) or "").strip()
+        seconds = float(m.group(3))
+
+        body_start = m.end()
+        nxt = _SCRIPT_H2_RE.search(text, body_start)
+        body = text[body_start:nxt.start() if nxt else len(text)]
+
+        fields = {}
+        matches = list(_SCRIPT_FIELD_RE.finditer(body))
+        for j, fm in enumerate(matches):
+            value_start = fm.start(2)
+            value_end = matches[j + 1].start() if j + 1 < len(matches) else len(body)
+            fields[fm.group(1).lower()] = body[value_start:value_end].strip()
+
+        if sid in seen:
+            errors.append(f"Scene {sid}: duplicate scene number")
+            continue
+        seen.add(sid)
+
+        voiceover = (fields.get("voiceover") or "").strip()
+        silent = voiceover.lower() in _SILENT_MARKERS
+        if silent:
+            voiceover = ""
+
+        if not title:
+            errors.append(f"Scene {sid}: the heading has no title")
+        if "script" not in fields:
+            errors.append(f"Scene {sid}: missing '**Script:**'")
+        if "voiceover" not in fields:
+            errors.append(f"Scene {sid}: missing '**Voiceover:**'")
+        elif not silent and not voiceover:
+            errors.append(
+                f"Scene {sid}: empty Voiceover — write the spoken line, or "
+                f"'**Voiceover:** (silent)' for a voiceless scene"
+            )
+        if seconds <= 0:
+            errors.append(f"Scene {sid}: duration must be > 0s")
+
+        transition = (fields.get("transition") or "cut").strip().lower() or "cut"
+        scenes.append({
+            "id": sid,
+            "title": title,
+            "script_text": (fields.get("script") or "").strip(),
+            "voiceover_text": voiceover,
+            "silent": silent,
+            "target_duration_seconds": seconds,
+            "transition_in": transition,
+            "transition_out": transition,
+        })
+
+    if not heads:
+        errors.append(
+            "no scene headings found — expected '## Scene 1: Title (~10s)'"
+        )
+    else:
+        ids = [s["id"] for s in scenes]
+        expected_ids = list(range(1, len(scenes) + 1))
+        if ids != expected_ids:
+            errors.append(
+                f"scene numbers must run 1..{len(scenes)} in order — got {ids}"
+            )
+
+    return scenes, errors, warnings
+
+
+def project_scenes(parsed, existing, force=False):
+    """Project parsed SCRIPT.md scenes onto an existing scenes.json payload.
+
+    Preserves orchestrator-owned fields by scene id (see _PROJECT_PRESERVE_KEYS)
+    and nulls audio-derived fields whose spoken text changed. ``force`` drops
+    the preserved state entirely (full rebuild).
+
+    Returns ``(scenes, changed_ids)``.
+    """
+    previous = {}
+    if not force:
+        for s in (existing.get("scenes") or []):
+            if isinstance(s, dict) and isinstance(s.get("id"), int):
+                previous[s["id"]] = s
+
+    out = []
+    changed_ids = []
+    for p in parsed:
+        scene = {
+            "id": p["id"],
+            "title": p["title"],
+            "script_text": p["script_text"],
+            "voiceover_text": p["voiceover_text"],
+            "silent": p["silent"],
+            "target_duration_seconds": p["target_duration_seconds"],
+            "actual_duration_seconds": None,
+            "actual_duration_frames": None,
+            "render_status": "pending",
+            "voiceover_file": None,
+            "voiceover_hash": None,
+            "visual_notes": "",
+            "beats": [],
+            "sfx": [],
+            "transition_in": p["transition_in"],
+            "transition_out": p["transition_out"],
+        }
+        prior = previous.get(p["id"])
+        if prior:
+            for key in _PROJECT_PRESERVE_KEYS:
+                if key in prior:
+                    scene[key] = prior[key]
+            if (prior.get("voiceover_text") or "") != p["voiceover_text"]:
+                for key in _PROJECT_AUDIO_KEYS:
+                    scene[key] = None
+                changed_ids.append(p["id"])
+        out.append(scene)
+    return out, changed_ids
+
+
+def cmd_scenes_from_script(args):
+    """Project SCRIPT.md into scenes.json deterministically.
+
+    Never advances pipeline state, never touches another artifact. Safe to
+    re-run: unchanged scenes keep their render/audio state, changed ones have
+    their audio fields invalidated so Steps 5-6 regenerate them.
+    """
+    title = _safe_title(args.title)
+    vdir = video_dir(title)
+    if not vdir.exists():
+        print(f"ERROR: Video directory not found: {vdir}")
+        sys.exit(2)
+
+    script_path = vdir / "SCRIPT.md"
+    if not script_path.exists():
+        print(f"ERROR: SCRIPT.md not found at {script_path}")
+        sys.exit(2)
+    scenes_file = scenes_json_path(title)
+    if not scenes_file.exists():
+        print(f"ERROR: scenes.json not found at {scenes_file} — run "
+              f"`python3 pipeline.py new {title}` first")
+        sys.exit(2)
+
+    parsed, errors, warnings = parse_script_md(
+        script_path.read_text(encoding="utf-8", errors="replace")
+    )
+    if errors:
+        print("ERROR: SCRIPT.md does not match the parsed scene format:")
+        for e in errors:
+            print(f"  - {e}")
+        print("\nFix SCRIPT.md, then re-run.")
+        sys.exit(1)
+
+    try:
+        existing = json.loads(scenes_file.read_text(encoding="utf-8")) or {}
+    except json.JSONDecodeError as e:
+        print(f"ERROR: scenes.json is not valid JSON: {e}")
+        sys.exit(1)
+
+    scenes, changed_ids = project_scenes(parsed, existing, force=args.force)
+
+    cfg = load_pipeline_config(video_dir=vdir)
+    vo_cfg = cfg.get("voiceover", {}) or {}
+    language = vo_cfg.get("language", "english")
+    rate_override = vo_cfg.get("chars_per_sec")
+
+    print(f"=== scenes-from-script: {title} ===")
+    print(f"  parsed {len(scenes)} scene(s) from SCRIPT.md\n")
+    print(f"  {'id':>3}  {'~s':>5}  {'chars':>5}  {'proj':>6}  title")
+
+    target_total = 0.0
+    projected_total = 0.0
+    for s in scenes:
+        projected = pl.estimate_speech_duration(
+            s["voiceover_text"], language, rate_override
+        )
+        target_total += s["target_duration_seconds"]
+        projected_total += projected
+        label = s["title"][:46] + (" (silent)" if s["silent"] else "")
+        print(f"  {s['id']:>3}  {s['target_duration_seconds']:>5.1f}  "
+              f"{len(s['voiceover_text']):>5d}  {projected:>5.1f}s  {label}")
+
+    print(f"\n  target total:    {target_total:.1f}s")
+    print(f"  projected audio: {projected_total:.1f}s")
+    if target_total > 0:
+        drift = (projected_total - target_total) / target_total
+        if abs(drift) > 0.10:
+            print(f"  WARNING: projected audio is {drift:+.0%} off target — "
+                  f"Phase 1 requires within 10%")
+    for w in warnings:
+        print(f"  NOTE: {w}")
+
+    if args.dry_run:
+        print("\n  (dry run — scenes.json not written)")
+        return
+
+    payload = dict(existing)
+    payload["scenes"] = scenes
+    payload["total_estimated_seconds"] = round(target_total, 3)
+
+    _atomic_write_text(scenes_file, json.dumps(payload, indent=2))
+    print(f"\n  wrote {scenes_file}")
+
+    if changed_ids:
+        print(f"\n  NOTE: voiceover text changed for scene(s) {changed_ids} — "
+              f"their audio, durations and transcript are now stale.")
+        print("  Re-run Steps 5-6 (`python3 pipeline.py redo "
+              f"{title} 5` then `continue`), then re-check those scenes' "
+              "beats (Step 8) and renders (Step 9).")
+
+    print(f"  next: python3 pipeline.py lint-script {title}")
 
 
 def cmd_validate(args):
@@ -2476,6 +2741,14 @@ def main():
     lint_p = sub.add_parser("lint-script", help="Lint scenes.json voiceover_text for AI-isms / banned phrases")
     lint_p.add_argument("title", help="Video title")
 
+    sfs_p = sub.add_parser("scenes-from-script",
+                           help="Project SCRIPT.md into scenes.json deterministically")
+    sfs_p.add_argument("title", help="Video title")
+    sfs_p.add_argument("--dry-run", action="store_true",
+                       help="Parse + print the projection without writing scenes.json")
+    sfs_p.add_argument("--force", action="store_true",
+                       help="Full rebuild: drop preserved render/audio/beats fields")
+
     vt_p = sub.add_parser("voice-test", help="Synth 1 line, measure chars/sec, project script total")
     vt_p.add_argument("title", help="Video title")
     vt_p.add_argument("--scene", type=int, default=1,
@@ -2548,6 +2821,8 @@ def main():
         cmd_validate(args)
     elif args.command == "lint-script":
         cmd_lint_script(args)
+    elif args.command == "scenes-from-script":
+        cmd_scenes_from_script(args)
     elif args.command == "voice-test":
         cmd_voice_test(args)
     elif args.command == "preview":

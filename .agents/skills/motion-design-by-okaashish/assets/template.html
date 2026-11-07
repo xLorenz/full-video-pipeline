@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Motion Piece</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#d9d6cf}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+       font:12px/1.4 ui-monospace,Consolas,monospace;color:#555}
+  canvas{display:block;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,.18);background:#f7f5ef}
+  .bar{display:flex;gap:14px;align-items:center}
+  button{font:inherit;padding:4px 10px;border:1px solid #999;background:#fff;border-radius:4px;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="bar"><button id="snd">sound + music: off</button><span>click / space: pause · ← →: scrub · R: restart</span></div>
+<script>
+// Every value is a pure function of time t (seconds), so any frame can be drawn on its own.
+// Sections: ① canvas · ② math · ③ textures & ink · ④ timelines · ⑤ drawing · ⑥ camera · ⑦ frame · ⑧ sound · ⑧b music · ⑨ playback + render contract
+
+// ---------- ① canvas ----------
+const W = 720, H = 1280, DUR = 12;                     // world units (9:16) and loop length
+const FONT = '"Patrick Hand","Comic Sans MS",cursive';
+const LIGHT = { x: -.62, y: -.78 };                    // one light (top-left): highlights toward it, shadows away (references/aesthetics.md)
+const GRADE = { warm: '255,232,160', cool: '10,40,70', vig: '30,24,18', amt: .3, vigA: .25 };   // finishing grade; tint vig with the dominant hue
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let K = 1, BF = 0;                                      // K: device px per world unit · BF: line-boil frame
+function setPixelWidth(px) { cv.width = Math.round(px); cv.height = Math.round(px * H / W); K = cv.width / W; }
+function fit() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const h = Math.min(innerHeight - 52, (innerWidth - 32) * H / W), w = h * W / H;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px'; setPixelWidth(w * dpr);
+}
+addEventListener('resize', fit); fit();
+
+// ---------- ② math ----------
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const easeOut = x => 1 - Math.pow(1 - clamp(x), 3);
+const spring = (x, k = 7, w = 13) => x <= 0 ? 0 : 1 - Math.exp(-k * x) * Math.cos(w * x);   // pop-in with overshoot
+const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const loopW = cycles => TAU * cycles / DUR;             // angular speed that repeats exactly every loop
+function rng(seed) {                                    // seeded PRNG for layouts that must look the same every load
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// Blend through keyed values: [[t, v1, v2...], ...]
+function keyed(list, t, bl = .22) {
+  let v = list[0].slice(1);
+  for (let i = 1; i < list.length; i++) {
+    const e = list[i]; if (t < e[0]) break;
+    const k = smooth(e[0], e[0] + bl, t); v = v.map((x, j) => lerp(x, e[j + 1], k));
+  }
+  return v;
+}
+
+// ---------- ③ textures & ink ----------
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function blot(g, x, y, r, rgb, a) {
+  const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+}
+const paperTex = (() => {                               // built once, composited every frame
+  const c = makeCanvas(W, H), g = c.getContext('2d'), r = rng(11);
+  g.fillStyle = '#f7f5ef'; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 200; i++) blot(g, r() * W, r() * H, 40 + r() * 180, r() < .5 ? '210,195,170' : '255,252,244', .04 + r() * .06);
+  return c;
+})();
+const grainPat = (() => {
+  const c = makeCanvas(256, 256), g = c.getContext('2d'), d = g.createImageData(256, 256), r = rng(3);
+  for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  g.putImageData(d, 0, 0); return ctx.createPattern(c, 'repeat');
+})();
+// Hand-drawn circle whose outline "boils" 12 times a second
+function circlePath(cx, cy, r, seed) {
+  const p = new Path2D(), a1 = hash(BF * 3.1 + seed) * TAU, a2 = hash(BF * 5.7 + seed) * TAU;
+  for (let i = 0; i <= 56; i++) {
+    const a = i / 56 * TAU, rr = r * (1 + .009 * Math.sin(3 * a + a1) + .006 * Math.sin(5 * a + a2));
+    i ? p.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : p.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  p.closePath(); return p;
+}
+// Smooth closed curve through [x,y] points (quadratic through midpoints), lightly boiled
+function smoothClosed(pts, seed = 0, jitter = 1.1) {
+  const p = new Path2D(), n = pts.length;
+  const q = pts.map(([x, y], i) => [x + (hash(BF * 13 + i + seed) - .5) * jitter, y + (hash(BF * 17 + i + seed) - .5) * jitter]);
+  p.moveTo((q[n - 1][0] + q[0][0]) / 2, (q[n - 1][1] + q[0][1]) / 2);
+  for (let i = 0; i < n; i++) { const a = q[i], b = q[(i + 1) % n]; p.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+  p.closePath(); return p;
+}
+function inkShape(path, lw = 3.2, fill = '#fff', ink = '#151515') {
+  ctx.fillStyle = fill; ctx.fill(path);
+  ctx.strokeStyle = ink; ctx.lineWidth = lw; ctx.lineJoin = ctx.lineCap = 'round'; ctx.stroke(path);
+}
+
+// ---------- ④ timelines ----------
+// Keep beats as data: keyed arrays for continuous values, event lists for one-offs.
+const POP_AT = 1.0;
+
+// ---------- ⑤ drawing ----------
+function drawDemo(t) {
+  const s = spring(t - POP_AT, 6, 12); if (s <= 0) return;
+  const bob = 8 * Math.sin(loopW(6) * t);
+  inkShape(circlePath(W / 2, H / 2 + bob, 90 * s, 1), 3.4);
+}
+
+// ---------- ⑥ camera: [t, scale, centreX, centreY], smoothstep between keys, first key = last key ----------
+const CAM = [[0, 1, W / 2, H / 2], [DUR, 1, W / 2, H / 2]];
+function camAt(t) {
+  let c = { s: CAM[0][1], x: CAM[0][2], y: CAM[0][3] };
+  for (let i = 0; i < CAM.length - 1; i++) {
+    const a = CAM[i], b = CAM[i + 1];
+    if (t <= b[0]) { const k = smooth(a[0], b[0], t); c = { s: lerp(a[1], b[1], k), x: lerp(a[2], b[2], k), y: lerp(a[3], b[3], k) }; break; }
+  }
+  const hw = W / 2 / c.s, hh = H / 2 / c.s;
+  return { s: c.s, x: clamp(c.x, hw, W - hw), y: clamp(c.y, hh, H - hh) };
+}
+
+// Screen-space finishing: warm light from LIGHT's side, cool shade opposite, then a tinted vignette.
+function finish() {
+  const cw = cv.width, ch = cv.height, D = Math.hypot(cw, ch);
+  const lx = cw / 2 + LIGHT.x * cw / 2, ly = ch / 2 + LIGHT.y * ch / 2;
+  ctx.save(); ctx.globalCompositeOperation = 'soft-light';
+  const lg = ctx.createLinearGradient(lx, ly, cw - lx, ch - ly);
+  lg.addColorStop(0, `rgba(${GRADE.warm},${GRADE.amt})`); lg.addColorStop(.5, `rgba(${GRADE.warm},0)`); lg.addColorStop(1, `rgba(${GRADE.cool},${GRADE.amt})`);
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, cw, ch); ctx.restore();
+  const vg = ctx.createRadialGradient(cw * .47, ch * .44, D * .28, cw / 2, ch / 2, D * .62);
+  vg.addColorStop(0, `rgba(${GRADE.vig},0)`); vg.addColorStop(1, `rgba(${GRADE.vig},${GRADE.vigA})`);
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
+}
+
+// ---------- ⑦ frame ----------
+function frame(t) {
+  BF = Math.floor(t * 12);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  const cam = camAt(t), s = K * cam.s;
+  ctx.setTransform(s, 0, 0, s, K * W / 2 - cam.x * s, K * H / 2 - cam.y * s);
+  ctx.drawImage(paperTex, 0, 0, W, H);
+  drawDemo(t);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  finish();
+  ctx.save(); ctx.globalAlpha = .06; ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = grainPat; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
+}
+
+// ---------- ⑧ sound: every sound is (ac, when) so it plays live and renders offline (references/sound-design.md) ----------
+// Signal flow: tone/noise → sfxBus (lowpass 3.4k, send to room) ─┐
+//              voices    → musicBus (MIX.music, send to room)   ─┼→ master (gentle compressor, 9k air trim) → out
+//              room (one generated hall shared by both)         ─┘
+const pan = x => clamp((x - W / 2) / (W / 2), -1, 1) * .55;          // world x → stereo position (keep within ±.55)
+const MASTERS = new WeakMap(), SFXB = new WeakMap(), ROOMS = new WeakMap();
+function master(ac) {
+  if (MASTERS.has(ac)) return MASTERS.get(ac);
+  const c = ac.createDynamicsCompressor(), lp = ac.createBiquadFilter();
+  c.threshold.value = -20; c.knee.value = 14; c.ratio.value = 2.5; c.attack.value = .012; c.release.value = .3;
+  lp.type = 'lowpass'; lp.frequency.value = 9000; lp.Q.value = .5;
+  c.connect(lp).connect(ac.destination); MASTERS.set(ac, c); return c;
+}
+function room(ac) {
+  if (ROOMS.has(ac)) return ROOMS.get(ac);
+  const rv = ac.createConvolver(), lp = ac.createBiquadFilter(), wet = ac.createGain();
+  const len = Math.floor(ac.sampleRate * 3.2), ir = ac.createBuffer(2, len, ac.sampleRate), r = rng(77);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (r() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  rv.buffer = ir; lp.type = 'lowpass'; lp.frequency.value = 4500; wet.gain.value = .3;
+  rv.connect(lp).connect(wet).connect(master(ac)); ROOMS.set(ac, rv); return rv;
+}
+function sfxBus(ac) {
+  if (SFXB.has(ac)) return SFXB.get(ac);
+  const inp = ac.createGain(), lp = ac.createBiquadFilter(), send = ac.createGain();
+  lp.type = 'lowpass'; lp.frequency.value = 3400; lp.Q.value = .4; send.gain.value = .45;   // cartoon pieces: lp 5000, send .25
+  inp.connect(lp); lp.connect(master(ac)); lp.connect(send).connect(room(ac));
+  SFXB.set(ac, inp); return inp;
+}
+// Pitched sound: rounded attack `a` (≥ 6 ms, no click), pitch settles over the first 60%, natural exponential tail.
+function tone(ac, when, f0, f1, dur, { type = 'sine', vol = .1, a = .015, p = 0, cut = 2400 } = {}) {
+  const o = ac.createOscillator(), fl = ac.createBiquadFilter(), g = ac.createGain(), pn = ac.createStereoPanner();
+  o.type = type; o.frequency.setValueAtTime(f0, when); o.frequency.exponentialRampToValueAtTime(f1, when + dur * .6);
+  fl.type = 'lowpass'; fl.frequency.value = cut; pn.pan.value = p;
+  g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(vol, when + a); g.gain.setTargetAtTime(0, when + a, dur / 4);
+  o.connect(fl).connect(g).connect(pn).connect(sfxBus(ac)); o.start(when); o.stop(when + a + dur * 1.6);
+}
+// Filtered brown noise: energy falls with frequency, so it reads as water, wind, cloth or paper instead of hiss.
+function noise(ac, when, dur, ftype, f0, f1, q, env, p = 0) {      // env: [[time, gain], ...] relative to when
+  const n = Math.ceil(dur * ac.sampleRate), b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0), r = rng(9);
+  let last = 0; for (let i = 0; i < n; i++) { last = (last + .02 * (r() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+  const src = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(), pn = ac.createStereoPanner();
+  src.buffer = b; fl.type = ftype; fl.Q.value = q; pn.pan.value = p;
+  fl.frequency.setValueAtTime(f0, when); fl.frequency.exponentialRampToValueAtTime(f1, when + dur);
+  g.gain.setValueAtTime(0, when); for (const [tt, v] of env) g.gain.linearRampToValueAtTime(v, when + tt);
+  src.connect(fl).connect(g).connect(pn).connect(sfxBus(ac)); src.start(when); src.stop(when + dur);
+}
+// Pitched sfx use the score's scale (here C major pentatonic, an octave under the melody). Pass p = pan(x) from the event's position.
+const SND = {
+  blip: (ac, w, f, p = 0) => tone(ac, w, f, f * .9, .12, { type: 'triangle', vol: .06, a: .008, p, cut: 2200 }),
+  pop: (ac, w, p = 0) => tone(ac, w, 420, 620, .14, { vol: .07, a: .01, p, cut: 2000 }),            // gentle rise, not a chirp
+  thump: (ac, w, v = .12, p = 0) => tone(ac, w, 120, 60, .25, { vol: v, a: .008, p, cut: 500 }),
+  whoosh: (ac, w, p = 0) => noise(ac, w, .5, 'bandpass', 300, 900, .7, [[.18, .05], [.5, 0]], p),
+};
+const EVENTS = [{ t: POP_AT, f: (ac, w) => SND.pop(ac, w, pan(W / 2)) }];   // [{t, f(ac, when)}]
+
+// ---------- ⑧b music: the score is data too (references/music.md) ----------
+// Pick BPM so DUR is a whole number of bars: 60 BPM in 4/4 = 4 s bars, so DUR 12 = 3 bars. Put story beats on the grid.
+const MIX = { music: .55 };                            // score level against the sfx (sfx stay at 1)
+const BPM = 60, BEAT = 60 / BPM, BAR = 4 * BEAT;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const BUSES = new WeakMap();
+function musicBus(ac) {                                 // score level → gentle lowpass → master, plus a send into the shared room
+  if (BUSES.has(ac)) return BUSES.get(ac);
+  const inp = ac.createGain(), dry = ac.createGain(), lp = ac.createBiquadFilter();
+  inp.gain.value = MIX.music; dry.gain.value = .8; lp.type = 'lowpass'; lp.frequency.value = 5200;
+  inp.connect(dry).connect(lp).connect(master(ac)); inp.connect(room(ac));
+  BUSES.set(ac, inp); return inp;
+}
+function voice(ac, w, f, dur, { type = 'triangle', vol = .05, a = .01, pan = 0, cut = 3000 } = {}) {
+  const o = ac.createOscillator(), g = ac.createGain(), fl = ac.createBiquadFilter(), p = ac.createStereoPanner();
+  o.type = type; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = cut; p.pan.value = pan;
+  g.gain.setValueAtTime(0, w); g.gain.linearRampToValueAtTime(vol, w + a); g.gain.exponentialRampToValueAtTime(.0005, w + dur);
+  o.connect(fl).connect(g).connect(p).connect(musicBus(ac)); o.start(w); o.stop(w + dur + .05);
+}
+const INST = {
+  pluck: (ac, w, m, vol = .07, pan = 0) => {            // koto / kalimba: soft body, bright octave, quick tick
+    voice(ac, w, mtof(m), 1.6, { vol, a: .004, pan, cut: 2600 });
+    voice(ac, w, mtof(m) * 2, .5, { type: 'sine', vol: vol * .35, a: .003, pan });
+    voice(ac, w, mtof(m) * 3.01, .18, { type: 'sine', vol: vol * .15, a: .002, pan });
+  },
+  pad: (ac, w, notes, dur) => notes.forEach((m, i) => [-6, 6].forEach(det => {   // detuned saws, swelling filter
+    const o = ac.createOscillator(), g = ac.createGain(), fl = ac.createBiquadFilter(), p = ac.createStereoPanner();
+    o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det; p.pan.value = (i / (notes.length - 1) - .5) * .7 * Math.sign(det);
+    fl.type = 'lowpass'; fl.frequency.setValueAtTime(450, w); fl.frequency.linearRampToValueAtTime(1050, w + dur * .5); fl.frequency.linearRampToValueAtTime(600, w + dur);
+    g.gain.setValueAtTime(0, w); g.gain.linearRampToValueAtTime(.011, w + 1.4); g.gain.setValueAtTime(.011, w + dur - .4); g.gain.linearRampToValueAtTime(0, w + dur + 1.2);
+    o.connect(fl).connect(g).connect(p).connect(musicBus(ac)); o.start(w); o.stop(w + dur + 1.3);
+  })),
+  bass: (ac, w, m) => voice(ac, w, mtof(m), BAR * .9, { type: 'sine', vol: .12, a: .06, cut: 400 }),
+  bell: (ac, w, m, vol = .045) => {                     // inharmonic partials = bell; use on story beats
+    voice(ac, w, mtof(m), 3, { type: 'sine', vol, a: .003 });
+    voice(ac, w, mtof(m) * 2.76, 1.2, { type: 'sine', vol: vol * .4, a: .002 });
+    voice(ac, w, mtof(m) * 5.4, .5, { type: 'sine', vol: vol * .2, a: .002 });
+  },
+};
+// One chord per bar; the last chord leads back to the first across the loop seam (here G → C).
+const CHORDS = [
+  { bass: 36, pad: [55, 62, 64, 67], arp: [60, 67, 74, 76] },   // C add9
+  { bass: 29, pad: [52, 57, 60, 64], arp: [53, 60, 64, 69] },   // Fmaj7
+  { bass: 31, pad: [50, 57, 62, 64], arp: [55, 62, 69, 74] },   // G6sus2
+];
+const MELODY = [[1, 76], [2, 79], [3, 81], [5, 79], [6, 76], [7, 74], [9, 74], [10, 76], [11, 79]];   // [seconds, midi]; leave rests for story sfx
+function buildScore() {
+  const s = [];
+  CHORDS.forEach((c, b) => {
+    const t0 = b * BAR;
+    s.push({ t: t0 + (b ? 0 : .3), f: (ac, w) => INST.pad(ac, w, c.pad, BAR - (b ? 0 : .3)) });
+    s.push({ t: t0, f: (ac, w) => INST.bass(ac, w, c.bass) });
+    [0, 1, 2, 3, 2, 1, 2, 3].forEach((ix, k) => s.push({ t: t0 + k * BEAT / 2, f: (ac, w) => INST.pluck(ac, w, c.arp[ix], k % 2 ? .02 : .028, k % 2 ? .35 : -.35) }));
+  });
+  for (const [t, m] of MELODY) s.push({ t, f: (ac, w) => INST.pluck(ac, w, m, .07, .12) });
+  return s;
+}
+const SCORE = buildScore();
+
+// ---------- ⑨ playback + render contract ----------
+let AC = null, soundOn = false, start = performance.now(), paused = false, held = 0, prevT = 0;
+const now = () => paused ? held : ((performance.now() - start) / 1000) % DUR;
+function setTime(t) { t = ((t % DUR) + DUR) % DUR; prevT = t; if (paused) held = t; else start = performance.now() - t * 1000; }
+function toggle() { if (paused) { paused = false; setTime(held); } else { held = now(); paused = true; } }
+cv.addEventListener('click', toggle);
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowRight') setTime(now() + .5);
+  else if (e.key === 'ArrowLeft') setTime(now() - .5);
+  else if (e.key === 'r' || e.key === 'R') setTime(0);
+});
+document.getElementById('snd').addEventListener('click', e => {
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  AC.resume(); soundOn = !soundOn; e.target.textContent = 'sound + music: ' + (soundOn ? 'on' : 'off'); e.target.blur();
+});
+function fireSounds(a, b) {
+  if (!soundOn || paused || !AC) return;
+  const hit = t => b >= a ? (t > a && t <= b) : (t > a || t <= b);
+  for (const e of EVENTS) if (hit(e.t)) e.f(AC, AC.currentTime);
+  for (const e of SCORE) if (hit(e.t)) e.f(AC, AC.currentTime);
+}
+function wavBase64(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate, bytes = 44 + n * ch * 2, v = new DataView(new ArrayBuffer(bytes));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, bytes - 8, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, ch, true); v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true);
+  v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const data = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) v.setInt16(o, clamp(data[c][i], -1, 1) * 32767, true);
+  const u8 = new Uint8Array(v.buffer); let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+// scripts/render.py drives the page through this object.
+window.__comp = {
+  dur: DUR, w: W, h: H,
+  capture(t, pxW) { paused = true; held = t; setPixelWidth(pxW); frame(t); return cv.toDataURL('image/png'); },
+  // Renders DUR + 4 s, then folds the tail (reverb, pad release) back onto the start, so the loop has no seam.
+  // opts.music = false leaves the score out (render.py --bgm swaps in the user's own track).
+  async audio(sr = 48000, opts = {}) {
+    const score = opts.music === false ? [] : SCORE;
+    if (!EVENTS.length && !score.length) return null;
+    const TAIL = 4, n = Math.ceil(DUR * sr), ac = new OfflineAudioContext(2, n + TAIL * sr, sr);
+    for (const e of [...EVENTS, ...score]) e.f(ac, e.t);
+    const buf = await ac.startRendering(), out = new AudioBuffer({ numberOfChannels: 2, length: n, sampleRate: sr });
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c), o = out.getChannelData(c);
+      o.set(d.subarray(0, n)); for (let i = n; i < d.length; i++) o[i - n] += d[i];
+    }
+    return wavBase64(out);
+  },
+};
+window.seek = t => { paused = true; held = t; prevT = t; frame(t); };
+const qt = new URLSearchParams(location.search).get('t');
+if (qt !== null) { paused = true; held = +qt; }
+(function loop() { const t = now(); fireSounds(prevT, t); prevT = t; frame(t); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

@@ -9,11 +9,59 @@ discrete ~10-second scenes structured as `SCRIPT.md` + `scenes.json`.
    niche. Select a topic specific enough to fill 3-10 minutes (not "technology",
    not "the 3rd screw on the iPhone 15 camera"). State the chosen topic clearly.
 2. (Step 2) Perform 5-10 targeted web searches on the topic. Visit and extract
-   key information from top results. Compile: key facts, statistics, expert
-   quotes, examples, counterarguments, timeline, current state, future outlook.
-   Verify critical claims with at least 2 sources. Keep notes in your context.
-3. (Step 3) Adapt the research into scene-based format (~10s per scene) and write
-   `SCRIPT.md` + `scenes.json` per the rules and templates below.
+   key information from top results. Verify critical claims with at least 2
+   sources, then condense everything into `videos/<title>/RESEARCH.md` (format
+   below). This is a required artifact — `complete` refuses Step 2 without it.
+3. (Step 3) Write `SCRIPT.md` from `RESEARCH.md` alone, then project it into
+   `scenes.json` with `python3 pipeline.py scenes-from-script <title>`. See
+   "Scripting input contract" below — the script writer has no web access.
+
+## RESEARCH.md — the scripting input
+
+Research is condensed **before** scripting, not during it. `RESEARCH.md` is the
+only factual source the script writer is allowed to use, so gaps must show up
+here, not as invented statistics in the narration.
+
+```markdown
+# Research: {Video Title}
+
+## Angle
+[the specific promise of this video — one short paragraph]
+
+## Key Claims
+- [claim worth making on screen] — [source #]
+- [claim] — [source #]
+
+## Numbers
+- [statistic, unit, year] — [source #]
+- none                      # valid only when the topic genuinely has no hard numbers
+
+## Examples & Analogies
+- [concrete example or analogy that makes an abstract point land]
+
+## Counterpoints
+- [the strongest objection, and what answers it]
+
+## Sources
+1. https://...
+2. https://...
+3. https://...              # at least 3 distinct URLs
+```
+
+Step 2 `complete` enforces: the three headings `## Key Claims`, `## Numbers`,
+`## Sources`, at least 3 distinct URLs under Sources, and ≥500 characters of
+condensed content. A stub cannot pass.
+
+## Scripting input contract
+
+- The script writer (the `script-writer` subagent, or the orchestrator) reads
+  `RESEARCH.md` and writes `SCRIPT.md`. It does not search the web.
+- A fact that is not in `RESEARCH.md` does not go in the script. Write around
+  it, or send it back to Step 2 — never invent numbers, dates, names, or quotes.
+- The spoken words live in the `**Voiceover:**` lines and are used verbatim
+  downstream (Step 4 extracts them into `VOICEOVER.md`, Step 5 speaks them).
+  There is no later hand-crafting pass — what you write is what the voice says.
+
 
 ## Follow these instructions
 
@@ -50,9 +98,21 @@ Average interval: 45s (target ≤90s)
 
 ## scenes.json format
 
-Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
-`actual_duration_seconds: null`, `actual_duration_frames: null`,
-`render_status: "pending"`, `voiceover_file: null`, `voiceover_hash: null`.
+**Generated, not hand-written.** `python3 pipeline.py scenes-from-script <title>`
+projects `SCRIPT.md` into `scenes.json` deterministically: scene ids, titles,
+`script_text` (`**Script:**`), `voiceover_text` (`**Voiceover:**`),
+`silent` (`**Voiceover:** (silent)`), `target_duration_seconds` (the `(~Ns)`
+heading suffix), and the advisory transitions. Run it after writing or editing
+`SCRIPT.md`; never patch the two files separately.
+
+It is a projection, not a rebuild: orchestrator-owned fields
+(`render_status`, `render_hash`, measured durations, `beats`, `sfx`, `bgm`,
+`visual_notes`) survive by scene id, and only scenes whose `voiceover_text`
+changed have their audio fields invalidated. `--force` drops that state for a
+true rebuild; `--dry-run` prints the parse + projected audio total and writes
+nothing.
+
+The result satisfies `schemas/scenes.schema.json`. Shape for reference:
 
 ```json
 {
@@ -92,9 +152,9 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
 }
 ```
 
-> `scenes.json` is scaffolded empty by `pipeline.py run`/`new` — you populate
-> the `scenes` array. `complete` validates `SCRIPT.md` exists; `scenes.json`
-> is verified by schema + downstream steps.
+> `scenes.json` is scaffolded empty by `pipeline.py run`/`new` and then filled
+> by `scenes-from-script`. `complete` validates `SCRIPT.md` exists; the
+> projection is verified by schema + the strict Phase-1 checks.
 
 > Audio (beats/sfx/bgm) is authored at Step 8, never here — timings must
 > mirror the actual animation code.
@@ -119,6 +179,8 @@ Must satisfy `schemas/scenes.schema.json`. Initialize every scene with:
 ## When done
 
 ```bash
+python3 pipeline.py scenes-from-script <title>
+python3 pipeline.py lint-script <title>
 python3 pipeline.py complete <title>
 ```
 

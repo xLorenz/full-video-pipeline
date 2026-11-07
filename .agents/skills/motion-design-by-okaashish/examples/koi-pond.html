@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Koi Pond</title>
+<style>
+  html,body{margin:0;height:100%;background:#d8cdb9}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+       font:12px/1.4 ui-monospace,Consolas,monospace;color:#6b5a4a}
+  canvas{display:block;border-radius:6px;box-shadow:0 12px 40px rgba(80,50,30,.25);background:#ebe2d0}
+  .hint{opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint">click / space: pause · ← →: scrub · R: restart</div>
+<script>
+// Every value below is a pure function of time t (seconds), so any frame can be drawn on its own.
+const W = 720, H = 1280, DUR = 14;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let K = 1;
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const h = Math.min(innerHeight - 48, (innerWidth - 32) * 16 / 9), w = h * 9 / 16;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  K = cv.width / W;
+}
+addEventListener('resize', resize); resize();
+
+// ---------- math ----------
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const easeOut = x => 1 - Math.pow(1 - clamp(x), 3);
+const spring = (x, k = 7, w = 13) => x <= 0 ? 0 : 1 - Math.exp(-k * x) * Math.cos(w * x);
+const rot = (v, a) => ({ x: v.x * Math.cos(a) - v.y * Math.sin(a), y: v.x * Math.sin(a) + v.y * Math.cos(a) });
+const norm = v => { const l = Math.hypot(v.x, v.y) || 1; return { x: v.x / l, y: v.y / l }; };
+function rng(seed) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function blot(g, x, y, r, rgb, a) {
+  const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+// ---------- textures (built once) ----------
+const TS = 1.5;
+const pondTex = (() => {
+  const c = makeCanvas(W * TS, H * TS), g = c.getContext('2d'), r = rng(7);
+  g.scale(TS, TS);
+  g.fillStyle = '#ec6c9e'; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 340; i++) {
+    const dark = r() < 0.55;
+    blot(g, r() * W, r() * H, 25 + r() * 130, dark ? '205,52,115' : '252,160,195', 0.06 + r() * 0.12);
+  }
+  for (let i = 0; i < 6000; i++) {
+    g.fillStyle = `rgba(${r() < .5 ? '255,220,235' : '170,30,90'},${r() * 0.08})`;
+    g.fillRect(r() * W, r() * H, 1 + r() * 1.5, 1 + r() * 1.5);
+  }
+  return c;
+})();
+const paperTex = (() => {
+  const c = makeCanvas(W * 2, H * 2), g = c.getContext('2d'), r = rng(11);
+  g.fillStyle = '#ebe2d0'; g.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 260; i++) blot(g, r() * c.width, r() * c.height, 40 + r() * 200, r() < .5 ? '205,186,155' : '255,250,238', 0.05 + r() * 0.08);
+  return c;
+})();
+const grainTex = (() => {
+  const c = makeCanvas(256, 256), g = c.getContext('2d'), d = g.createImageData(256, 256), r = rng(3);
+  for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  g.putImageData(d, 0, 0); return c;
+})();
+const grainPat = ctx.createPattern(grainTex, 'repeat');
+
+// ---------- camera ----------
+const CAM = [[0, .9, 360, 640], [1.5, .97, 360, 640], [3.4, 1.3, 340, 720], [6.2, 1.34, 385, 560],
+             [8.4, 1.24, 360, 610], [10.2, 1.02, 360, 640], [DUR, 1, 360, 640]];
+function camAt(t) {
+  for (let i = 0; i < CAM.length - 1; i++) {
+    const a = CAM[i], b = CAM[i + 1];
+    if (t <= b[0]) { const k = smooth(a[0], b[0], t); return { s: lerp(a[1], b[1], k), x: lerp(a[2], b[2], k), y: lerp(a[3], b[3], k) }; }
+  }
+  const l = CAM[CAM.length - 1]; return { s: l[1], x: l[2], y: l[3] };
+}
+
+// ---------- pond blob ----------
+function blobGrow(t) {
+  if (t < 0.15) return 0;
+  if (t < 0.9) return 0.032 * spring((t - 0.15) * 1.2, 6, 10);
+  return 0.032 + 0.968 * spring((t - 0.9) * 0.9, 5, 6);
+}
+function blobPath(t) {
+  const g = blobGrow(t), p = new Path2D();
+  if (g <= 0) return { g, p };
+  const rx = 330 * g, ry = 330 * g + 230 * g * g, wob = (1 - Math.min(g, 1)) * 0.06;
+  for (let i = 0; i <= 220; i++) {
+    const th = i / 220 * TAU;
+    const k = 1 + 0.022 * Math.sin(3 * th + 1.1) + 0.018 * Math.sin(5 * th + 2.3) + 0.01 * Math.sin(9 * th + .4)
+                + 0.006 * Math.sin(17 * th + 3) + 0.004 * Math.sin(31 * th + 1.7) + wob * Math.sin(4 * th + t * 6);
+    const x = 360 + Math.cos(th) * rx * k, y = 640 + Math.sin(th) * ry * k;
+    i ? p.lineTo(x, y) : p.moveTo(x, y);
+  }
+  p.closePath();
+  return { g, p };
+}
+
+// ---------- white wave lines with loops ----------
+const WAVES = [...Array(8)].map((_, k) => {
+  const r = rng(100 + k), a = 14, y0 = 95 + k * 160, ph = r() * TAU, ph2 = r() * TAU;
+  const loops = [3 + Math.floor(r() * 4), 7 + Math.floor(r() * 4)].map(m => m * TAU);
+  const pts = [];
+  for (let th = 0; th < 74; th += 0.07) {
+    let b = 0; for (const c of loops) b += 34 * Math.exp(-(((th - c) / 1.4) ** 2));
+    const x = -150 + a * th - b * Math.sin(th);
+    pts.push([x, y0 + 24 * Math.sin(0.011 * x + ph) + 8 * Math.sin(0.03 * x + ph2) - b * Math.cos(th)]);
+  }
+  return { pts, k };
+});
+function drawWaves(t) {
+  ctx.strokeStyle = 'rgba(255,244,250,0.85)'; ctx.lineWidth = 2; ctx.lineJoin = ctx.lineCap = 'round';
+  for (const w of WAVES) {
+    const p = smooth(1.5 + w.k * 0.12, 3.3 + w.k * 0.12, t), n = Math.floor(p * w.pts.length);
+    if (n < 2) continue;
+    ctx.save(); ctx.translate(10 * Math.sin(t * 0.4 + w.k), 0);
+    ctx.beginPath(); ctx.moveTo(w.pts[0][0], w.pts[0][1]);
+    for (let i = 1; i < n; i++) ctx.lineTo(w.pts[i][0], w.pts[i][1]);
+    ctx.stroke(); ctx.restore();
+  }
+}
+
+// ---------- ripples ----------
+const RIPPLES = [{ x: 360, y: 640, t0: 1.0, rings: 4, sp: 120, gap: 38, max: 380, a: .9 }];
+function drawRipple(R, t) {
+  const dt = t - R.t0; if (dt < 0) return;
+  ctx.lineWidth = 1.6;
+  for (let i = 0; i < R.rings; i++) {
+    const rr = dt * R.sp - i * R.gap; if (rr <= 0) continue;
+    const a = (1 - rr / R.max) * R.a; if (a <= 0) continue;
+    ctx.strokeStyle = `rgba(255,240,248,${a})`;
+    ctx.beginPath(); ctx.arc(R.x, R.y, rr, 0, TAU); ctx.stroke();
+  }
+}
+
+// ---------- confetti ----------
+const PAL = ['#ffd23f', '#3ec6e0', '#8b5cf6', '#ff8a3d', '#ffffff', '#5b6cff'];
+function glyph(type, col, sz) {
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.6; ctx.beginPath();
+  switch (type) {
+    case 0: ctx.arc(0, 0, 3 * sz, 0, TAU); ctx.fill(); break;
+    case 1: ctx.arc(0, 0, 5 * sz, 0, TAU); ctx.stroke(); break;
+    case 2: ctx.moveTo(-4 * sz, -4 * sz); ctx.lineTo(4 * sz, 4 * sz); ctx.moveTo(4 * sz, -4 * sz); ctx.lineTo(-4 * sz, 4 * sz); ctx.stroke(); break;
+    case 3: ctx.moveTo(-6 * sz, 0); ctx.lineTo(-3 * sz, -3 * sz); ctx.lineTo(0, 0); ctx.lineTo(3 * sz, -3 * sz); ctx.lineTo(6 * sz, 0); ctx.stroke(); break;
+    case 4: ctx.moveTo(0, -4 * sz); ctx.lineTo(4 * sz, 3 * sz); ctx.lineTo(-4 * sz, 3 * sz); ctx.closePath(); ctx.stroke(); break;
+  }
+}
+const CONF = (() => {
+  const r = rng(42), a = [];
+  for (let i = 0; i < 70; i++) {
+    let x, y;
+    do { x = 40 + r() * 640; y = 60 + r() * 1160; } while (((x - 360) / 310) ** 2 + ((y - 640) / 530) ** 2 > 1);
+    a.push({ x, y, type: Math.floor(r() * 5), col: PAL[Math.floor(r() * PAL.length)], t0: 4 + r() * 4, rot: r() * 6, ph: r() * 6, sz: .8 + r() * .6 });
+  }
+  return a;
+})();
+const BURST = (() => {
+  const r = rng(77), a = [];
+  for (let i = 0; i < 56; i++) a.push({ ang: r() * TAU, dist: 110 + r() * 230, type: Math.floor(r() * 5), col: PAL[Math.floor(r() * PAL.length)], t0: 9.6 + r() * .4, sz: .8 + r() * .7, spin: (r() - .5) * 4 });
+  return a;
+})();
+function drawConfetti(t) {
+  for (const c of CONF) {
+    const s = spring(t - c.t0, 6, 14); if (s <= 0) continue;
+    ctx.save();
+    ctx.translate(c.x + 6 * Math.sin(t * .6 + c.ph), c.y + 5 * Math.cos(t * .5 + c.ph));
+    ctx.rotate(c.rot + t * .3); ctx.globalAlpha = .9;
+    glyph(c.type, c.col, c.sz * s); ctx.restore();
+  }
+  for (const b of BURST) {
+    const dt = t - b.t0; if (dt <= 0) continue;
+    const d = 40 + b.dist * easeOut(dt / 1.6), a = b.ang + dt * 0.18;
+    ctx.save(); ctx.translate(360 + Math.cos(a) * d, 640 + Math.sin(a) * d * 1.05);
+    ctx.rotate(b.spin * dt); ctx.globalAlpha = clamp(dt * 4) * (0.75 + 0.25 * Math.sin(t * 5 + b.ang * 9));
+    glyph(b.type, b.col, b.sz); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- lotus ----------
+function drawLotus(sc, q, t) {
+  if (q <= 0) return;
+  ctx.save(); ctx.scale(sc, sc); ctx.rotate(t * 0.08);
+  const layers = [{ n: 8, len: 74, wid: 30, rot: 0, d: 0 }, { n: 8, len: 60, wid: 25, rot: Math.PI / 8, d: .22 }, { n: 6, len: 42, wid: 19, rot: .25, d: .44 }];
+  for (const L of layers) {
+    const s = spring(q - L.d, 5, 9); if (s <= 0) continue;
+    for (let k = 0; k < L.n; k++) {
+      ctx.save(); ctx.rotate(L.rot + k * TAU / L.n + (1 - Math.min(s, 1)) * .9);
+      const len = L.len * s, wid = L.wid * Math.min(1, s * 1.2);
+      const g = ctx.createLinearGradient(0, 0, 0, -len);
+      g.addColorStop(0, '#fff3f7'); g.addColorStop(.55, '#f9b6cf'); g.addColorStop(1, '#ee6f9f');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(wid, -len * .25, wid * .7, -len * .8, 0, -len);
+      ctx.bezierCurveTo(-wid * .7, -len * .8, -wid, -len * .25, 0, 0);
+      ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.strokeStyle = 'rgba(214,70,130,.45)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, -len * .15); ctx.lineTo(0, -len * .75); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  const cs = spring(q - .6, 6, 10);
+  if (cs > 0) {
+    ctx.fillStyle = '#f6b733'; ctx.beginPath(); ctx.arc(0, 0, 14 * cs, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e8742a';
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ctx.beginPath(); ctx.arc(Math.cos(a) * 8 * cs, Math.sin(a) * 8 * cs, 1.8, 0, TAU); ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+// ---------- lily pads ----------
+const PADC = {
+  lime:  { f: '#b9d43a', e: '#86a01f', v: '#4b6416', h: '#d8ea70' },
+  green: { f: '#3cae5d', e: '#24804a', v: '#f2e36b', h: '#62c87b' },
+  teal:  { f: '#2cb39e', e: '#1b7f72', v: '#c6f1e6', h: '#5fd0bd' },
+  mint:  { f: '#8acc9e', e: '#5ea378', v: '#e2679f', h: '#aee0bb' },
+};
+const PADS = [
+  { x: 150, y: 235, r: 72, c: 'lime', rot: 2.4, t0: 3.7, txt: 'shhh' },
+  { x: 575, y: 270, r: 44, c: 'lime', rot: 3.6, t0: 4.3 },
+  { x: 600, y: 830, r: 80, c: 'green', rot: -2.1, t0: 3.9, txt: 'hush' },
+  { x: 105, y: 870, r: 62, c: 'mint', rot: .6, t0: 4.6 },
+  { x: 520, y: 1085, r: 56, c: 'lime', rot: -1.2, t0: 4.9, txt: 'hush' },
+  { x: 235, y: 1140, r: 38, c: 'teal', rot: 1.4, t0: 5.2 },
+  { x: 600, y: 120, r: 58, c: 'teal', rot: 2.8, t0: 5.6, lotus: true },
+  { x: 95, y: 1035, r: 50, c: 'mint', rot: -.4, t0: 6.0, lotus: true },
+  { x: 330, y: 70, r: 42, c: 'teal', rot: 1.9, t0: 6.3 },
+  { x: 360, y: 640, r: 88, c: 'teal', rot: -1.3, t0: 8.8, big: true },
+];
+for (const p of PADS) {
+  RIPPLES.push({ x: p.x, y: p.y, t0: p.t0, rings: 3, sp: 110, gap: 26, max: p.r * 2.6, a: .7 });
+  const r = rng(Math.round(p.x * 7 + p.y));
+  p.marks = [0, 2, 3].map(type => ({ type, x: (r() - .5) * p.r, y: (r() - .5) * p.r, col: ['#f05aa0', '#ffd23f', '#7b5cff', '#ffffff'][Math.floor(r() * 4)], rot: r() * 6 }));
+}
+for (let k = 0; k < 5; k++) RIPPLES.push({ x: 360, y: 640, t0: 9.2 + k * 1.1, rings: 2, sp: 130, gap: 30, max: 420, a: .8 });
+
+function drawPad(p, t) {
+  const s = spring(t - p.t0, 6, 12); if (s <= 0.001) return;
+  const r = p.r * s, C = PADC[p.c], notch = .5;
+  ctx.save();
+  ctx.translate(p.x + 2 * Math.sin(t * .5 + p.y), p.y + 2 * Math.cos(t * .6 + p.x));
+  ctx.rotate(p.rot + .06 * Math.sin(t * .7 + p.x));
+  ctx.strokeStyle = 'rgba(255,235,245,.22)'; ctx.lineWidth = 1.2;
+  for (const m of [1.22, 1.42]) { ctx.beginPath(); ctx.arc(0, 0, r * m, 0, TAU); ctx.stroke(); }
+  const path = new Path2D(); path.moveTo(r * .06, 0);
+  for (let i = 0; i <= 40; i++) {
+    const a = notch / 2 + (TAU - notch) * i / 40, rr = r * (1 + .025 * Math.sin(a * 6 + p.x));
+    path.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  path.closePath();
+  ctx.save();
+  ctx.shadowColor = 'rgba(120,20,60,.28)'; ctx.shadowBlur = 10 * K; ctx.shadowOffsetX = 5 * K; ctx.shadowOffsetY = 8 * K;
+  ctx.fillStyle = C.f; ctx.fill(path); ctx.restore();
+  ctx.save(); ctx.clip(path);
+  const gr = ctx.createRadialGradient(-r * .3, -r * .3, 0, 0, 0, r * 1.1);
+  gr.addColorStop(0, C.h); gr.addColorStop(1, C.f);
+  ctx.globalAlpha = .6; ctx.fillStyle = gr; ctx.fill(path);
+  ctx.strokeStyle = C.v; ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.globalAlpha = .85;
+  for (let i = 0; i < 9; i++) {
+    const a = notch / 2 + .25 + (TAU - notch - .5) * i / 8;
+    ctx.beginPath(); ctx.moveTo(r * .08, 0);
+    ctx.quadraticCurveTo(Math.cos(a + .12) * r * .5, Math.sin(a + .12) * r * .5, Math.cos(a) * r * .92, Math.sin(a) * r * .92);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+  ctx.strokeStyle = C.e; ctx.lineWidth = 2; ctx.stroke(path);
+  if (!p.big) for (const m of p.marks) { ctx.save(); ctx.translate(m.x * s, m.y * s); ctx.rotate(m.rot); glyph(m.type, m.col, .7 * s); ctx.restore(); }
+  if (p.lotus) drawLotus(.42 * p.r / 58, (t - p.t0 - .4) * 1.2, t);
+  ctx.restore();
+  if (p.txt) {
+    ctx.save(); ctx.translate(p.x + p.r * .35, p.y - p.r * 1.12); ctx.rotate(.15);
+    ctx.globalAlpha = clamp(s); ctx.fillStyle = '#8a2a55';
+    ctx.font = '16px "Segoe Print","Comic Sans MS",cursive'; ctx.fillText(p.txt, 0, 0); ctx.restore();
+  }
+}
+
+// ---------- koi ----------
+const SCH = {
+  kohaku:  { body: '#f26a2a', fin: 'rgba(246,128,58,.82)', ray: 'rgba(255,214,180,.55)', rim: 'rgba(190,52,18,.38)', patch: 'rgba(253,228,212,.92)', spot: '#9c3416',
+             patches: [[.17, .35, .09, .055], [.36, -.25, .085, .05], [.56, .4, .07, .045]], spots: [[.23, -.25], [.41, .25], [.52, -.3], [.7, 0]] },
+  red:     { body: '#ea5426', fin: 'rgba(240,110,52,.82)', ray: 'rgba(255,205,170,.55)', rim: 'rgba(170,40,14,.4)', patch: 'rgba(252,222,205,.9)', spot: '#8f2c12',
+             patches: [[.3, 0, .1, .045]], spots: [[.15, 0], [.36, -.3], [.5, .3], [.68, .1]] },
+  kohaku2: { body: '#f47a30', fin: 'rgba(248,140,70,.82)', ray: 'rgba(255,220,190,.55)', rim: 'rgba(196,70,22,.36)', patch: 'rgba(254,232,218,.92)', spot: '#a13a18',
+             patches: [[.1, 0, .06, .06], [.46, -.35, .1, .05]], spots: [[.28, .2], [.4, -.1], [.62, .2]] },
+  gold:    { body: '#f5b23c', fin: 'rgba(248,196,90,.82)', ray: 'rgba(255,240,200,.6)', rim: 'rgba(200,118,20,.36)', patch: 'rgba(255,242,205,.88)', spot: '#b8701a',
+             patches: [[.25, .3, .08, .05]], spots: [[.32, -.2], [.5, .2]] },
+};
+const KOI = [
+  { L: 185, start: 2.7, sf: .62, off: 0,  ph: [.2, 2.1, -1.3, .6],  s: 'kohaku',  orbit: { r: 205, w: .62, ph: 0 },   seed: 0 },
+  { L: 165, start: 4.4, sf: .7,  off: 5,  ph: [2.5, .4, 1.9, 3.3],  s: 'red',     orbit: { r: 240, w: .55, ph: 2.1 }, seed: 1.7 },
+  { L: 170, start: 5.3, sf: .66, off: 11, ph: [4.1, 1.4, .2, 5.1],  s: 'kohaku2', orbit: { r: 180, w: .68, ph: 4.2 }, seed: 3.1 },
+  { L: 125, start: 6.6, sf: .8,  off: 17, ph: [1, 3.7, 2.8, 2.2],   s: 'gold',    orbit: { r: 270, w: .5,  ph: 3.3 }, seed: 4.4 },
+];
+// Head path: free wandering that blends into orbiting the lotus.
+function koiPos(f, u, t) {
+  const [a, b, c, d] = f.ph;
+  const Wp = { x: 360 + 215 * Math.sin(.41 * u + a) + 65 * Math.sin(.97 * u + b), y: 640 + 430 * Math.sin(.27 * u + c) + 85 * Math.sin(.71 * u + d) };
+  const w = smooth(8.4, 10.4, t); if (w <= 0) return Wp;
+  const ang = (u - f.off) / f.sf * f.orbit.w + f.orbit.ph;
+  return { x: lerp(Wp.x, 360 + Math.cos(ang) * f.orbit.r, w), y: lerp(Wp.y, 640 + Math.sin(ang) * f.orbit.r * 1.05, w) };
+}
+for (const f of KOI) {
+  const us = f.start * f.sf + f.off, a = koiPos(f, us, 0), b = koiPos(f, us + .01, 0);
+  f.T0 = norm({ x: b.x - a.x, y: b.y - a.y });
+}
+const NS = 16;
+const PX = [0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1], PW = [.075, .108, .128, .132, .126, .112, .094, .072, .052, .036, .028];
+const widthAt = s => { const i = Math.min(9, Math.floor(s * 10)); return lerp(PW[i], PW[i + 1], (s - PX[i]) * 10); };
+
+// The body follows the head's own path back in time, so it bends exactly where the head turned.
+function koiSpine(f, t) {
+  const u0 = t * f.sf + f.off, seg = f.L / (NS - 1), du = .0025;
+  let p = koiPos(f, u0, t), u = u0, acc = 0, target = seg, guard = 0;
+  const pts = [p];
+  while (pts.length < NS && guard++ < 8000) {
+    u -= du; const q = koiPos(f, u, t);
+    acc += Math.hypot(q.x - p.x, q.y - p.y); p = q;
+    if (acc >= target) { pts.push({ x: q.x, y: q.y }); target += seg; }
+  }
+  while (pts.length < NS) pts.push({ ...pts[pts.length - 1] });
+  const e = easeOut((t - f.start) / 2) - 1, D = 170;
+  const tan = i => norm({ x: pts[Math.max(0, i - 1)].x - pts[Math.min(NS - 1, i + 1)].x, y: pts[Math.max(0, i - 1)].y - pts[Math.min(NS - 1, i + 1)].y });
+  const ph = TAU * 1.9 * t + f.seed, amp = f.L * .07;
+  const out = pts.map((q, i) => {
+    const tv = tan(i), n = { x: -tv.y, y: tv.x }, s = i / (NS - 1);
+    const lat = amp * Math.pow(s, 1.6) * Math.sin(ph - i * .42) - amp * .12 * (1 - s) * Math.sin(ph);
+    return { x: q.x + n.x * lat + f.T0.x * D * e, y: q.y + n.y * lat + f.T0.y * D * e };
+  });
+  const T = [], N = [];
+  for (let i = 0; i < NS; i++) {
+    const a = out[Math.max(0, i - 1)], b = out[Math.min(NS - 1, i + 1)], tv = norm({ x: a.x - b.x, y: a.y - b.y });
+    T.push(tv); N.push({ x: -tv.y, y: tv.x });
+  }
+  return { P: out, T, N, ph };
+}
+function smoothClosed(pts) {
+  const p = new Path2D(), n = pts.length;
+  p.moveTo((pts[n - 1].x + pts[0].x) / 2, (pts[n - 1].y + pts[0].y) / 2);
+  for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; p.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2); }
+  p.closePath(); return p;
+}
+function drawKoi(f, t, cam) {
+  if (t < f.start) return;
+  const S = SCH[f.s], L = f.L, { P, T, N, ph } = koiSpine(f, t);
+  const at = s => {
+    const x = s * (NS - 1), i = Math.min(NS - 2, Math.floor(x)), k = x - i;
+    return { x: lerp(P[i].x, P[i + 1].x, k), y: lerp(P[i].y, P[i + 1].y, k), n: N[i], t: T[i], w: widthAt(s) * L };
+  };
+  ctx.save(); ctx.globalAlpha = smooth(f.start, f.start + .6, t);
+  const sh = (b) => { ctx.shadowColor = 'rgba(110,15,55,.3)'; ctx.shadowBlur = b * K * cam.s; ctx.shadowOffsetX = 7 * K * cam.s; ctx.shadowOffsetY = 11 * K * cam.s; };
+
+  // fins under the body
+  const fin = (anchor, dir, len, wid) => {
+    const c = { x: anchor.x + dir.x * len / 2, y: anchor.y + dir.y * len / 2 };
+    ctx.beginPath(); ctx.ellipse(c.x, c.y, len / 2, wid / 2, Math.atan2(dir.y, dir.x), 0, TAU); ctx.fill();
+  };
+  ctx.save(); sh(8); ctx.fillStyle = S.fin;
+  for (const [s, len, wid, base, fr] of [[.2, .22, .1, 1.0, 1.3], [.48, .13, .06, .8, 1.6]]) {
+    const q = at(s);
+    for (const side of [1, -1]) {
+      const back = { x: -q.t.x, y: -q.t.y }, a = side * (base + .35 * Math.sin(TAU * fr * t + side * .6 + f.seed));
+      const anchor = { x: q.x + q.n.x * q.w * .75 * side, y: q.y + q.n.y * q.w * .75 * side };
+      fin(anchor, rot(back, -a), L * len, L * wid);
+    }
+  }
+  // tail
+  const e = P[NS - 1], B = norm({ x: e.x - P[NS - 2].x, y: e.y - P[NS - 2].y });
+  const dir = rot(B, .4 * Math.sin(ph - NS * .42 - .5)), tn = { x: -dir.y, y: dir.x }, tl = L * .34;
+  const tip1 = { x: e.x + rot(dir, .55 + .1 * Math.sin(ph)).x * tl, y: e.y + rot(dir, .55 + .1 * Math.sin(ph)).y * tl };
+  const tip2 = { x: e.x + rot(dir, -.55 + .1 * Math.sin(ph + 1)).x * tl, y: e.y + rot(dir, -.55 + .1 * Math.sin(ph + 1)).y * tl };
+  const notch = { x: e.x + dir.x * tl * .5, y: e.y + dir.y * tl * .5 };
+  const c1 = rot(dir, .75), c2 = rot(dir, -.75);
+  ctx.beginPath();
+  ctx.moveTo(e.x + tn.x * L * .03, e.y + tn.y * L * .03);
+  ctx.quadraticCurveTo(e.x + c1.x * tl * .55, e.y + c1.y * tl * .55, tip1.x, tip1.y);
+  ctx.quadraticCurveTo((tip1.x + notch.x) / 2 + dir.x * tl * .14, (tip1.y + notch.y) / 2 + dir.y * tl * .14, notch.x, notch.y);
+  ctx.quadraticCurveTo((tip2.x + notch.x) / 2 + dir.x * tl * .14, (tip2.y + notch.y) / 2 + dir.y * tl * .14, tip2.x, tip2.y);
+  ctx.quadraticCurveTo(e.x + c2.x * tl * .55, e.y + c2.y * tl * .55, e.x - tn.x * L * .03, e.y - tn.y * L * .03);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = S.ray; ctx.lineWidth = 1;
+  for (let k = 0; k <= 6; k++) {
+    const q = k / 6, m = q < .5 ? { x: lerp(tip1.x, notch.x, q * 2), y: lerp(tip1.y, notch.y, q * 2) } : { x: lerp(notch.x, tip2.x, q * 2 - 1), y: lerp(notch.y, tip2.y, q * 2 - 1) };
+    ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(lerp(e.x, m.x, .9), lerp(e.y, m.y, .9)); ctx.stroke();
+  }
+
+  // body
+  const left = [], right = [];
+  for (let i = 0; i < NS; i++) {
+    const w = widthAt(i / (NS - 1)) * L;
+    left.push({ x: P[i].x + N[i].x * w, y: P[i].y + N[i].y * w });
+    right.push({ x: P[i].x - N[i].x * w, y: P[i].y - N[i].y * w });
+  }
+  const tip = { x: P[0].x + T[0].x * L * .045, y: P[0].y + T[0].y * L * .045 };
+  const body = smoothClosed([tip, ...left, ...right.reverse()]);
+  ctx.save(); sh(12); ctx.fillStyle = S.body; ctx.fill(body); ctx.restore();
+
+  ctx.save(); ctx.clip(body);
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(255,205,160,.3)'; ctx.lineWidth = L * .08;
+  ctx.beginPath(); ctx.moveTo(P[1].x, P[1].y); for (let i = 2; i < NS - 2; i++) ctx.lineTo(P[i].x, P[i].y); ctx.stroke();
+  ctx.fillStyle = S.patch;
+  for (const [s, l, rx, ry] of S.patches) {
+    const q = at(s);
+    ctx.beginPath(); ctx.ellipse(q.x + q.n.x * q.w * l, q.y + q.n.y * q.w * l, rx * L, ry * L, Math.atan2(q.t.y, q.t.x), 0, TAU); ctx.fill();
+  }
+  ctx.strokeStyle = S.rim; ctx.lineWidth = L * .07; ctx.stroke(body);
+  for (const [s, l] of S.spots) {
+    const q = at(s), x = q.x + q.n.x * q.w * l, y = q.y + q.n.y * q.w * l;
+    ctx.fillStyle = 'rgba(255,170,110,.5)'; ctx.beginPath(); ctx.arc(x, y, L * .024, 0, TAU); ctx.fill();
+    ctx.strokeStyle = S.spot; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = S.spot; ctx.beginPath(); ctx.arc(x, y, L * .008, 0, TAU); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,248,240,.85)'; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let k = 0; k <= 20; k++) {
+    const q = at(.1 + k / 20 * .72), l = .25 + .25 * Math.sin(k * .7);
+    const x = q.x + q.n.x * q.w * l, y = q.y + q.n.y * q.w * l; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(160,45,20,.35)'; ctx.lineWidth = 1; ctx.stroke(body);
+
+  // eyes
+  const hq = at(.07);
+  for (const side of [1, -1]) {
+    const x = hq.x + hq.n.x * hq.w * .72 * side, y = hq.y + hq.n.y * hq.w * .72 * side;
+    ctx.fillStyle = '#2a1410'; ctx.beginPath(); ctx.arc(x, y, L * .016, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(x - L * .005, y - L * .005, L * .005, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---------- frame ----------
+function frame(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const cam = camAt(t), s = K * cam.s;
+  ctx.setTransform(s, 0, 0, s, K * 360 - cam.x * s, K * 640 - cam.y * s);
+  ctx.drawImage(paperTex, -360, -640, W * 2, H * 2);
+
+  const { g, p: blob } = blobPath(t);
+  if (g > 0) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(110,70,50,.22)'; ctx.shadowBlur = 24 * s; ctx.shadowOffsetY = 10 * s;
+    ctx.fillStyle = '#ec6c9e'; ctx.fill(blob); ctx.restore();
+
+    ctx.save(); ctx.clip(blob);
+    ctx.drawImage(pondTex, 0, 0, W, H);
+    drawWaves(t);
+    for (const R of RIPPLES) drawRipple(R, t);
+    for (const f of KOI) drawKoi(f, t, cam);
+    const glow = smooth(9.0, 9.8, t);
+    if (glow > 0) {
+      const r = 170 * (1 + .06 * Math.sin(t * 3));
+      const gr = ctx.createRadialGradient(360, 640, 0, 360, 640, r);
+      gr.addColorStop(0, `rgba(255,60,70,${.6 * glow})`); gr.addColorStop(1, 'rgba(255,60,70,0)');
+      ctx.fillStyle = gr; ctx.fillRect(360 - r, 640 - r, r * 2, r * 2);
+    }
+    for (const p of PADS) drawPad(p, t);
+    if (t > 9.2) { ctx.save(); ctx.translate(360, 640); drawLotus(1, (t - 9.2) * .9, t); ctx.restore(); }
+    drawConfetti(t);
+    ctx.strokeStyle = 'rgba(190,40,100,.16)'; ctx.lineWidth = 12; ctx.stroke(blob);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(200,60,115,.5)'; ctx.lineWidth = 1.5; ctx.stroke(blob);
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.save(); ctx.globalAlpha = .07; ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = grainPat; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
+  const fade = smooth(13.2, DUR, t);
+  if (fade > 0) { ctx.fillStyle = `rgba(235,226,208,${fade})`; ctx.fillRect(0, 0, cv.width, cv.height); }
+}
+
+// ---------- playback ----------
+let start = performance.now(), paused = false, held = 0;
+const now = () => paused ? held : ((performance.now() - start) / 1000) % DUR;
+function setTime(t) { t = ((t % DUR) + DUR) % DUR; if (paused) held = t; else start = performance.now() - t * 1000; }
+function toggle() { if (paused) { paused = false; setTime(held); } else { held = now(); paused = true; } }
+cv.addEventListener('click', toggle);
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowRight') setTime(now() + .5);
+  else if (e.key === 'ArrowLeft') setTime(now() - .5);
+  else if (e.key === 'r' || e.key === 'R') setTime(0);
+});
+// scripts/render.py drives the page through this object. This piece is silent, so audio() returns null.
+window.__comp = {
+  dur: DUR, w: W, h: H,
+  capture(t, pxW) { paused = true; held = t; cv.width = Math.round(pxW); cv.height = Math.round(pxW * H / W); K = cv.width / W; frame(t); return cv.toDataURL('image/png'); },
+  async audio() { return null; },
+};
+window.seek = t => { paused = true; held = t; frame(t); };
+const qt = new URLSearchParams(location.search).get('t');
+if (qt !== null) { paused = true; held = +qt; }
+(function loop() { frame(now()); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
